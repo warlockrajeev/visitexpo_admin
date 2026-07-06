@@ -2,10 +2,7 @@
 
 /**
  * @file moderation/page.js
- * @description Super Admin Moderation & Approval Console.
- * Allows Super Admin to:
- * 1. Review 10times Event Onboarding Submissions (Approve live, Request changes, or Reject).
- * 2. Review Event Ownership Claim Requests (Verify official email, website, inspect uploaded proof documents, approve & transfer ownership).
+ * @description Super Admin Moderation & Approval Console for Organizers, Exhibitors, and Events.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -32,143 +29,190 @@ import {
   Layers,
   Check,
   X,
-  UserCheck
+  UserCheck,
+  Building
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// Mock Pending Events for Admin Moderation
-const INITIAL_PENDING_EVENTS = [
-  {
-    _id: 'evt_mod_1',
-    title: 'India International Tech & AI Summit 2026',
-    slug: 'india-tech-ai-summit-2026',
-    organizerName: 'Global Tech Events Ltd.',
-    organizerEmail: 'organizer@visitexpo.in',
-    venue: 'Pragati Maidan (Hall 7-10)',
-    city: 'New Delhi',
-    startDate: '2026-10-15',
-    endDate: '2026-10-17',
-    category: 'Technology & AI',
-    seoScore: 94,
-    banner: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80',
-    description: 'Premier B2B gathering for AI pioneers, software enterprise leaders, and hardware innovators. Features 200+ exhibitors and keynote conference tracks.',
-    submittedAt: '10 mins ago',
-    status: 'pending_review'
-  },
-  {
-    _id: 'evt_mod_2',
-    title: 'Bharat Renewable Energy & CleanTech Expo',
-    slug: 'bharat-renewable-energy-expo',
-    organizerName: 'Green Energy Forums Pvt Ltd',
-    organizerEmail: 'events@greenenergy.in',
-    venue: 'BIEC Convention Hall',
-    city: 'Bengaluru',
-    startDate: '2026-11-20',
-    endDate: '2026-11-22',
-    category: 'Renewable Energy & ESG',
-    seoScore: 88,
-    banner: 'https://images.unsplash.com/photo-1509391365360-2e959784a276?w=1200&q=80',
-    description: 'South Asia flagship clean energy exhibition showcasing solar PV, wind turbines, EV charging infrastructure, and hydrogen fuel cells.',
-    submittedAt: '2 hours ago',
-    status: 'pending_review'
-  }
-];
-
-// Mock Claim Requests for Admin Moderation
-const INITIAL_CLAIM_REQUESTS = [
-  {
-    id: 'claim_1',
-    eventTitle: 'Digital Marketing & E-commerce Expo 2026',
-    eventCity: 'Mumbai',
-    applicantName: 'Vikramaditya Rao',
-    officialEmail: 'vikram@digitalmarketingexpo.in',
-    website: 'https://digitalmarketingexpo.in',
-    phone: '+91 98765 11223',
-    proofDocument: 'Incorporation_Cert_DME2026.pdf',
-    submittedAt: '1 hour ago',
-    status: 'pending_verification'
-  },
-  {
-    id: 'claim_2',
-    eventTitle: 'India International Bio-Pharma Convention',
-    eventCity: 'Hyderabad',
-    applicantName: 'Dr. Suresh Reddy',
-    officialEmail: 'suresh@biopharmaindia.org',
-    website: 'https://biopharmaindia.org',
-    phone: '+91 99887 76655',
-    proofDocument: 'Authorization_Letter_Reddy.pdf',
-    submittedAt: '3 hours ago',
-    status: 'pending_verification'
-  }
-];
-
 export default function ModerationPage() {
   const { accessToken } = useAuth();
-  const [activeTab, setActiveTab] = useState('events'); // events, claims
-  const [pendingEvents, setPendingEvents] = useState(INITIAL_PENDING_EVENTS);
-  const [claimRequests, setClaimRequests] = useState(INITIAL_CLAIM_REQUESTS);
-  
-  // Selected Item Modal for Review
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [selectedClaim, setSelectedClaim] = useState(null);
+  const [activeTab, setActiveTab] = useState('organizers'); // organizers, exhibitors, claims
+
+  // Data States
+  // Data States
+  const [pendingOrganizers, setPendingOrganizers] = useState([]);
+  const [pendingExhibitors, setPendingExhibitors] = useState([]);
+  const [pendingClaims, setPendingClaims] = useState([]);
+  const [claimHistory, setClaimHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoadingId, setActionLoadingId] = useState('');
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   // Filter Search
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Handle Event Action (Approve / Reject)
-  const handleEventAction = (eventId, action) => {
-    setPendingEvents(prev =>
-      prev.map(evt => (evt._id === eventId ? { ...evt, status: action === 'approve' ? 'published' : 'rejected' } : evt))
-    );
-    setSelectedEvent(null);
+  // Fetch pending organizers, exhibitors, and event claims on load
+  const fetchModerationData = async () => {
+    if (!accessToken) return;
+    setLoading(true);
+    try {
+      const headers = { Authorization: `Bearer ${accessToken}` };
+      const [orgRes, exRes, claimRes, historyRes] = await Promise.all([
+        axios.get(`${API_URL}/admin/pending-organizers`, { headers }),
+        axios.get(`${API_URL}/admin/pending-exhibitors`, { headers }),
+        axios.get(`${API_URL}/admin/pending-claims`, { headers }),
+        axios.get(`${API_URL}/admin/claim-history`, { headers })
+      ]);
+
+      if (orgRes.data && orgRes.data.success) {
+        setPendingOrganizers(orgRes.data.data || []);
+      }
+      if (exRes.data && exRes.data.success) {
+        setPendingExhibitors(exRes.data.data || []);
+      }
+      if (claimRes.data && claimRes.data.success) {
+        setPendingClaims(claimRes.data.data || []);
+      }
+      if (historyRes.data && historyRes.data.success) {
+        setClaimHistory(historyRes.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load moderation queue', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Handle Claim Action (Approve / Reject)
-  const handleClaimAction = (claimId, action) => {
-    setClaimRequests(prev =>
-      prev.map(c => (c.id === claimId ? { ...c, status: action === 'approve' ? 'approved' : 'rejected' } : c))
-    );
-    setSelectedClaim(null);
+  useEffect(() => {
+    fetchModerationData();
+  }, [accessToken]);
+
+  // Handle Organizer Action (Approve / Reject)
+  const handleOrganizerAction = async (userId, action) => {
+    setActionLoadingId(userId);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await axios.put(
+        `${API_URL}/admin/organizers/${userId}/status`,
+        { action },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data && res.data.success) {
+        setMessage({ type: 'success', text: `Organizer ${action}d successfully!` });
+        setPendingOrganizers(prev => prev.filter(u => u._id !== userId));
+      }
+    } catch (err) {
+      console.error('Organizer action error', err);
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Action failed' });
+    } finally {
+      setActionLoadingId('');
+    }
   };
 
-  const filteredPendingEvents = pendingEvents.filter(evt =>
-    evt.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    evt.city.toLowerCase().includes(searchTerm.toLowerCase())
+  // Handle Exhibitor Action (Approve / Reject)
+  const handleExhibitorAction = async (exhibitorId, status) => {
+    setActionLoadingId(exhibitorId);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await axios.put(
+        `${API_URL}/admin/exhibitors/${exhibitorId}/status`,
+        { status },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data && res.data.success) {
+        setMessage({ type: 'success', text: `Exhibitor request set to ${status}!` });
+        setPendingExhibitors(prev => prev.filter(ex => ex._id !== exhibitorId));
+      }
+    } catch (err) {
+      console.error('Exhibitor action error', err);
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Action failed' });
+    } finally {
+      setActionLoadingId('');
+    }
+  };
+
+  const handleClaimStatusChange = async (claimId, action) => {
+    setActionLoadingId(claimId);
+    try {
+      const res = await axios.put(
+        `${API_URL}/admin/claims/${claimId}/status`,
+        { action },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data && res.data.success) {
+        setMessage({ type: 'success', text: res.data.message });
+        await fetchModerationData();
+      }
+    } catch (err) {
+      console.error('Failed to update claim status', err);
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to update claim status.' });
+    } finally {
+      setActionLoadingId('');
+    }
+  };
+
+  const filteredOrganizers = pendingOrganizers.filter(u =>
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.organization?.name && u.organization.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const filteredClaims = claimRequests.filter(c =>
-    c.eventTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.officialEmail.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredExhibitors = pendingExhibitors.filter(ex =>
+    ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ex.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (ex.event?.title && ex.event.title.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const filteredClaims = pendingClaims.filter(cl =>
+    cl.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (cl.claimedBy?.name && cl.claimedBy.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (cl.claimedBy?.email && cl.claimedBy.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const filteredClaimHistory = claimHistory.filter(cl =>
+    cl.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (cl.claimedBy?.name && cl.claimedBy.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (cl.claimedBy?.email && cl.claimedBy.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      {/* Top Header Banner */}
+      {/* Header Banner */}
       <div className="bg-card border border-border rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wider bg-primary/10 px-2.5 py-1 rounded-full mb-1">
             <ShieldCheck className="h-3.5 w-3.5" /> Super Admin Moderation Console
           </span>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            10times Moderation & Approvals Queue
+            Onboarding Approvals & Moderation Queue
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Review new event onboarding submissions, verify domain credentials, and approve directory ownership claims.
+            Review and approve new Organizer accounts, Exhibitor requests, and Event Claim applications.
           </p>
         </div>
 
-        {/* Action Tabs */}
+        {/* Tab Controls */}
         <div className="flex items-center gap-2 bg-muted/40 p-1.5 rounded-xl border border-border">
           <button
-            onClick={() => setActiveTab('events')}
+            onClick={() => setActiveTab('organizers')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              activeTab === 'events'
+              activeTab === 'organizers'
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Layers className="h-4 w-4" /> Event Submissions ({pendingEvents.filter(e => e.status === 'pending_review').length})
+            <UserCheck className="h-4 w-4" /> Organizers ({pendingOrganizers.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('exhibitors')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              activeTab === 'exhibitors'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Building className="h-4 w-4" /> Exhibitors ({pendingExhibitors.length})
           </button>
           <button
             onClick={() => setActiveTab('claims')}
@@ -178,10 +222,24 @@ export default function ModerationPage() {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <ShieldCheck className="h-4 w-4" /> Claim Requests ({claimRequests.filter(c => c.status === 'pending_verification').length})
+            <Calendar className="h-4 w-4" /> Event Claims ({pendingClaims.length})
           </button>
         </div>
       </div>
+
+      {/* Alert Feedback Banner */}
+      {message.text && (
+        <div
+          className={`p-4 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+            message.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+              : 'bg-destructive/10 border-destructive/20 text-destructive'
+          }`}
+        >
+          <span>{message.text}</span>
+          <button onClick={() => setMessage({ type: '', text: '' })} className="font-bold">×</button>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="flex justify-between items-center bg-card p-4 rounded-xl border border-border">
@@ -189,216 +247,316 @@ export default function ModerationPage() {
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Filter queue by title or email..."
+            placeholder="Search pending queue by name or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-4 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
+        <button
+          onClick={fetchModerationData}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary border border-border text-foreground hover:bg-secondary/80"
+        >
+          Refresh Queue
+        </button>
       </div>
 
-      {/* TAB 1: PENDING EVENT SUBMISSIONS */}
-      {activeTab === 'events' && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {filteredPendingEvents.map((evt) => (
-            <div
-              key={evt._id}
-              className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
-            >
-              <div>
-                <div className="h-36 bg-muted relative">
-                  <img src={evt.banner} alt={evt.title} className="h-full w-full object-cover" />
-                  <span className={`absolute top-3 right-3 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow border ${
-                    evt.status === 'published'
-                      ? 'bg-emerald-500 text-white border-emerald-400'
-                      : evt.status === 'rejected'
-                      ? 'bg-destructive text-white border-destructive'
-                      : 'bg-amber-500 text-white border-amber-400 animate-pulse'
-                  }`}>
-                    {evt.status === 'pending_review' ? 'Pending Review' : evt.status.toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="p-5 space-y-3">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-semibold text-primary">{evt.category}</span>
-                    <span>Submitted: {evt.submittedAt}</span>
-                  </div>
-
-                  <h3 className="text-lg font-bold text-foreground leading-snug line-clamp-1">
-                    {evt.title}
-                  </h3>
-
-                  <div className="space-y-1 text-xs text-muted-foreground border-t border-border pt-2">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-3.5 w-3.5 text-primary" />
-                      <span className="font-bold text-foreground">{evt.organizerName}</span> ({evt.organizerEmail})
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-3.5 w-3.5 text-primary" />
-                      <span>{evt.venue}, {evt.city}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3.5 w-3.5 text-primary" />
-                      <span>{evt.startDate} to {evt.endDate}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="p-4 border-t border-border bg-muted/20 flex items-center justify-between gap-2">
-                <button
-                  onClick={() => setSelectedEvent(evt)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-foreground bg-card border border-border hover:bg-secondary transition-colors"
-                >
-                  <Eye className="h-4 w-4 text-primary" /> Full Details
-                </button>
-
-                {evt.status === 'pending_review' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleEventAction(evt._id, 'reject')}
-                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-destructive border border-destructive/20 hover:bg-destructive/10 transition-colors"
-                    >
-                      <XCircle className="h-4 w-4" /> Reject
-                    </button>
-                    <button
-                      onClick={() => handleEventAction(evt._id, 'approve')}
-                      className="inline-flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-md transition-all"
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> Approve & Publish
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* TAB 2: CLAIM REQUESTS QUEUE */}
-      {activeTab === 'claims' && (
+      {/* TAB 1: PENDING ORGANIZER REGISTRATIONS */}
+      {activeTab === 'organizers' && (
         <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="p-5 border-b border-border flex justify-between items-center">
-            <h3 className="font-bold text-foreground">Pending Event Ownership Claims</h3>
-            <span className="text-xs text-muted-foreground">Verify domain email & proof documents</span>
+            <h3 className="font-bold text-foreground">Pending Organizer Account Registrations</h3>
+            <span className="text-xs text-muted-foreground">Approve accounts to grant dashboard access</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
-                  <th className="px-6 py-4">Claimed Event</th>
-                  <th className="px-6 py-4">Applicant Credentials</th>
-                  <th className="px-6 py-4">Proof Document</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Moderation Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredClaims.map((claim) => (
-                  <tr key={claim.id} className="hover:bg-secondary/40 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="font-bold text-foreground">{claim.eventTitle}</p>
-                      <span className="text-[11px] text-muted-foreground">{claim.eventCity}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-semibold text-foreground">{claim.applicantName}</p>
-                      <p className="text-[11px] text-primary">{claim.officialEmail}</p>
-                      <span className="text-[10px] text-muted-foreground">{claim.website}</span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-muted-foreground">
-                      <span className="inline-flex items-center gap-1 text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20 cursor-pointer">
-                        <FileText className="h-3.5 w-3.5" /> {claim.proofDocument}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                        claim.status === 'approved'
-                          ? 'bg-emerald-500/10 text-emerald-500'
-                          : claim.status === 'rejected'
-                          ? 'bg-destructive/10 text-destructive'
-                          : 'bg-amber-500/10 text-amber-500 animate-pulse'
-                      }`}>
-                        {claim.status === 'pending_verification' ? 'Pending Check' : claim.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {claim.status === 'pending_verification' ? (
+          {loading ? (
+            <div className="py-16 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" /> Loading organizer approval queue...
+            </div>
+          ) : filteredOrganizers.length === 0 ? (
+            <div className="py-16 text-center text-xs text-muted-foreground space-y-2">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500/40 mx-auto" />
+              <p className="font-bold text-foreground">No Pending Organizers</p>
+              <p className="text-muted-foreground">All organizer account requests have been processed.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                    <th className="px-6 py-4">Organizer Name</th>
+                    <th className="px-6 py-4">Email Credentials</th>
+                    <th className="px-6 py-4">Organization Name</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4 text-right">Approval Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredOrganizers.map((user) => (
+                    <tr key={user._id} className="hover:bg-secondary/40 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-foreground">{user.name}</p>
+                        <span className="text-[10px] text-muted-foreground">Role: {user.role}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-primary">{user.email}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-foreground">{user.organization?.name || 'New Organization'}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          <Clock className="h-3 w-3" /> Pending Approval
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleClaimAction(claim.id, 'reject')}
-                            className="p-2 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                            title="Decline Claim"
+                            onClick={() => handleOrganizerAction(user._id, 'reject')}
+                            disabled={actionLoadingId === user._id}
+                            className="inline-flex items-center gap-1 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3.5 w-3.5" /> Reject
                           </button>
                           <button
-                            onClick={() => handleClaimAction(claim.id, 'approve')}
-                            className="inline-flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold shadow transition-all"
+                            onClick={() => handleOrganizerAction(user._id, 'approve')}
+                            disabled={actionLoadingId === user._id}
+                            className="inline-flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 px-4 py-1.5 rounded-lg text-xs font-bold shadow transition-all"
                           >
-                            <Check className="h-4 w-4" /> Approve Claim
+                            {actionLoadingId === user._id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" />
+                            )} Approve Account
                           </button>
                         </div>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground italic">Processed</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Full Event Details Modal */}
-      {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-2xl overflow-y-auto max-h-[90vh] space-y-4">
-            <button
-              onClick={() => setSelectedEvent(null)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-6 w-6" />
-            </button>
+      {/* TAB 2: PENDING EXHIBITOR REGISTRATIONS */}
+      {activeTab === 'exhibitors' && (
+        <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-border flex justify-between items-center">
+            <h3 className="font-bold text-foreground">Pending Exhibitor Onboarding Applications</h3>
+            <span className="text-xs text-muted-foreground">Approve booths to publish exhibitors live</span>
+          </div>
 
-            <h3 className="text-xl font-bold text-foreground">{selectedEvent.title}</h3>
-            
-            <div className="h-44 rounded-xl overflow-hidden bg-muted">
-              <img src={selectedEvent.banner} alt="Banner" className="h-full w-full object-cover" />
+          {loading ? (
+            <div className="py-16 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" /> Loading exhibitor queue...
+            </div>
+          ) : filteredExhibitors.length === 0 ? (
+            <div className="py-16 text-center text-xs text-muted-foreground space-y-2">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500/40 mx-auto" />
+              <p className="font-bold text-foreground">No Pending Exhibitors</p>
+              <p className="text-muted-foreground">All exhibitor onboarding requests have been reviewed.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                    <th className="px-6 py-4">Company Name</th>
+                    <th className="px-6 py-4">Target Expo Event</th>
+                    <th className="px-6 py-4">Booth & Type</th>
+                    <th className="px-6 py-4">Contact Info</th>
+                    <th className="px-6 py-4 text-right">Approval Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredExhibitors.map((ex) => (
+                    <tr key={ex._id} className="hover:bg-secondary/40 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-foreground">{ex.name}</p>
+                        <p className="text-[11px] text-muted-foreground max-w-xs truncate">{ex.description}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-primary">{ex.event?.title || 'Expo Event'}</p>
+                        <span className="text-[10px] text-muted-foreground">{ex.event?.city}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-foreground">{ex.boothNumber || 'TBD'}</p>
+                        <span className="inline-flex items-center rounded-md bg-blue-500/10 text-blue-500 px-2 py-0.5 text-[10px] font-bold uppercase mt-0.5">
+                          {ex.attendanceType?.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 space-y-0.5">
+                        <div className="text-foreground font-semibold">{ex.contactEmail}</div>
+                        <div className="text-muted-foreground">{ex.contactPhone}</div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleExhibitorAction(ex._id, 'rejected')}
+                            disabled={actionLoadingId === ex._id}
+                            className="inline-flex items-center gap-1 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                          >
+                            <X className="h-3.5 w-3.5" /> Reject
+                          </button>
+                          <button
+                            onClick={() => handleExhibitorAction(ex._id, 'approved')}
+                            disabled={actionLoadingId === ex._id}
+                            className="inline-flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 px-4 py-1.5 rounded-lg text-xs font-bold shadow transition-all"
+                          >
+                            {actionLoadingId === ex._id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5" />
+                            )} Approve Booth
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: PENDING & HISTORICAL EVENT CLAIMS */}
+      {activeTab === 'claims' && (
+        <div className="space-y-6">
+          {/* Pending Section */}
+          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-border flex justify-between items-center">
+              <h3 className="font-bold text-foreground">Pending Event Ownership Claims</h3>
+              <span className="text-xs text-muted-foreground">Verify domain credentials and approve event claims</span>
             </div>
 
-            <p className="text-xs text-muted-foreground leading-relaxed">{selectedEvent.description}</p>
-
-            <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 text-xs">
-              <div>
-                <span className="text-muted-foreground">Organizer Name:</span>
-                <p className="font-bold text-foreground">{selectedEvent.organizerName}</p>
+            {loading ? (
+              <div className="py-16 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" /> Loading event claim queue...
               </div>
+            ) : filteredClaims.length === 0 ? (
+              <div className="py-16 text-center text-xs text-muted-foreground space-y-2">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500/40 mx-auto" />
+                <p className="font-bold text-foreground">No Pending Event Claims</p>
+                <p className="text-muted-foreground">All event claim requests have been reviewed.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                      <th className="px-6 py-4">Event Title</th>
+                      <th className="px-6 py-4">Claimant Details</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Approval Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredClaims.map((claim) => (
+                      <tr key={claim._id} className="hover:bg-secondary/40 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-foreground">{claim.title}</p>
+                          <p className="text-[11px] text-muted-foreground">{claim.venue || 'Exhibition Venue'}, {claim.city}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-primary">{claim.claimedBy?.name || 'Organizer User'}</p>
+                          <p className="text-[11px] text-muted-foreground">{claim.claimedBy?.email}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center rounded-md bg-amber-500/10 text-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase">
+                            Claim Pending Approval
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleClaimStatusChange(claim._id, 'reject')}
+                              disabled={actionLoadingId === claim._id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-500/20 transition-all"
+                            >
+                              <X className="h-3.5 w-3.5" /> Reject
+                            </button>
+                            <button
+                              onClick={() => handleClaimStatusChange(claim._id, 'approve')}
+                              disabled={actionLoadingId === claim._id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all"
+                            >
+                              {actionLoadingId === claim._id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <Check className="h-3.5 w-3.5" /> Approve Claim
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Approved Claims History Card */}
+          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-border flex justify-between items-center bg-muted/10">
               <div>
-                <span className="text-muted-foreground">Venue & City:</span>
-                <p className="font-bold text-foreground">{selectedEvent.venue}, {selectedEvent.city}</p>
+                <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" /> Approved Event Claims History ({filteredClaimHistory.length})
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Approved and published event ownership claims history log</p>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-foreground hover:bg-secondary"
-              >
-                Close
-              </button>
-              {selectedEvent.status === 'pending_review' && (
-                <button
-                  onClick={() => handleEventAction(selectedEvent._id, 'approve')}
-                  className="rounded-xl bg-emerald-500 hover:bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md"
-                >
-                  Approve & Publish Live
-                </button>
-              )}
-            </div>
+            {loading ? (
+              <div className="py-12 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" /> Loading claim history...
+              </div>
+            ) : filteredClaimHistory.length === 0 ? (
+              <div className="py-12 text-center text-xs text-muted-foreground space-y-1">
+                <p className="font-semibold text-foreground">No Approved Claims History</p>
+                <p className="text-muted-foreground">Approved event ownership claims will appear here.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                      <th className="px-6 py-4">Event Title</th>
+                      <th className="px-6 py-4">Approved Organizer (Claimant)</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Approval Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredClaimHistory.map((claim) => (
+                      <tr key={claim._id} className="hover:bg-secondary/40 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-foreground">{claim.title}</p>
+                          <p className="text-[11px] text-muted-foreground">{claim.venue || 'Exhibition Venue'}, {claim.city}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-primary">{claim.claimedBy?.name || 'Verified Organizer'}</p>
+                          <p className="text-[11px] text-muted-foreground">{claim.claimedBy?.email}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 text-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase border border-emerald-500/20">
+                            <CheckCircle2 className="h-3 w-3" /> Approved & Published
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right text-muted-foreground font-medium">
+                          {claim.updatedAt ? new Date(claim.updatedAt).toLocaleDateString() : 'Recently'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
