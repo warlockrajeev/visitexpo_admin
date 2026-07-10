@@ -43,12 +43,15 @@ export default function ModerationPage() {
   const [pendingOrganizers, setPendingOrganizers] = useState([]);
   const [pendingExhibitors, setPendingExhibitors] = useState([]);
   const [pendingClaims, setPendingClaims] = useState([]);
+  const [pendingEvents, setPendingEvents] = useState([]);
   const [claimHistory, setClaimHistory] = useState([]);
   const [organizerHistory, setOrganizerHistory] = useState([]);
   const [exhibitorHistory, setExhibitorHistory] = useState([]);
+  const [eventHistory, setEventHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   // Filter Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,13 +62,15 @@ export default function ModerationPage() {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
-      const [orgRes, exRes, claimRes, historyRes, orgHistRes, exHistRes] = await Promise.all([
+      const [orgRes, exRes, claimRes, historyRes, orgHistRes, exHistRes, eventRes, eventHistRes] = await Promise.all([
         axios.get(`${API_URL}/admin/pending-organizers`, { headers }),
         axios.get(`${API_URL}/admin/pending-exhibitors`, { headers }),
         axios.get(`${API_URL}/admin/pending-claims`, { headers }),
         axios.get(`${API_URL}/admin/claim-history`, { headers }),
         axios.get(`${API_URL}/admin/organizer-history`, { headers }),
-        axios.get(`${API_URL}/admin/exhibitor-history`, { headers })
+        axios.get(`${API_URL}/admin/exhibitor-history`, { headers }),
+        axios.get(`${API_URL}/admin/pending-events`, { headers }),
+        axios.get(`${API_URL}/admin/event-history`, { headers })
       ]);
 
       if (orgRes.data && orgRes.data.success) {
@@ -85,6 +90,12 @@ export default function ModerationPage() {
       }
       if (exHistRes.data && exHistRes.data.success) {
         setExhibitorHistory(exHistRes.data.data || []);
+      }
+      if (eventRes.data && eventRes.data.success) {
+        setPendingEvents(eventRes.data.data || []);
+      }
+      if (eventHistRes.data && eventHistRes.data.success) {
+        setEventHistory(eventHistRes.data.data || []);
       }
     } catch (err) {
       console.error('Failed to load moderation queue', err);
@@ -161,6 +172,49 @@ export default function ModerationPage() {
     }
   };
 
+  const handleEventAction = async (eventId, action) => {
+    setActionLoadingId(eventId);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await axios.put(
+        `${API_URL}/admin/events/${eventId}/status`,
+        { action },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data && res.data.success) {
+        setMessage({ type: 'success', text: `Event onboarding request set to ${action}d successfully!` });
+        await fetchModerationData();
+      }
+    } catch (err) {
+      console.error('Event action error', err);
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Action failed' });
+    } finally {
+      setActionLoadingId('');
+    }
+  };
+
+  const handleSyncToWordPress = async (eventId) => {
+    setActionLoadingId(eventId);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await axios.put(
+        `${API_URL}/admin/events/${eventId}/status`,
+        { action: 'approve' },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data && res.data.success) {
+        setMessage({ type: 'success', text: 'Event successfully synced to WordPress!' });
+        setSelectedEvent(res.data.event);
+        await fetchModerationData();
+      }
+    } catch (err) {
+      console.error('WP Sync error', err);
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Sync failed. Make sure WordPress API Key is set.' });
+    } finally {
+      setActionLoadingId('');
+    }
+  };
+
   const filteredOrganizers = pendingOrganizers.filter(u =>
     u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -195,6 +249,16 @@ export default function ModerationPage() {
     ex.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     ex.contactEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (ex.event?.title && ex.event.title.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const filteredEvents = pendingEvents.filter(evt =>
+    evt.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (evt.organizer?.name && evt.organizer.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const filteredEventHistory = eventHistory.filter(evt =>
+    evt.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (evt.organizer?.name && evt.organizer.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -244,6 +308,16 @@ export default function ModerationPage() {
             }`}
           >
             <Calendar className="h-4 w-4" /> Event Claims ({pendingClaims.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('events')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              activeTab === 'events'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Calendar className="h-4 w-4" /> Events ({pendingEvents.length})
           </button>
         </div>
       </div>
@@ -719,6 +793,299 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: PENDING & HISTORICAL NEW EVENTS */}
+      {activeTab === 'events' && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-border flex justify-between items-center">
+              <h3 className="font-bold text-foreground">Pending Event Onboarding Submissions</h3>
+              <span className="text-xs text-muted-foreground">Approve events to publish them to the frontend</span>
+            </div>
+
+            {loading ? (
+              <div className="py-16 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" /> Loading event approval queue...
+              </div>
+            ) : filteredEvents.length === 0 ? (
+              <div className="py-16 text-center text-xs text-muted-foreground space-y-2">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500/40 mx-auto" />
+                <p className="font-bold text-foreground">No Pending Events</p>
+                <p className="text-muted-foreground">All event onboarding requests have been reviewed.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                      <th className="px-6 py-4">Event Details</th>
+                      <th className="px-6 py-4">Organizer</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Approval Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredEvents.map((evt) => (
+                      <tr key={evt._id} className="hover:bg-secondary/40 transition-colors group">
+                        <td className="px-6 py-4 cursor-pointer font-medium" onClick={() => setSelectedEvent(evt)}>
+                          <p className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+                            {evt.title} <ExternalLink className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{evt.venue || 'Exhibition Venue'}, {evt.city}</p>
+                          <p className="text-[10px] text-primary mt-0.5">
+                            {evt.startDate ? new Date(evt.startDate).toLocaleDateString() : ''} - {evt.endDate ? new Date(evt.endDate).toLocaleDateString() : ''}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organizer'}</p>
+                          <p className="text-[11px] text-muted-foreground">{evt.organizer?.contact?.email || 'N/A'}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 text-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase border border-amber-500/20">
+                            <Clock className="h-3 w-3" /> Under Review
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleEventAction(evt._id, 'reject')}
+                              disabled={actionLoadingId === evt._id}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-500/20 transition-all"
+                            >
+                              <X className="h-3.5 w-3.5" /> Reject
+                            </button>
+                            <button
+                              onClick={() => handleEventAction(evt._id, 'approve')}
+                              disabled={actionLoadingId === evt._id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all"
+                            >
+                              {actionLoadingId === evt._id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <>
+                                  <Check className="h-3.5 w-3.5" /> Approve Event
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Processed Events History Card */}
+          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-border flex justify-between items-center bg-muted/10">
+              <div>
+                <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" /> Processed Events History ({filteredEventHistory.length})
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Approved and published or rejected event onboarding logs</p>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="py-12 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" /> Loading event history...
+              </div>
+            ) : filteredEventHistory.length === 0 ? (
+              <div className="py-12 text-center text-xs text-muted-foreground space-y-1">
+                <p className="font-semibold text-foreground">No Processed Events History</p>
+                <p className="text-muted-foreground">Moderated events will appear here.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                      <th className="px-6 py-4">Event Details</th>
+                      <th className="px-6 py-4">Organizer</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">Moderation Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredEventHistory.map((evt) => (
+                      <tr key={evt._id} className="hover:bg-secondary/40 transition-colors group">
+                        <td className="px-6 py-4 cursor-pointer font-medium" onClick={() => setSelectedEvent(evt)}>
+                          <p className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+                            {evt.title} <ExternalLink className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{evt.venue || 'Exhibition Venue'}, {evt.city}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organizer'}</p>
+                          <p className="text-[11px] text-muted-foreground">{evt.organizer?.contact?.email || 'N/A'}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          {evt.status === 'published' ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 text-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase border border-emerald-500/20">
+                              <CheckCircle2 className="h-3 w-3" /> Approved & Published
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 text-destructive px-2.5 py-1 text-[10px] font-bold uppercase border border-destructive/20">
+                              <XCircle className="h-3 w-3" /> Rejected / Cancelled
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right text-muted-foreground font-medium">
+                          {evt.updatedAt ? new Date(evt.updatedAt).toLocaleDateString() : 'Recently'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Event Detail Modal */}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header Banner Image / Gradient */}
+            <div className="h-40 relative bg-gradient-to-r from-primary/20 to-violet-500/20 flex-shrink-0">
+              {selectedEvent.banner ? (
+                <img
+                  src={selectedEvent.banner}
+                  alt={selectedEvent.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-muted/30">
+                  <Calendar className="h-12 w-12 opacity-40" />
+                </div>
+              )}
+              {/* Close Button overlay */}
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content Scroll Area */}
+            <div className="p-6 overflow-y-auto space-y-6 text-xs flex-1">
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                    selectedEvent.status === 'published'
+                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                      : selectedEvent.status === 'cancelled'
+                      ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                      : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                  }`}>
+                    {selectedEvent.status === 'published' ? 'Approved & Published' : selectedEvent.status === 'cancelled' ? 'Rejected' : 'Under Review'}
+                  </span>
+                  {selectedEvent.isClaimed && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 text-blue-500 px-2.5 py-0.5 text-[10px] font-bold uppercase border border-blue-500/20">
+                      Claimed Event
+                    </span>
+                  )}
+                  {selectedEvent.wpPostId && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 text-purple-500 px-2.5 py-0.5 text-[10px] font-bold uppercase border border-purple-500/20">
+                      WP Synced
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-xl font-extrabold text-foreground leading-snug">
+                  {selectedEvent.title}
+                </h3>
+              </div>
+
+              {/* Grid Info */}
+              <div className="grid gap-4 sm:grid-cols-2 bg-muted/20 border border-border p-4 rounded-xl">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Date & Timings</span>
+                  <p className="font-bold text-foreground flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    {selectedEvent.startDate ? new Date(selectedEvent.startDate).toLocaleDateString() : ''} - {selectedEvent.endDate ? new Date(selectedEvent.endDate).toLocaleDateString() : ''}
+                  </p>
+                  <p className="text-muted-foreground pl-5">{selectedEvent.timings || 'N/A'}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Venue & Location</span>
+                  <p className="font-bold text-foreground flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    {selectedEvent.venue || 'Exhibition Venue'}
+                  </p>
+                  <p className="text-muted-foreground pl-5">{selectedEvent.city}, {selectedEvent.country}</p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Event Overview</h4>
+                <p className="text-foreground leading-relaxed whitespace-pre-line bg-card p-4 rounded-xl border border-border">
+                  {selectedEvent.description || 'No description provided.'}
+                </p>
+              </div>
+
+              {/* Organizer details */}
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Organizer Information</h4>
+                <div className="bg-card p-4 rounded-xl border border-border space-y-1">
+                  <p className="font-bold text-foreground flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    {selectedEvent.organizer?.name || 'Onboarding Organizer'}
+                  </p>
+                  <p className="text-muted-foreground flex items-center gap-1.5 pl-5">
+                    <Mail className="h-3.5 w-3.5" />
+                    {selectedEvent.organizer?.contact?.email || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* SEO details */}
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">SEO Details</h4>
+                <div className="bg-card p-4 rounded-xl border border-border space-y-3">
+                  <div>
+                    <span className="text-muted-foreground block mb-0.5">Meta Title:</span>
+                    <p className="font-semibold text-foreground">{selectedEvent.seo?.metaTitle || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block mb-0.5">Meta Description:</span>
+                    <p className="font-semibold text-foreground">{selectedEvent.seo?.metaDescription || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-border bg-muted/10 flex justify-end gap-2 flex-shrink-0">
+              <button
+                onClick={() => handleSyncToWordPress(selectedEvent._id)}
+                disabled={actionLoadingId === selectedEvent._id}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-all shadow-md text-xs"
+              >
+                {actionLoadingId === selectedEvent._id ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Globe className="h-4 w-4" /> Sync to WordPress
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setSelectedEvent(null)}
+                className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 font-bold text-foreground transition-all text-xs"
+              >
+                Close Details
+              </button>
+            </div>
           </div>
         </div>
       )}

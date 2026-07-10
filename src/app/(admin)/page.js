@@ -5,8 +5,9 @@
  * @description Super Admin Dashboard index page showing platform-wide health, revenue MRR, and 10times Moderation Queue status.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import axios from 'axios';
 import {
   Building2,
   Users,
@@ -42,6 +43,8 @@ import {
 } from 'recharts';
 import { useAuth } from '../../context/AuthContext.js';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
 // Mock datasets for global platform analytics
 const platformRevenueData = [
   { month: 'Jan', revenue: 12000 },
@@ -67,14 +70,86 @@ const recentTenants = [
 ];
 
 export default function AdminOverview() {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
+  const [metrics, setMetrics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!accessToken) return;
+      try {
+        const res = await axios.get(`${API_URL}/admin/dashboard`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (res.data && res.data.success) {
+          setMetrics(res.data.analytics);
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, [accessToken]);
+
+  const totalPending = loading
+    ? 0
+    : (metrics?.kpis?.pendingOrganizers || 0) +
+      (metrics?.kpis?.pendingExhibitors || 0) +
+      (metrics?.kpis?.pendingClaims || 0) +
+      (metrics?.kpis?.pendingEvents || 0);
 
   const adminKPIs = [
-    { title: 'Pending Moderation', value: '4', desc: '2 Events, 2 Claims', icon: CheckCircle2, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-    { title: 'Registered Users', value: '240', desc: 'Across all client teams', icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-    { title: 'Total Organizations', value: '180', desc: 'Active platform tenants', icon: Building2, color: 'text-violet-500', bg: 'bg-violet-500/10' },
-    { title: 'Platform MRR', value: '₹4,50,000', desc: 'Subscriptions billing base', icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
+    {
+      title: 'Pending Moderation',
+      value: loading ? '...' : String(totalPending),
+      desc: loading
+        ? 'Loading queues...'
+        : `${metrics?.kpis?.pendingEvents || 0} Events, ${metrics?.kpis?.pendingClaims || 0} Claims, ${metrics?.kpis?.pendingOrganizers || 0} Orgs`,
+      icon: CheckCircle2,
+      color: 'text-amber-500',
+      bg: 'bg-amber-500/10'
+    },
+    {
+      title: 'Registered Users',
+      value: loading ? '...' : String(metrics?.kpis?.totalUsers || 0),
+      desc: 'Across all client teams',
+      icon: Users,
+      color: 'text-blue-500',
+      bg: 'bg-blue-500/10'
+    },
+    {
+      title: 'Total Organizations',
+      value: loading ? '...' : String(metrics?.kpis?.totalOrganizations || 0),
+      desc: 'Active platform tenants',
+      icon: Building2,
+      color: 'text-violet-500',
+      bg: 'bg-violet-500/10'
+    },
+    {
+      title: 'Platform MRR',
+      value: loading ? '...' : `₹${(metrics?.kpis?.totalRevenue || 0).toLocaleString()}`,
+      desc: 'Subscriptions billing base',
+      icon: DollarSign,
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-500/10'
+    }
   ];
+
+  const subDistribution = metrics?.packagesBreakdown
+    ? [
+        { name: 'Free Tier', value: metrics.packagesBreakdown.free || 0, color: '#94a3b8' },
+        { name: 'Growth Plan', value: metrics.packagesBreakdown.growth || 0, color: 'var(--color-primary)' },
+        { name: 'Enterprise', value: metrics.packagesBreakdown.enterprise || 0, color: '#10b981' }
+      ]
+    : subPlanDistribution;
+
+  const totalPaidBase = loading
+    ? 0
+    : (metrics?.packagesBreakdown?.free || 0) +
+      (metrics?.packagesBreakdown?.growth || 0) +
+      (metrics?.packagesBreakdown?.enterprise || 0);
 
   return (
     <div className="space-y-6">
@@ -88,7 +163,7 @@ export default function AdminOverview() {
           href="/moderation"
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition-all w-fit"
         >
-          <CheckCircle2 className="h-4 w-4" /> Moderation Queue (4 Pending)
+          <CheckCircle2 className="h-4 w-4" /> Moderation Queue {loading ? '' : `(${totalPending} Pending)`}
         </Link>
       </div>
 
@@ -104,7 +179,7 @@ export default function AdminOverview() {
                 10times Moderation Action Required
               </span>
               <h3 className="text-sm font-bold text-foreground">
-                2 Event Onboarding Submissions & 2 Ownership Claims Awaiting Approval
+                {loading ? 'Analyzing moderation queues...' : `${metrics?.kpis?.pendingEvents || 0} Event Onboarding Submissions & ${metrics?.kpis?.pendingClaims || 0} Ownership Claims Awaiting Approval`}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Review organizer profiles, 1920x1080 banners, SEO score grades, and domain email verification documents.
@@ -177,7 +252,7 @@ export default function AdminOverview() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={subPlanDistribution}
+                  data={subDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -185,7 +260,7 @@ export default function AdminOverview() {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {subPlanDistribution.map((entry, index) => (
+                  {subDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -195,12 +270,12 @@ export default function AdminOverview() {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute flex flex-col items-center">
-              <span className="text-2xl font-bold text-foreground">170</span>
+              <span className="text-2xl font-bold text-foreground">{loading ? '...' : String(totalPaidBase)}</span>
               <span className="text-[10px] uppercase font-bold text-muted-foreground">Paid Base</span>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-1 mt-2">
-            {subPlanDistribution.map((item, idx) => (
+            {subDistribution.map((item, idx) => (
               <div key={idx} className="flex flex-col items-center text-center">
                 <span className="h-2 w-2 rounded-full mb-1" style={{ backgroundColor: item.color }} />
                 <span className="text-[10px] text-muted-foreground truncate w-full">{item.name}</span>
