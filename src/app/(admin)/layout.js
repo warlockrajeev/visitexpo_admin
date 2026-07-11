@@ -67,7 +67,7 @@ export default function AdminLayout({ children }) {
 
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
-    if (path === '/moderation') return '10times Event Moderation & Approvals';
+    if (path === '/moderation') return 'Event Moderation & Approvals';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   };

@@ -2,7 +2,7 @@
 
 /**
  * @file page.js
- * @description Super Admin Dashboard index page showing platform-wide health, revenue MRR, and 10times Moderation Queue status.
+ * @description Super Admin Dashboard index page showing platform-wide health, revenue MRR, and Moderation Queue status.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -157,7 +157,7 @@ export default function AdminOverview() {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between bg-card border border-border rounded-2xl p-6 shadow-sm">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">Welcome to Super Admin Console</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Real-time operational status, tenant billing, and 10times moderation approval queue.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Real-time operational status, tenant billing, and moderation approval queue.</p>
         </div>
         <Link
           href="/moderation"
@@ -176,7 +176,7 @@ export default function AdminOverview() {
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-amber-600 tracking-wider">
-                10times Moderation Action Required
+                Moderation Action Required
               </span>
               <h3 className="text-sm font-bold text-foreground">
                 {loading ? 'Analyzing moderation queues...' : `${metrics?.kpis?.pendingEvents || 0} Event Onboarding Submissions & ${metrics?.kpis?.pendingClaims || 0} Ownership Claims Awaiting Approval`}
