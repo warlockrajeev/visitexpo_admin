@@ -1034,17 +1034,93 @@ export default function ModerationPage() {
               {/* Organizer details */}
               <div className="space-y-2">
                 <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Organizer Information</h4>
-                <div className="bg-card p-4 rounded-xl border border-border space-y-1">
-                  <p className="font-bold text-foreground flex items-center gap-1.5">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    {selectedEvent.organizer?.name || 'Onboarding Organizer'}
-                  </p>
-                  <p className="text-muted-foreground flex items-center gap-1.5 pl-5">
-                    <Mail className="h-3.5 w-3.5" />
-                    {selectedEvent.organizer?.contact?.email || 'N/A'}
-                  </p>
+                <div className="bg-card p-4 rounded-xl border border-border space-y-3">
+                  <div className="flex items-center gap-3">
+                    {selectedEvent.orgLogo ? (
+                      <img src={selectedEvent.orgLogo} alt="Org Logo" className="h-10 w-10 object-contain rounded bg-muted p-1 border border-border" />
+                    ) : (
+                      <Building2 className="h-8 w-8 text-primary" />
+                    )}
+                    <div>
+                      <p className="font-bold text-foreground">{selectedEvent.orgName || selectedEvent.organizer?.name || 'Onboarding Organizer'}</p>
+                      <p className="text-[10px] text-muted-foreground">{selectedEvent.orgEmail || selectedEvent.organizer?.contact?.email || 'N/A'}</p>
+                    </div>
+                  </div>
+                  {(selectedEvent.orgPhone || selectedEvent.orgWebsite) && (
+                    <div className="grid grid-cols-2 gap-2 text-[10px] border-t border-border/60 pt-2 text-muted-foreground">
+                      <div>Phone: <strong className="text-foreground">{selectedEvent.orgPhone || 'N/A'}</strong></div>
+                      <div>Website: <a href={selectedEvent.orgWebsite} target="_blank" rel="noreferrer" className="text-primary hover:underline">{selectedEvent.orgWebsite || 'N/A'}</a></div>
+                    </div>
+                  )}
+                  {selectedEvent.orgDesc && (
+                    <p className="text-[10px] leading-relaxed text-muted-foreground italic border-t border-border/60 pt-2">
+                      {selectedEvent.orgDesc}
+                    </p>
+                  )}
                 </div>
               </div>
+
+              {/* Schedules */}
+              {selectedEvent.schedules && selectedEvent.schedules.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Event Agenda / Schedules</h4>
+                  <div className="bg-card p-4 rounded-xl border border-border space-y-2">
+                    {selectedEvent.schedules.map((sch, idx) => (
+                      <div key={idx} className="flex justify-between border-b border-border/50 last:border-0 pb-1.5 last:pb-0">
+                        <span className="font-bold text-foreground">{sch.name}</span>
+                        <span className="text-muted-foreground font-semibold">{sch.date}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sponsors */}
+              {selectedEvent.sponsorsList && selectedEvent.sponsorsList.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sponsors &amp; Co-Sponsors</h4>
+                  <div className="bg-card p-4 rounded-xl border border-border grid gap-2 sm:grid-cols-2">
+                    {selectedEvent.sponsorsList.map((sp, idx) => (
+                      <div key={idx} className="flex items-center gap-2.5 p-2 rounded-lg border border-border/80 bg-background/50">
+                        {sp.logo ? (
+                          <img src={sp.logo} alt={sp.name} className="h-7 w-7 object-contain bg-muted rounded p-0.5" />
+                        ) : (
+                          <div className="h-7 w-7 bg-muted rounded flex items-center justify-center text-[9px] font-bold">LOGO</div>
+                        )}
+                        <div>
+                          <p className="font-bold text-foreground leading-none">{sp.name}</p>
+                          <span className="text-[9px] font-bold text-primary">{sp.tier}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* FAQs */}
+              {selectedEvent.faqsList && selectedEvent.faqsList.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Frequently Asked Questions</h4>
+                  <div className="bg-card p-4 rounded-xl border border-border space-y-3">
+                    {selectedEvent.faqsList.map((faq, idx) => (
+                      <div key={idx} className="space-y-0.5">
+                        <p className="font-bold text-foreground">Q: {faq.question}</p>
+                        <p className="text-muted-foreground leading-relaxed">A: {faq.answer}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Contact shortcode */}
+              {selectedEvent.contactShortcode && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Contact Form Shortcode</h4>
+                  <div className="bg-card px-4 py-2.5 rounded-xl border border-border font-mono text-[10px] text-foreground">
+                    {selectedEvent.contactShortcode}
+                  </div>
+                </div>
+              )}
 
               {/* SEO details */}
               <div className="space-y-2">
