@@ -42,6 +42,42 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
+
+    // Axios Interceptor to auto-refresh expired access tokens seamlessly on 401
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        if (
+          error.response &&
+          error.response.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry &&
+          !originalRequest.url.includes('/auth/refresh') &&
+          !originalRequest.url.includes('/auth/login')
+        ) {
+          originalRequest._retry = true;
+          try {
+            const refreshRes = await axios.post(`${API_URL}/auth/refresh`);
+            if (refreshRes.data && refreshRes.data.accessToken) {
+              const newToken = refreshRes.data.accessToken;
+              setAccessToken(newToken);
+              originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+              return axios(originalRequest);
+            }
+          } catch (refreshErr) {
+            console.warn('Auto refresh failed, clearing session.');
+            setUser(null);
+            setAccessToken(null);
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      axios.interceptors.response.eject(interceptor);
+    };
   }, []);
 
   const login = async (email, password) => {
