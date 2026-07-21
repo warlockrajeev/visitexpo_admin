@@ -30,7 +30,8 @@ import {
   Check,
   X,
   UserCheck,
-  Building
+  Building,
+  Send
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -52,6 +53,49 @@ export default function ModerationPage() {
   const [actionLoadingId, setActionLoadingId] = useState('');
   const [message, setMessage] = useState({ type: '', text: '' });
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedOrganizer, setSelectedOrganizer] = useState(null);
+
+  // Email Notification Modal State
+  const [notificationModal, setNotificationModal] = useState({
+    isOpen: false,
+    to: '',
+    recipientName: '',
+    subject: '',
+    message: ''
+  });
+  const [sendingNotification, setSendingNotification] = useState(false);
+
+  const handleOpenNotification = (email, name, defaultSubject = '', defaultMsg = '') => {
+    setNotificationModal({
+      isOpen: true,
+      to: email,
+      recipientName: name,
+      subject: defaultSubject || `🎉 Account Onboarding Successful — Welcome to VisitExpo!`,
+      message: defaultMsg || `Hello ${name},\n\nWe are delighted to confirm that your account onboarding for VisitExpo is complete and your organization account has been successfully created and approved!\n\nYou can now access your dashboard to onboard multi-day expos, manage exhibitor applications, and monitor live visitor check-ins.\n\nLogin URL: https://visitexpo-client.vercel.app/login\nAccount Email: ${email}\nStatus: Active & Enabled\n\nBest regards,\nVisitExpo Management Team\nsupport@visitexpo.in`
+    });
+  };
+
+  const handleSendNotificationSubmit = async (e) => {
+    e.preventDefault();
+    setSendingNotification(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await axios.post(
+        `${API_URL}/admin/send-notification`,
+        notificationModal,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data && res.data.success) {
+        setMessage({ type: 'success', text: `Notification email sent successfully to ${notificationModal.to}!` });
+        setNotificationModal({ isOpen: false, to: '', recipientName: '', subject: '', message: '' });
+      }
+    } catch (err) {
+      console.error('Send notification error', err);
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to send notification email' });
+    } finally {
+      setSendingNotification(false);
+    }
+  };
 
   // Filter Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -383,6 +427,7 @@ export default function ModerationPage() {
                       <th className="px-6 py-4">Organizer Name</th>
                       <th className="px-6 py-4">Email Credentials</th>
                       <th className="px-6 py-4">Organization Name</th>
+                      <th className="px-6 py-4">Request Date</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4 text-right">Approval Actions</th>
                     </tr>
@@ -401,12 +446,37 @@ export default function ModerationPage() {
                           <p className="font-bold text-foreground">{user.organization?.name || 'New Organization'}</p>
                         </td>
                         <td className="px-6 py-4">
+                          <p className="font-semibold text-foreground">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
                           <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
                             <Clock className="h-3 w-3" /> Pending Approval
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenNotification(
+                                user.email,
+                                user.name,
+                                '🎉 Account Created & Approved Successfully — Welcome to VisitExpo!',
+                                `Hello ${user.name},\n\nWe are pleased to inform you that your VisitExpo Organizer Account for ${user.organization?.name || 'your organization'} has been reviewed and approved successfully!\n\nYou can now log in to your Organizer Dashboard to onboard multi-day expos, manage exhibitor applications, and monitor live visitor check-ins.\n\nLogin URL: https://visitexpo-client.vercel.app/login\nAccount Email: ${user.email}\nStatus: Active & Enabled\n\nIf you have any questions, feel free to reach out to us at support@visitexpo.in.\n\nBest regards,\nVisitExpo Management Team`
+                              )}
+                              className="inline-flex items-center gap-1 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Mail className="h-3.5 w-3.5" /> Send Email
+                            </button>
+                            <button
+                              onClick={() => setSelectedOrganizer(user)}
+                              className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> View Details
+                            </button>
                             <button
                               onClick={() => handleOrganizerAction(user._id, 'reject')}
                               disabled={actionLoadingId === user._id}
@@ -464,7 +534,7 @@ export default function ModerationPage() {
                       <th className="px-6 py-4">Email Credentials</th>
                       <th className="px-6 py-4">Organization Name</th>
                       <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4 text-right">Approval Date</th>
+                      <th className="px-6 py-4 text-right">Approval Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -485,8 +555,26 @@ export default function ModerationPage() {
                             <CheckCircle2 className="h-3 w-3" /> Verified & Active
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right text-muted-foreground font-medium">
-                          {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'Recently'}
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenNotification(
+                                user.email,
+                                user.name,
+                                '🎉 Account Onboarding Successful — Welcome to VisitExpo!',
+                                `Hello ${user.name},\n\nWe are delighted to confirm that your account onboarding for VisitExpo is complete and your organization account has been successfully created and approved!\n\nYou can now access your dashboard to onboard multi-day expos, manage exhibitor applications, and monitor live visitor check-ins.\n\nLogin URL: https://visitexpo-client.vercel.app/login\nAccount Email: ${user.email}\nStatus: Active & Enabled\n\nBest regards,\nVisitExpo Management Team\nsupport@visitexpo.in`
+                              )}
+                              className="inline-flex items-center gap-1 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Mail className="h-3.5 w-3.5" /> Send Email
+                            </button>
+                            <button
+                              onClick={() => setSelectedOrganizer(user)}
+                              className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> View Profile
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1162,6 +1250,261 @@ export default function ModerationPage() {
                 Close Details
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ORGANIZER FULL DETAILS MODAL */}
+      {selectedOrganizer && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-border flex items-center justify-between bg-muted/20 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary font-black flex items-center justify-center text-base border border-primary/20">
+                  {selectedOrganizer.name ? selectedOrganizer.name.charAt(0).toUpperCase() : 'O'}
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                    {selectedOrganizer.name}
+                    {selectedOrganizer.isVerified ? (
+                      <span className="text-[10px] font-extrabold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Verified Organizer
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-extrabold bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Pending Approval
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">Organizer Profile & Business Account Details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedOrganizer(null)}
+                className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-xs">
+              {/* Section 1: User Profile */}
+              <div>
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <UserCheck className="h-3.5 w-3.5 text-primary" /> Personal Credentials
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/20 p-4 rounded-xl border border-border">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Full Name</span>
+                    <p className="font-bold text-foreground">{selectedOrganizer.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Email Address</span>
+                    <a href={`mailto:${selectedOrganizer.email}`} className="font-bold text-primary hover:underline flex items-center gap-1">
+                      <Mail className="h-3.5 w-3.5" /> {selectedOrganizer.email}
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Registration Request Date & Time</span>
+                    <p className="font-bold text-foreground">
+                      {selectedOrganizer.createdAt ? new Date(selectedOrganizer.createdAt).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' }) : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Account Role</span>
+                    <span className="inline-flex items-center rounded-md bg-secondary text-foreground px-2 py-0.5 font-bold uppercase text-[10px]">
+                      {selectedOrganizer.role}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Organization / Company Info */}
+              <div>
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-primary" /> Company / Business Profile
+                </h4>
+                <div className="bg-muted/20 p-4 rounded-xl border border-border space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Company Name</span>
+                      <p className="font-bold text-foreground">{selectedOrganizer.organization?.name || 'New Organization'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Official Corporate Website</span>
+                      {selectedOrganizer.organization?.website ? (
+                        <a
+                          href={selectedOrganizer.organization.website.startsWith('http') ? selectedOrganizer.organization.website : `https://${selectedOrganizer.organization.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          <Globe className="h-3.5 w-3.5" /> {selectedOrganizer.organization.website} <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground font-medium">Not provided</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Business Contact Email</span>
+                      <p className="font-semibold text-foreground">{selectedOrganizer.organization?.contact?.email || selectedOrganizer.email}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Business Phone Number</span>
+                      {selectedOrganizer.organization?.contact?.phone ? (
+                        <a href={`tel:${selectedOrganizer.organization.contact.phone}`} className="font-semibold text-foreground hover:text-primary flex items-center gap-1">
+                          <Phone className="h-3.5 w-3.5" /> {selectedOrganizer.organization.contact.phone}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground font-medium">Not provided</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">GST / Registration Tax ID</span>
+                      <p className="font-semibold text-foreground">{selectedOrganizer.organization?.gst || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Subscription Tier</span>
+                      <span className="inline-flex items-center rounded-md bg-purple-500/10 text-purple-500 px-2 py-0.5 font-bold uppercase text-[10px]">
+                        {selectedOrganizer.organization?.subscription?.plan || 'Free Standard Tier'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedOrganizer.organization?.contact?.address && (
+                    <div className="pt-2 border-t border-border/50">
+                      <span className="text-[10px] text-muted-foreground font-semibold block mb-0.5">Business Registered Address</span>
+                      <p className="font-medium text-foreground flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" /> {selectedOrganizer.organization.contact.address}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-4 border-t border-border bg-muted/10 flex items-center justify-between gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    handleOpenNotification(
+                      selectedOrganizer.email,
+                      selectedOrganizer.name,
+                      '🎉 Account Created & Approved Successfully — Welcome to VisitExpo!',
+                      `Hello ${selectedOrganizer.name},\n\nWe are pleased to inform you that your VisitExpo Organizer Account for ${selectedOrganizer.organization?.name || 'your organization'} has been reviewed and approved successfully!\n\nYou can now log in to your Organizer Dashboard to onboard multi-day expos, manage exhibitor applications, and monitor live visitor check-ins.\n\nLogin URL: https://visitexpo-client.vercel.app/login\nAccount Email: ${selectedOrganizer.email}\nStatus: Active & Enabled\n\nIf you have any questions, feel free to reach out to us at support@visitexpo.in.\n\nBest regards,\nVisitExpo Management Team`
+                    );
+                  }}
+                  className="inline-flex items-center gap-1 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/20 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                >
+                  <Mail className="h-3.5 w-3.5" /> Send Email Notification
+                </button>
+                {!selectedOrganizer.isVerified && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        handleOrganizerAction(selectedOrganizer._id, 'reject');
+                        setSelectedOrganizer(null);
+                      }}
+                      className="inline-flex items-center gap-1 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                    >
+                      <X className="h-3.5 w-3.5" /> Reject Account
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleOrganizerAction(selectedOrganizer._id, 'approve');
+                        setSelectedOrganizer(null);
+                      }}
+                      className="inline-flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 px-4 py-1.5 rounded-xl text-xs font-bold shadow transition-all"
+                    >
+                      <Check className="h-3.5 w-3.5" /> Approve Account
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedOrganizer(null)}
+                className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 font-bold text-foreground transition-all text-xs"
+              >
+                Close Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SEND NOTIFICATION EMAIL MODAL */}
+      {notificationModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+            <div className="p-5 border-b border-border flex items-center justify-between bg-muted/20">
+              <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" /> Send Email Notification
+              </h3>
+              <button
+                onClick={() => setNotificationModal({ ...notificationModal, isOpen: false })}
+                className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form onSubmit={handleSendNotificationSubmit} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block text-muted-foreground font-semibold mb-1">Recipient Email</label>
+                <input
+                  type="email"
+                  value={notificationModal.to}
+                  readOnly
+                  className="w-full rounded-xl border border-border bg-muted/40 p-2.5 text-foreground font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground font-semibold mb-1">Email Subject</label>
+                <input
+                  type="text"
+                  value={notificationModal.subject}
+                  onChange={(e) => setNotificationModal({ ...notificationModal, subject: e.target.value })}
+                  required
+                  className="w-full rounded-xl border border-border bg-background p-2.5 text-foreground font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground font-semibold mb-1">Message Content</label>
+                <textarea
+                  rows={5}
+                  value={notificationModal.message}
+                  onChange={(e) => setNotificationModal({ ...notificationModal, message: e.target.value })}
+                  required
+                  className="w-full rounded-xl border border-border bg-background p-2.5 text-foreground font-medium"
+                ></textarea>
+              </div>
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNotificationModal({ ...notificationModal, isOpen: false })}
+                  className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 font-bold text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingNotification}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary/90 shadow transition-all"
+                >
+                  {sendingNotification ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending Email...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5" /> Send Email Notification
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
