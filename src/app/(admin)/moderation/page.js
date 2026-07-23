@@ -31,7 +31,9 @@ import {
   X,
   UserCheck,
   Building,
-  Send
+  Send,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -54,6 +56,13 @@ export default function ModerationPage() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOrganizer, setSelectedOrganizer] = useState(null);
+
+  // Pagination States for History
+  const [organizerHistoryPage, setOrganizerHistoryPage] = useState(1);
+  const [exhibitorHistoryPage, setExhibitorHistoryPage] = useState(1);
+  const [claimHistoryPage, setClaimHistoryPage] = useState(1);
+  const [eventHistoryPage, setEventHistoryPage] = useState(1);
+  const itemsPerPage = 8;
 
   // Email Notification Modal State
   const [notificationModal, setNotificationModal] = useState({
@@ -151,6 +160,13 @@ export default function ModerationPage() {
   useEffect(() => {
     fetchModerationData();
   }, [accessToken]);
+
+  useEffect(() => {
+    setOrganizerHistoryPage(1);
+    setExhibitorHistoryPage(1);
+    setClaimHistoryPage(1);
+    setEventHistoryPage(1);
+  }, [searchTerm]);
 
   // Handle Organizer Action (Approve / Reject)
   const handleOrganizerAction = async (userId, action) => {
@@ -303,6 +319,27 @@ export default function ModerationPage() {
   const filteredEventHistory = eventHistory.filter(evt =>
     evt.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (evt.organizer?.name && evt.organizer.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Paginated History Slices
+  const paginatedOrganizerHistory = filteredOrganizerHistory.slice(
+    (organizerHistoryPage - 1) * itemsPerPage,
+    organizerHistoryPage * itemsPerPage
+  );
+
+  const paginatedExhibitorHistory = filteredExhibitorHistory.slice(
+    (exhibitorHistoryPage - 1) * itemsPerPage,
+    exhibitorHistoryPage * itemsPerPage
+  );
+
+  const paginatedClaimHistory = filteredClaimHistory.slice(
+    (claimHistoryPage - 1) * itemsPerPage,
+    claimHistoryPage * itemsPerPage
+  );
+
+  const paginatedEventHistory = filteredEventHistory.slice(
+    (eventHistoryPage - 1) * itemsPerPage,
+    eventHistoryPage * itemsPerPage
   );
 
   return (
@@ -538,7 +575,7 @@ export default function ModerationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredOrganizerHistory.map((user) => (
+                    {paginatedOrganizerHistory.map((user) => (
                       <tr key={user._id} className="hover:bg-secondary/40 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-bold text-foreground">{user.name}</p>
@@ -582,6 +619,13 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
+            <PaginationControls
+              currentPage={organizerHistoryPage}
+              totalPages={Math.ceil(filteredOrganizerHistory.length / itemsPerPage) || 1}
+              totalItems={filteredOrganizerHistory.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setOrganizerHistoryPage}
+            />
           </div>
         </div>
       )}
@@ -702,7 +746,7 @@ export default function ModerationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredExhibitorHistory.map((ex) => (
+                    {paginatedExhibitorHistory.map((ex) => (
                       <tr key={ex._id} className="hover:bg-secondary/40 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-bold text-foreground">{ex.name}</p>
@@ -742,6 +786,13 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
+            <PaginationControls
+              currentPage={exhibitorHistoryPage}
+              totalPages={Math.ceil(filteredExhibitorHistory.length / itemsPerPage) || 1}
+              totalItems={filteredExhibitorHistory.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setExhibitorHistoryPage}
+            />
           </div>
         </div>
       )}
@@ -857,7 +908,7 @@ export default function ModerationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredClaimHistory.map((claim) => (
+                    {paginatedClaimHistory.map((claim) => (
                       <tr key={claim._id} className="hover:bg-secondary/40 transition-colors">
                         <td className="px-6 py-4">
                           <p className="font-bold text-foreground">{claim.title}</p>
@@ -881,6 +932,13 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
+            <PaginationControls
+              currentPage={claimHistoryPage}
+              totalPages={Math.ceil(filteredClaimHistory.length / itemsPerPage) || 1}
+              totalItems={filteredClaimHistory.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setClaimHistoryPage}
+            />
           </div>
         </div>
       )}
@@ -1000,7 +1058,7 @@ export default function ModerationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredEventHistory.map((evt) => (
+                    {paginatedEventHistory.map((evt) => (
                       <tr key={evt._id} className="hover:bg-secondary/40 transition-colors group">
                         <td className="px-6 py-4 cursor-pointer font-medium" onClick={() => setSelectedEvent(evt)}>
                           <p className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
@@ -1032,6 +1090,13 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
+            <PaginationControls
+              currentPage={eventHistoryPage}
+              totalPages={Math.ceil(filteredEventHistory.length / itemsPerPage) || 1}
+              totalItems={filteredEventHistory.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setEventHistoryPage}
+            />
           </div>
         </div>
       )}
@@ -1511,3 +1576,60 @@ export default function ModerationPage() {
     </div>
   );
 }
+
+function PaginationControls({ currentPage, totalPages, totalItems, itemsPerPage, onPageChange }) {
+  if (totalItems <= itemsPerPage) return null;
+
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  return (
+    <div className="px-5 py-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 bg-muted/10 text-xs">
+      <div className="text-muted-foreground font-medium">
+        Showing <span className="font-bold text-foreground">{startItem}</span> to{' '}
+        <span className="font-bold text-foreground">{endItem}</span> of{' '}
+        <span className="font-bold text-foreground">{totalItems}</span> history records
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-card text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition-all shadow-xs"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" /> Previous
+        </button>
+
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
+          .map((page, idx, arr) => {
+            const prev = arr[idx - 1];
+            const showEllipsis = prev && page - prev > 1;
+            return (
+              <React.Fragment key={page}>
+                {showEllipsis && <span className="px-1 text-muted-foreground font-bold">...</span>}
+                <button
+                  onClick={() => onPageChange(page)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    currentPage === page
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'border border-border bg-card text-foreground hover:bg-secondary'
+                  }`}
+                >
+                  {page}
+                </button>
+              </React.Fragment>
+            );
+          })}
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-card text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition-all shadow-xs"
+        >
+          Next <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
