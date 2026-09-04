@@ -196,6 +196,32 @@ export default function AdminOverview() {
         </div>
       </div>
 
+      {/* Contact Inquiries Alert (if any new inquiries) */}
+      {metrics?.kpis?.newContactInquiries > 0 && (
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 shadow-sm flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-xs">
+              <Mail className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-primary tracking-wider">
+                Landing Page Inquiries
+              </span>
+              <p className="text-xs font-bold text-foreground">
+                {metrics.kpis.newContactInquiries} New message{metrics.kpis.newContactInquiries > 1 ? 's' : ''} received from the landing page contact section.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/contacts"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-xs transition-all whitespace-nowrap"
+          >
+            <span>View Inquiries</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* KPI Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {adminKPIs.map((kpi, idx) => (

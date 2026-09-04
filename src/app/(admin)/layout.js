@@ -18,6 +18,7 @@ import {
   CreditCard,
   FileText,
   LifeBuoy,
+  Mail,
   Settings,
   LogOut,
   Menu,
@@ -62,12 +63,14 @@ export default function AdminLayout({ children }) {
     { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
     { name: 'Invoices & Sales', href: '/invoices', icon: FileText },
     { name: 'Support Tickets', href: '/tickets', icon: LifeBuoy },
+    { name: 'Contact Inquiries', href: '/contacts', icon: Mail },
     { name: 'CMS & Settings', href: '/settings', icon: Settings },
   ];
 
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
     if (path === '/moderation') return 'Event Moderation & Approvals';
+    if (path === '/contacts') return 'Landing Page Contact Inquiries';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   };
