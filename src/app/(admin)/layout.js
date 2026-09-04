@@ -89,10 +89,12 @@ export default function AdminLayout({ children }) {
         }`}
       >
         <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold shadow-md">
-              SA
-            </div>
+          <Link href="/" className="flex items-center gap-2.5">
+            <img
+              src="/logo.png"
+              alt="VisitExpo Logo"
+              className="h-9 w-9 object-contain"
+            />
             <span className="text-xl font-bold tracking-tight text-foreground">
               Visit<span className="text-primary">Admin</span>
             </span>

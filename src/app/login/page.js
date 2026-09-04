@@ -71,8 +71,12 @@ export default function AdminLoginPage() {
 
       <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-md p-8 shadow-2xl relative z-10 space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-600 text-white font-extrabold text-xl shadow-lg shadow-red-600/20">
-            VA
+          <div className="inline-flex items-center justify-center">
+            <img
+              src="/logo.png"
+              alt="VisitExpo Logo"
+              className="h-16 w-16 object-contain"
+            />
           </div>
           <h2 className="text-2xl font-bold text-zinc-50 tracking-tight flex items-center justify-center gap-1.5">
             Super Admin Console

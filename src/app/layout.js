@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "VisitExpo | Platform Admin Control",
   description: "Enterprise SaaS Super Admin Platform dashboard. Manage users, tenants, and billing cycles.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({ children }) {
