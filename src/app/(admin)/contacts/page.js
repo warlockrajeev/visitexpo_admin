@@ -19,6 +19,7 @@ import {
   Trash2,
   ExternalLink,
   MessageSquare,
+  MessageCircle,
   RefreshCw,
   Phone,
   User,
@@ -29,7 +30,10 @@ import {
   Eye,
   Calendar,
   Inbox,
-  Check
+  Check,
+  Megaphone,
+  Bell,
+  ShieldCheck
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -47,6 +51,7 @@ export default function ContactInquiriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
 
   // Detail Modal State
   const [selectedInquiry, setSelectedInquiry] = useState(null);
@@ -66,6 +71,7 @@ export default function ContactInquiriesPage() {
           search: searchTerm,
           status: statusFilter,
           role: roleFilter,
+          source: sourceFilter !== 'all' ? sourceFilter : undefined,
           limit: 100
         },
         headers: { Authorization: `Bearer ${accessToken}` }
@@ -87,7 +93,7 @@ export default function ContactInquiriesPage() {
 
   useEffect(() => {
     fetchInquiries();
-  }, [accessToken, statusFilter, roleFilter]);
+  }, [accessToken, statusFilter, roleFilter, sourceFilter]);
 
   // Handle Search Submit
   const handleSearchSubmit = (e) => {
@@ -214,10 +220,56 @@ export default function ContactInquiriesPage() {
             Visitor
           </span>
         );
+      case 'Advertiser':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-2 py-0.5 text-[11px] font-bold text-purple-400 border border-purple-500/20">
+            <Megaphone className="h-3 w-3" />
+            Advertiser
+          </span>
+        );
+      case 'Subscriber':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-500 border border-emerald-500/20">
+            <Bell className="h-3 w-3" />
+            Subscriber
+          </span>
+        );
+      case 'Claimant':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/10 px-2 py-0.5 text-[11px] font-bold text-indigo-400 border border-indigo-500/20">
+            <ShieldCheck className="h-3 w-3" />
+            Claimant
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 rounded-md bg-zinc-500/10 px-2 py-0.5 text-[11px] font-bold text-zinc-400 border border-zinc-500/20">
             {role || 'Other'}
+          </span>
+        );
+    }
+  };
+
+  // Form Source Badge Styling
+  const getSourceBadge = (source) => {
+    switch (source) {
+      case 'advertise_modal':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-500/20">
+            Ad Modal
+          </span>
+        );
+      case 'newsletter':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+            Newsletter
+          </span>
+        );
+      case 'landing_contact':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border">
+            Landing Form
           </span>
         );
     }
@@ -377,7 +429,25 @@ export default function ContactInquiriesPage() {
               <option value="Organizer">Organizer</option>
               <option value="Exhibitor">Exhibitor</option>
               <option value="Visitor">Visitor</option>
+              <option value="Advertiser">Advertiser</option>
+              <option value="Subscriber">Subscriber</option>
+              <option value="Claimant">Claimant</option>
               <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Source Filter */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">Source:</span>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+            >
+              <option value="all">All Sources</option>
+              <option value="landing_contact">Landing Form</option>
+              <option value="advertise_modal">Advertise Modal</option>
+              <option value="newsletter">Newsletter</option>
             </select>
           </div>
 
@@ -446,14 +516,17 @@ export default function ContactInquiriesPage() {
                         </div>
                         <div>
                           <p className="font-bold text-foreground">{inq.name}</p>
-                          <div className="mt-1">{getRoleBadge(inq.role)}</div>
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            {getRoleBadge(inq.role)}
+                            {getSourceBadge(inq.source)}
+                          </div>
                         </div>
                       </div>
                     </td>
 
                     {/* Email & Phone */}
                     <td className="px-5 py-4">
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         <a
                           href={`mailto:${inq.email}`}
                           className="font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1.5"
@@ -462,9 +535,19 @@ export default function ContactInquiriesPage() {
                           <ExternalLink className="h-3 w-3 text-muted-foreground" />
                         </a>
                         {inq.phone && (
-                          <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
                             <Phone className="h-3 w-3 text-muted-foreground" />
                             <span>{inq.phone}</span>
+                            <a
+                              href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] font-bold text-emerald-500 hover:underline inline-flex items-center gap-0.5"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageCircle className="h-2.5 w-2.5" />
+                              <span>WA</span>
+                            </a>
                           </div>
                         )}
                       </div>
@@ -554,10 +637,11 @@ export default function ContactInquiriesPage() {
             
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/20">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Mail className="h-4.5 w-4.5 text-primary" />
                 <h3 className="font-bold text-sm text-foreground">Inquiry Details</h3>
                 <span className="ml-2">{getRoleBadge(selectedInquiry.role)}</span>
+                <span>{getSourceBadge(selectedInquiry.source)}</span>
               </div>
               <button
                 onClick={() => setSelectedInquiry(null)}

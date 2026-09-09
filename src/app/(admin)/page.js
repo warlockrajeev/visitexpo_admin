@@ -28,7 +28,14 @@ import {
   ArrowRight,
   CheckCircle2,
   ShieldCheck,
-  Clock
+  Clock,
+  Store,
+  User,
+  Megaphone,
+  Bell,
+  Phone,
+  ExternalLink,
+  MessageCircle
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -100,16 +107,29 @@ export default function AdminOverview() {
       (metrics?.kpis?.pendingClaims || 0) +
       (metrics?.kpis?.pendingEvents || 0);
 
+  const newInquiries = metrics?.kpis?.newContactInquiries || 0;
+
   const adminKPIs = [
     {
       title: 'Pending Moderation',
       value: loading ? '...' : String(totalPending),
       desc: loading
         ? 'Loading queues...'
-        : `${metrics?.kpis?.pendingEvents || 0} Events, ${metrics?.kpis?.pendingClaims || 0} Claims, ${metrics?.kpis?.pendingOrganizers || 0} Orgs`,
+        : `${metrics?.kpis?.pendingEvents || 0} Events, ${metrics?.kpis?.pendingClaims || 0} Claims`,
       icon: CheckCircle2,
       color: 'text-amber-500',
-      bg: 'bg-amber-500/10'
+      bg: 'bg-amber-500/10',
+      href: '/moderation'
+    },
+    {
+      title: 'Client Inquiries',
+      value: loading ? '...' : String(newInquiries),
+      desc: newInquiries > 0 ? `${newInquiries} unread form leads` : 'All inquiries handled',
+      icon: Mail,
+      color: 'text-rose-500',
+      bg: 'bg-rose-500/10',
+      badge: newInquiries > 0 ? `${newInquiries} New` : null,
+      href: '/contacts'
     },
     {
       title: 'Registered Users',
@@ -117,7 +137,8 @@ export default function AdminOverview() {
       desc: 'Across all client teams',
       icon: Users,
       color: 'text-blue-500',
-      bg: 'bg-blue-500/10'
+      bg: 'bg-blue-500/10',
+      href: '/users'
     },
     {
       title: 'Total Organizations',
@@ -125,7 +146,8 @@ export default function AdminOverview() {
       desc: 'Active platform tenants',
       icon: Building2,
       color: 'text-violet-500',
-      bg: 'bg-violet-500/10'
+      bg: 'bg-violet-500/10',
+      href: '/organizations'
     },
     {
       title: 'Platform MRR',
@@ -133,9 +155,119 @@ export default function AdminOverview() {
       desc: 'Subscriptions billing base',
       icon: DollarSign,
       color: 'text-emerald-500',
-      bg: 'bg-emerald-500/10'
+      bg: 'bg-emerald-500/10',
+      href: '/invoices'
     }
   ];
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getRoleBadge = (role) => {
+    switch (role) {
+      case 'Organizer':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-500 border border-amber-500/20">
+            <Building2 className="h-3 w-3" />
+            Organizer
+          </span>
+        );
+      case 'Exhibitor':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-pink-500/10 px-2 py-0.5 text-[11px] font-bold text-pink-500 border border-pink-500/20">
+            <Store className="h-3 w-3" />
+            Exhibitor
+          </span>
+        );
+      case 'Visitor':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-500 border border-blue-500/20">
+            <User className="h-3 w-3" />
+            Visitor
+          </span>
+        );
+      case 'Advertiser':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-2 py-0.5 text-[11px] font-bold text-purple-400 border border-purple-500/20">
+            <Megaphone className="h-3 w-3" />
+            Advertiser
+          </span>
+        );
+      case 'Subscriber':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-500 border border-emerald-500/20">
+            <Bell className="h-3 w-3" />
+            Subscriber
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-zinc-500/10 px-2 py-0.5 text-[11px] font-bold text-zinc-400 border border-zinc-500/20">
+            {role || 'Other'}
+          </span>
+        );
+    }
+  };
+
+  const getSourceBadge = (source) => {
+    switch (source) {
+      case 'advertise_modal':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-500/20">
+            Ad Modal
+          </span>
+        );
+      case 'newsletter':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+            Newsletter
+          </span>
+        );
+      case 'landing_contact':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border">
+            Landing Form
+          </span>
+        );
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'new':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-500 border border-emerald-500/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            New
+          </span>
+        );
+      case 'in_progress':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-500 border border-amber-500/20">
+            <Clock className="h-3 w-3" />
+            In Progress
+          </span>
+        );
+      case 'responded':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-500 border border-blue-500/20">
+            <CheckCircle2 className="h-3 w-3" />
+            Responded
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
 
   const subDistribution = metrics?.packagesBreakdown
     ? [
@@ -223,20 +355,31 @@ export default function AdminOverview() {
       )}
 
       {/* KPI Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {adminKPIs.map((kpi, idx) => (
-          <div key={idx} className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <Link
+            key={idx}
+            href={kpi.href || '#'}
+            className="rounded-2xl border border-border bg-card p-5 shadow-sm hover:shadow-md hover:border-primary/40 transition-all duration-200 block group"
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-muted-foreground uppercase">{kpi.title}</span>
+              <span className="text-xs font-bold text-muted-foreground uppercase group-hover:text-foreground transition-colors">{kpi.title}</span>
               <div className={`p-2.5 rounded-xl ${kpi.bg}`}>
                 <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
               </div>
             </div>
             <div className="mt-3">
-              <span className="text-3xl font-extrabold tracking-tight text-foreground">{kpi.value}</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold tracking-tight text-foreground">{kpi.value}</span>
+                {kpi.badge && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20 animate-pulse">
+                    {kpi.badge}
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">{kpi.desc}</p>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -310,6 +453,135 @@ export default function AdminOverview() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Client-Side Form Submissions Section */}
+      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <Mail className="h-4 w-4" />
+              </div>
+              <h3 className="font-bold text-base text-foreground">Recent Client Form Submissions</h3>
+              {newInquiries > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 animate-pulse">
+                  {newInquiries} New
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Direct inquiries, exhibitor onboarding requests, advertise inquiries, and newsletter alerts submitted via the client application.
+            </p>
+          </div>
+          <Link
+            href="/contacts"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2 text-xs font-bold text-primary-foreground shadow-xs transition-all self-start sm:self-auto cursor-pointer"
+          >
+            <span>View All Inquiries</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-xs">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span>Loading client form inquiries...</span>
+          </div>
+        ) : (!metrics?.recentInquiries || metrics.recentInquiries.length === 0) ? (
+          <div className="text-center py-12 text-muted-foreground text-xs space-y-2">
+            <Mail className="h-8 w-8 mx-auto text-muted-foreground/40" />
+            <p className="font-semibold text-foreground">No client form submissions yet</p>
+            <p className="text-[11px] max-w-sm mx-auto">
+              Submissions from the landing page contact form, advertising modal, and newsletter alerts will appear here in real time.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">
+                  <th className="px-6 py-3.5">Sender &amp; Role</th>
+                  <th className="px-6 py-3.5">Contact Info</th>
+                  <th className="px-6 py-3.5">Message Snippet</th>
+                  <th className="px-6 py-3.5">Received</th>
+                  <th className="px-6 py-3.5">Status</th>
+                  <th className="px-6 py-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {metrics.recentInquiries.map((item) => (
+                  <tr key={item._id} className="hover:bg-secondary/40 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 uppercase text-xs">
+                          {item.name ? item.name.charAt(0) : 'V'}
+                        </div>
+                        <div>
+                          <p className="font-bold text-foreground">{item.name}</p>
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            {getRoleBadge(item.role)}
+                            {getSourceBadge(item.source)}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <a
+                          href={`mailto:${item.email}`}
+                          className="font-medium text-foreground hover:text-primary transition-colors flex items-center gap-1"
+                        >
+                          <span>{item.email}</span>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                        </a>
+                        {item.phone && (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <span>{item.phone}</span>
+                            <a
+                              href={`https://wa.me/${item.phone.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] font-bold text-emerald-500 hover:underline inline-flex items-center gap-0.5"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageCircle className="h-2.5 w-2.5" />
+                              <span>WA</span>
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 max-w-xs">
+                      <p className="line-clamp-2 text-muted-foreground leading-relaxed">
+                        {item.message}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground/60" />
+                        <span>{formatDate(item.createdAt)}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(item.status)}
+                    </td>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <Link
+                        href="/contacts"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-[11px] border border-border transition-colors"
+                      >
+                        <Eye className="h-3 w-3" />
+                        <span>Inspect</span>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Tenants lists */}

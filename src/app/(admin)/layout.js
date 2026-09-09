@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from '../../context/ThemeContext.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { Loader2 } from 'lucide-react';
+import axios from 'axios';
 import {
   ShieldAlert,
   Users,
@@ -30,18 +31,38 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadInquiries, setUnreadInquiries] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, accessToken } = useAuth();
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    const fetchUnread = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/contact?status=new&limit=1`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (res.data?.stats?.new !== undefined) {
+          setUnreadInquiries(res.data.stats.new);
+        }
+      } catch (e) {
+        // silent
+      }
+    };
+    fetchUnread();
+  }, [accessToken, pathname]);
 
   if (loading) {
     return (
@@ -63,7 +84,12 @@ export default function AdminLayout({ children }) {
     { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
     { name: 'Invoices & Sales', href: '/invoices', icon: FileText },
     { name: 'Support Tickets', href: '/tickets', icon: LifeBuoy },
-    { name: 'Contact Inquiries', href: '/contacts', icon: Mail },
+    {
+      name: 'Contact Inquiries',
+      href: '/contacts',
+      icon: Mail,
+      badge: unreadInquiries > 0 ? `${unreadInquiries} New` : null
+    },
     { name: 'CMS & Settings', href: '/settings', icon: Settings },
   ];
 
