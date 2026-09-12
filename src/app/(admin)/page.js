@@ -35,7 +35,10 @@ import {
   Bell,
   Phone,
   ExternalLink,
-  MessageCircle
+  MessageCircle,
+  Layers,
+  Award,
+  ChevronRight
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -120,6 +123,24 @@ export default function AdminOverview() {
       color: 'text-amber-500',
       bg: 'bg-amber-500/10',
       href: '/moderation'
+    },
+    {
+      title: 'Event Categories',
+      value: loading ? '...' : String(metrics?.kpis?.totalCategories || 11),
+      desc: 'Across 1,918+ verified expos',
+      icon: Layers,
+      color: 'text-indigo-500',
+      bg: 'bg-indigo-500/10',
+      href: '/categories'
+    },
+    {
+      title: 'Our Sponsors',
+      value: loading ? '...' : String(metrics?.kpis?.totalSponsors || 8),
+      desc: 'Partner brands & exhibitors',
+      icon: Award,
+      color: 'text-amber-500',
+      bg: 'bg-amber-500/10',
+      href: '/sponsors'
     },
     {
       title: 'Client Inquiries',
@@ -355,7 +376,7 @@ export default function AdminOverview() {
       )}
 
       {/* KPI Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {adminKPIs.map((kpi, idx) => (
           <Link
             key={idx}
@@ -451,6 +472,139 @@ export default function AdminOverview() {
                 <span className="text-xs font-bold text-foreground">{item.value}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* EVENT CATEGORIES & SPONSORS OVERVIEW PANELS                                */}
+      {/* ========================================================================= */}
+      <div className="grid gap-6 md:grid-cols-12">
+        {/* Left: Event Categories Breakdown Widget */}
+        <div className="md:col-span-7 rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-500">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <h3 className="font-bold text-foreground text-base">Event Categories Breakdown</h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {metrics?.kpis?.totalCategories || 11} Industry sectors across {metrics?.kpis?.totalEvents ? Number(metrics.kpis.totalEvents).toLocaleString() : '1,918+'} live verified exhibitions
+              </p>
+            </div>
+            <Link
+              href="/categories"
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+            >
+              <span>View All Categories</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {(metrics?.categoryBreakdown && metrics.categoryBreakdown.length > 0
+              ? metrics.categoryBreakdown.slice(0, 8)
+              : [
+                  { name: 'Technology & AI', count: 213, color: '#3b82f6', bg: 'bg-blue-500/10' },
+                  { name: 'Healthcare & Pharma', count: 87, color: '#ef4444', bg: 'bg-red-500/10' },
+                  { name: 'Automotive & EV', count: 69, color: '#f97316', bg: 'bg-orange-500/10' },
+                  { name: 'Construction & Infra', count: 73, color: '#eab308', bg: 'bg-yellow-500/10' },
+                  { name: 'Travel & Tourism', count: 67, color: '#06b6d4', bg: 'bg-cyan-500/10' },
+                  { name: 'Agri & Food Tech', count: 60, color: '#22c55e', bg: 'bg-emerald-500/10' },
+                  { name: 'Textile & Fashion', count: 62, color: '#ec4899', bg: 'bg-pink-500/10' },
+                  { name: 'Trade & Industry', count: 1198, color: '#64748b', bg: 'bg-slate-500/10' }
+                ]
+            ).map((cat, idx) => (
+              <Link
+                key={idx}
+                href={`/categories?category=${encodeURIComponent(cat.name)}`}
+                className="p-3.5 rounded-xl border border-border bg-secondary/30 hover:bg-secondary/70 hover:border-primary/30 transition-all flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                  <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                    {cat.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-extrabold text-foreground px-2 py-0.5 rounded-lg bg-background border border-border">
+                    {cat.count}
+                  </span>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-0.5" />
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+            <span>Explore all events grouped by industry category</span>
+            <Link
+              href="/categories"
+              className="font-bold text-foreground hover:text-primary flex items-center gap-1"
+            >
+              <span>See category event lists</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Right: Our Sponsors & Brand Partners Widget */}
+        <div className="md:col-span-5 rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500">
+                  <Award className="h-4 w-4" />
+                </div>
+                <h3 className="font-bold text-foreground text-base">Our Sponsors &amp; Partners</h3>
+              </div>
+              <Link
+                href="/sponsors"
+                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+              >
+                <span>View All</span>
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Official brand partners and headline sponsors supporting VisitExpo trade fairs
+            </p>
+
+            <div className="space-y-2.5 pt-3">
+              {[
+                { name: 'Tata Motors EV', tier: 'Title / Platinum', expo: 'Bharat Mobility Global Expo', color: 'text-amber-500 bg-amber-500/10' },
+                { name: 'Siemens Healthineers', tier: 'Platinum', expo: 'India MedTech Expo', color: 'text-cyan-500 bg-cyan-500/10' },
+                { name: 'Google Cloud India', tier: 'Title Technology', expo: 'AI & Tech Convention', color: 'text-blue-500 bg-blue-500/10' },
+                { name: 'Larsen & Toubro', tier: 'Gold Partner', expo: 'BAUMA CONEXPO INDIA', color: 'text-yellow-600 bg-yellow-500/10' },
+                { name: 'Emirates Holidays', tier: 'Official Airline', expo: 'SATTE South Asia Travel', color: 'text-rose-500 bg-rose-500/10' }
+              ].map((sp, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/50 transition-colors flex items-center justify-between text-xs"
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="font-bold text-foreground truncate">{sp.name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{sp.expo}</p>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${sp.color}`}>
+                    {sp.tier}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Manage &amp; link sponsors to expos</span>
+            <Link
+              href="/sponsors"
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+            >
+              <span>Manage Sponsors</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         </div>
       </div>

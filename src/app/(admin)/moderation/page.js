@@ -25,7 +25,6 @@ import {
   ExternalLink,
   Search,
   Loader2,
-  Sparkles,
   Layers,
   Check,
   X,

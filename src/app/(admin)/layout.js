@@ -28,7 +28,10 @@ import {
   Moon,
   TrendingUp,
   CheckCircle2,
-  ShieldCheck
+  ShieldCheck,
+  Layers,
+  Award,
+  CalendarDays
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -79,6 +82,9 @@ export default function AdminLayout({ children }) {
   const navigation = [
     { name: 'Overview', href: '/', icon: ShieldAlert },
     { name: 'Event Moderation', href: '/moderation', icon: CheckCircle2, badge: 'Queue' },
+    { name: 'Event Categories', href: '/categories', icon: Layers },
+    { name: 'Organizers & Events', href: '/organizers', icon: CalendarDays },
+    { name: 'Our Sponsors', href: '/sponsors', icon: Award },
     { name: 'User Management', href: '/users', icon: Users },
     { name: 'Organizations', href: '/organizations', icon: Building2 },
     { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
@@ -96,6 +102,9 @@ export default function AdminLayout({ children }) {
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
     if (path === '/moderation') return 'Event Moderation & Approvals';
+    if (path === '/categories') return 'Event Categories & Events Directory';
+    if (path === '/organizers') return 'Organizers & Events Directory';
+    if (path === '/sponsors') return 'Our Sponsors & Exhibitor Partners';
     if (path === '/contacts') return 'Landing Page Contact Inquiries';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);

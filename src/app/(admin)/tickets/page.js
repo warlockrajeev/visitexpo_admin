@@ -25,7 +25,7 @@ import {
   MessageSquare,
   Send,
   X,
-  Sparkles,
+  ShieldCheck,
   Building
 } from 'lucide-react';
 
@@ -637,7 +637,7 @@ export default function SupportTicketsPage() {
                       >
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-foreground flex items-center gap-1">
-                            {isAdmin && <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                            {isAdmin && <ShieldCheck className="h-3.5 w-3.5 text-primary" />}
                             {resp.senderName} <span className="text-[10px] text-muted-foreground">({resp.senderRole})</span>
                           </span>
                           <span className="text-[10px] text-muted-foreground">
