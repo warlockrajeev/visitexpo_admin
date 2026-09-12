@@ -43,7 +43,9 @@ import {
   Store,
   Tag,
   Info,
-  X
+  X,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -229,6 +231,90 @@ export default function EventCategoriesPage() {
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
+
+  // Deletion States
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState(null);
+
+  const handleConfirmDelete = async () => {
+    if (!eventToDelete) return;
+    setDeleting(true);
+    setFeedbackMsg(null);
+
+    const targetId = eventToDelete.id || eventToDelete.slug || eventToDelete.wpPostId;
+
+    try {
+      let deleted = false;
+      // 1. Try direct to Express backend with auth token
+      if (accessToken) {
+        try {
+          const res = await axios.delete(`${API_URL}/admin/events/${encodeURIComponent(targetId)}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            data: {
+              slug: eventToDelete.slug,
+              title: eventToDelete.title,
+              wpPostId: eventToDelete.wpPostId
+            }
+          });
+          if (res.data?.success) deleted = true;
+        } catch (e) {
+          console.warn('Express direct delete event error, falling back to Next.js API proxy:', e.message);
+        }
+      }
+
+      // 2. Fallback to Next.js API proxy
+      if (!deleted) {
+        const proxyRes = await axios.delete(`/api/events/${encodeURIComponent(targetId)}`, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+          data: {
+            slug: eventToDelete.slug,
+            title: eventToDelete.title,
+            wpPostId: eventToDelete.wpPostId
+          }
+        });
+        if (proxyRes.data?.success) deleted = true;
+      }
+
+      // Update local state immediately
+      setCategoriesData((prev) => {
+        if (!prev?.categories) return prev;
+        const updatedCats = prev.categories.map((c) => {
+          const remainingEvents = (c.events || []).filter(
+            (e) =>
+              e.id !== eventToDelete.id &&
+              e.slug !== eventToDelete.slug &&
+              (!eventToDelete.wpPostId || e.wpPostId !== eventToDelete.wpPostId)
+          );
+          return {
+            ...c,
+            count: remainingEvents.length,
+            events: remainingEvents
+          };
+        });
+        const total = updatedCats.reduce((sum, c) => sum + c.count, 0);
+        return {
+          ...prev,
+          totalEvents: total,
+          categories: updatedCats
+        };
+      });
+
+      setFeedbackMsg({
+        type: 'success',
+        text: `Event "${eventToDelete.title}" was permanently deleted.`
+      });
+      setEventToDelete(null);
+    } catch (err) {
+      console.error('Delete event error:', err);
+      setFeedbackMsg({
+        type: 'error',
+        text: err.response?.data?.error || err.message || 'Failed to delete event.'
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchCategories = async () => {
     setLoading(true);
@@ -641,6 +727,26 @@ export default function EventCategoriesPage() {
         </div>
       )}
 
+      {/* Feedback Banner */}
+      {feedbackMsg && (
+        <div
+          className={`p-4 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+            feedbackMsg.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+              : 'bg-destructive/10 border-destructive/20 text-destructive'
+          }`}
+        >
+          <span>{feedbackMsg.text}</span>
+          <button
+            type="button"
+            onClick={() => setFeedbackMsg(null)}
+            className="font-bold hover:opacity-80 p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* DETAILED EVENTS FEED FOR CATEGORIES (EACH CATEGORY HAVE WHICH ALL EVENTS) */}
       {/* ========================================================================= */}
@@ -852,17 +958,29 @@ export default function EventCategoriesPage() {
                         </div>
                       </td>
 
-                      {/* External Link */}
+                      {/* Action buttons */}
                       <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <a
-                          href={evt.wpUrl || `https://visitexpo.in/?p=${evt.wpPostId || evt.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold text-[11px] border border-border transition-colors shadow-2xs"
-                        >
-                          <span>Live Event</span>
-                          <ExternalLink className="h-3 w-3 text-primary" />
-                        </a>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <a
+                            href={evt.wpUrl || `https://visitexpo.in/?p=${evt.wpPostId || evt.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground font-bold text-[11px] border border-border transition-colors shadow-2xs"
+                            title="View Live Event"
+                          >
+                            <span>Live Event</span>
+                            <ExternalLink className="h-3 w-3 text-primary" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setEventToDelete(evt)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 text-[11px] font-bold transition-all shadow-2xs cursor-pointer"
+                            title="Delete Event"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -918,15 +1036,27 @@ export default function EventCategoriesPage() {
                     <span className="text-[11px] text-muted-foreground font-medium">
                       {evt.attendees ? `${evt.attendees} Attending` : 'B2B Expo'}
                     </span>
-                    <a
-                      href={evt.wpUrl || `https://visitexpo.in/?p=${evt.wpPostId || evt.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-primary font-bold text-xs hover:underline"
-                    >
-                      <span>View WordPress</span>
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={evt.wpUrl || `https://visitexpo.in/?p=${evt.wpPostId || evt.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-primary font-bold text-xs hover:underline"
+                        title="View Live Event"
+                      >
+                        <span>View</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setEventToDelete(evt)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-red-600 bg-red-500/10 hover:bg-red-500/20 text-xs font-bold transition-all cursor-pointer"
+                        title="Delete Event"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -973,6 +1103,70 @@ export default function EventCategoriesPage() {
           </div>
         )}
       </div>
+      {/* Delete Event Confirmation Modal */}
+      {eventToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-red-500/10 text-red-600 border border-red-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Delete Event Permanently</h3>
+                <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-1 text-xs">
+              <p className="font-bold text-foreground line-clamp-2">{eventToDelete.title}</p>
+              <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground pt-1">
+                <span>Category: <strong className="text-foreground">{eventToDelete.category}</strong></span>
+                <span>•</span>
+                <span>Location: <strong className="text-foreground">{eventToDelete.city || 'India'}</strong></span>
+                {eventToDelete.wpPostId && (
+                  <>
+                    <span>•</span>
+                    <span>WP ID: #{eventToDelete.wpPostId}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete this event? It will be immediately purged from MongoDB and permanently blacklisted across all live sync directories and category listings.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setEventToDelete(null)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-foreground bg-secondary hover:bg-secondary/80 border border-border transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Event</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

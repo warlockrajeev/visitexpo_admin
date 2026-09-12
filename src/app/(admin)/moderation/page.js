@@ -32,7 +32,8 @@ import {
   Building,
   Send,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -249,6 +250,66 @@ export default function ModerationPage() {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Action failed' });
     } finally {
       setActionLoadingId('');
+    }
+  };
+
+  // Event Permanent Deletion Handler
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const handleConfirmDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    setDeleteLoading(true);
+    setMessage({ type: '', text: '' });
+    const targetId = eventToDelete._id || eventToDelete.id || eventToDelete.slug || eventToDelete.wpPostId;
+
+    try {
+      let deleted = false;
+      if (accessToken) {
+        try {
+          const res = await axios.delete(`${API_URL}/admin/events/${encodeURIComponent(targetId)}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            data: {
+              slug: eventToDelete.slug,
+              title: eventToDelete.title,
+              wpPostId: eventToDelete.wpPostId
+            }
+          });
+          if (res.data?.success) deleted = true;
+        } catch (e) {
+          console.warn('Direct delete failed, falling back to Next proxy:', e.message);
+        }
+      }
+
+      if (!deleted) {
+        const proxyRes = await axios.delete(`/api/events/${encodeURIComponent(targetId)}`, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+          data: {
+            slug: eventToDelete.slug,
+            title: eventToDelete.title,
+            wpPostId: eventToDelete.wpPostId
+          }
+        });
+        if (proxyRes.data?.success) deleted = true;
+      }
+
+      // Update local states immediately
+      setPendingEvents((prev) => prev.filter((e) => (e._id || e.id) !== (eventToDelete._id || eventToDelete.id)));
+      setEventHistory((prev) => prev.filter((e) => (e._id || e.id) !== (eventToDelete._id || eventToDelete.id)));
+
+      setMessage({
+        type: 'success',
+        text: `Event "${eventToDelete.title}" was permanently deleted.`
+      });
+      setEventToDelete(null);
+    } catch (err) {
+      console.error('Delete event error:', err);
+      setMessage({
+        type: 'error',
+        text: err.response?.data?.error || err.message || 'Failed to delete event.'
+      });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -996,16 +1057,24 @@ export default function ModerationPage() {
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <button
+                              type="button"
+                              onClick={() => setEventToDelete(evt)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-500/20 transition-all cursor-pointer"
+                              title="Delete Event Permanently"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Delete
+                            </button>
+                            <button
                               onClick={() => handleEventAction(evt._id, 'reject')}
                               disabled={actionLoadingId === evt._id}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-500/20 transition-all"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-bold text-foreground hover:bg-secondary/80 transition-all cursor-pointer"
                             >
                               <X className="h-3.5 w-3.5" /> Reject
                             </button>
                             <button
                               onClick={() => handleEventAction(evt._id, 'approve')}
                               disabled={actionLoadingId === evt._id}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all cursor-pointer"
                             >
                               {actionLoadingId === evt._id ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1053,7 +1122,8 @@ export default function ModerationPage() {
                       <th className="px-6 py-4">Event Details</th>
                       <th className="px-6 py-4">Organizer</th>
                       <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4 text-right">Moderation Date</th>
+                      <th className="px-6 py-4">Moderation Date</th>
+                      <th className="px-6 py-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1080,8 +1150,22 @@ export default function ModerationPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-right text-muted-foreground font-medium">
+                        <td className="px-6 py-4 text-muted-foreground font-medium">
                           {evt.updatedAt ? new Date(evt.updatedAt).toLocaleDateString() : 'Recently'}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEventToDelete(evt);
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/20 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                            title="Delete Event Permanently"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete</span>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1291,28 +1375,41 @@ export default function ModerationPage() {
             </div>
 
             {/* Footer Actions */}
-            <div className="p-4 border-t border-border bg-muted/10 flex justify-end gap-2 flex-shrink-0">
+            <div className="p-4 border-t border-border bg-muted/10 flex items-center justify-between gap-2 flex-shrink-0">
               <button
-                onClick={() => handleSyncToWordPress(selectedEvent._id)}
-                disabled={actionLoadingId === selectedEvent._id}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-all shadow-md text-xs"
+                type="button"
+                onClick={() => {
+                  const evtToDel = selectedEvent;
+                  setSelectedEvent(null);
+                  setEventToDelete(evtToDel);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20 font-bold transition-all text-xs cursor-pointer"
               >
-                {actionLoadingId === selectedEvent._id ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Syncing...
-                  </>
-                ) : (
-                  <>
-                    <Globe className="h-4 w-4" /> Sync to WordPress
-                  </>
-                )}
+                <Trash2 className="h-3.5 w-3.5" /> Delete Event Permanently
               </button>
-              <button
-                onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 font-bold text-foreground transition-all text-xs"
-              >
-                Close Details
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleSyncToWordPress(selectedEvent._id)}
+                  disabled={actionLoadingId === selectedEvent._id}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold transition-all shadow-md text-xs cursor-pointer"
+                >
+                  {actionLoadingId === selectedEvent._id ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="h-4 w-4" /> Sync to WordPress
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setSelectedEvent(null)}
+                  className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 font-bold text-foreground transition-all text-xs cursor-pointer"
+                >
+                  Close Details
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1569,6 +1666,64 @@ export default function ModerationPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* DELETE EVENT CONFIRMATION MODAL */}
+      {eventToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-red-500/10 text-red-600 border border-red-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Delete Event Permanently</h3>
+                <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-1 text-xs">
+              <p className="font-bold text-foreground line-clamp-2">{eventToDelete.title}</p>
+              <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground pt-1">
+                <span>Organizer: <strong className="text-foreground">{eventToDelete.organizer?.name || 'Organizer'}</strong></span>
+                <span>•</span>
+                <span>Location: <strong className="text-foreground">{eventToDelete.city || 'India'}</strong></span>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete this event? It will be immediately deleted from the database and excluded from all platform and directory listings.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setEventToDelete(null)}
+                disabled={deleteLoading}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-foreground bg-secondary hover:bg-secondary/80 border border-border transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteEvent}
+                disabled={deleteLoading}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete Event</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

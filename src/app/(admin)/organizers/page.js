@@ -103,6 +103,88 @@ export default function OrganizersPage() {
   const [deleteEventsAlso, setDeleteEventsAlso] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
+  // Delete Single Event State
+  const [eventToDelete, setEventToDelete] = useState(null);
+  const [deleteEventSubmitting, setDeleteEventSubmitting] = useState(false);
+
+  const handleConfirmDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    setDeleteEventSubmitting(true);
+    const targetId = eventToDelete.id || eventToDelete.slug || eventToDelete.wpPostId;
+
+    try {
+      let deleted = false;
+      if (accessToken) {
+        try {
+          const res = await axios.delete(`${API_URL}/admin/events/${encodeURIComponent(targetId)}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            data: {
+              slug: eventToDelete.slug,
+              title: eventToDelete.title,
+              wpPostId: eventToDelete.wpPostId
+            }
+          });
+          if (res.data?.success) deleted = true;
+        } catch (e) {
+          console.warn('Express direct event delete error:', e.message);
+        }
+      }
+
+      if (!deleted) {
+        const proxyRes = await axios.delete(`/api/events/${encodeURIComponent(targetId)}`, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+          data: {
+            slug: eventToDelete.slug,
+            title: eventToDelete.title,
+            wpPostId: eventToDelete.wpPostId
+          }
+        });
+        if (proxyRes.data?.success) deleted = true;
+      }
+
+      // Update local state immediately
+      setData((prev) => {
+        if (!prev?.organizers) return prev;
+        const updatedOrgs = prev.organizers.map((org) => {
+          const remaining = (org.events || []).filter(
+            (e) =>
+              e.id !== eventToDelete.id &&
+              e.slug !== eventToDelete.slug &&
+              (!eventToDelete.wpPostId || e.wpPostId !== eventToDelete.wpPostId)
+          );
+          return {
+            ...org,
+            count: remaining.length,
+            events: remaining
+          };
+        });
+        const total = updatedOrgs.reduce((sum, o) => sum + o.count, 0);
+        return {
+          ...prev,
+          totalOrganizedEvents: total,
+          organizers: updatedOrgs
+        };
+      });
+
+      setFeedback({
+        type: 'success',
+        message: `Event "${eventToDelete.title}" permanently deleted.`
+      });
+      setEventToDelete(null);
+      if (selectedEvent && (selectedEvent.id === eventToDelete.id || selectedEvent.slug === eventToDelete.slug)) {
+        setSelectedEvent(null);
+      }
+    } catch (err) {
+      console.error('Delete event error:', err);
+      setFeedback({
+        type: 'error',
+        message: err.response?.data?.error || err.message || 'Failed to delete event.'
+      });
+    } finally {
+      setDeleteEventSubmitting(false);
+    }
+  };
+
   // Auto-dismiss toast feedback after 5 seconds
   useEffect(() => {
     if (feedback) {
@@ -848,6 +930,14 @@ export default function OrganizersPage() {
                                 <ExternalLink className="h-3 w-3" />
                               </a>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => setEventToDelete(evt)}
+                              className="p-1 rounded-md text-red-500 hover:text-red-600 hover:bg-red-500/10 transition-colors cursor-pointer"
+                              title="Delete Event Permanently"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
                           </div>
                         </div>
                       );
@@ -1304,6 +1394,19 @@ export default function OrganizersPage() {
             </div>
 
             <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const toDel = selectedEvent;
+                  setSelectedEvent(null);
+                  setEventToDelete(toDel);
+                }}
+                className="py-2 px-3 rounded-xl bg-red-500/10 text-red-600 border border-red-500/20 text-xs font-bold hover:bg-red-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Delete Event Permanently"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Delete Event</span>
+              </button>
               {selectedEvent.wpUrl && (
                 <a
                   href={selectedEvent.wpUrl}
@@ -1318,7 +1421,7 @@ export default function OrganizersPage() {
               <button
                 type="button"
                 onClick={() => setSelectedEvent(null)}
-                className="px-4 py-2 rounded-xl bg-secondary text-foreground text-xs font-bold hover:bg-secondary/80 transition-colors border border-border"
+                className="px-4 py-2 rounded-xl bg-secondary text-foreground text-xs font-bold hover:bg-secondary/80 transition-colors border border-border cursor-pointer"
               >
                 Done
               </button>
@@ -1402,6 +1505,71 @@ export default function OrganizersPage() {
                   <>
                     <Trash2 className="h-4 w-4" />
                     <span>Delete Organizer</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* DELETE SINGLE EVENT CONFIRMATION MODAL */}
+      {eventToDelete && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-2xl bg-card border border-border shadow-2xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 shrink-0">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">
+                  Permanently Delete Event?
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Are you sure you want to permanently delete{' '}
+                  <span className="font-bold text-foreground">{eventToDelete.title}</span>?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-red-500/5 border border-red-500/20 text-xs text-red-700 dark:text-red-300 space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Organizer:</span>
+                <span>{eventToDelete.organizer || 'Exhibition Organizer'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="font-bold">Dates:</span>
+                <span>{eventToDelete.dates || 'Upcoming'}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              This will remove the event from this organizer&apos;s portfolio, purge the listing from the live directory, and blacklist it across all category breakdowns.
+            </p>
+
+            <div className="flex items-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setEventToDelete(null)}
+                disabled={deleteEventSubmitting}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-border bg-secondary text-xs font-bold text-foreground hover:bg-secondary/80 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteEvent}
+                disabled={deleteEventSubmitting}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {deleteEventSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete Event</span>
                   </>
                 )}
               </button>
