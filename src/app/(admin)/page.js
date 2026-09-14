@@ -38,7 +38,8 @@ import {
   MessageCircle,
   Layers,
   Award,
-  ChevronRight
+  ChevronRight,
+  UserCheck
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -141,6 +142,16 @@ export default function AdminOverview() {
       color: 'text-amber-500',
       bg: 'bg-amber-500/10',
       href: '/sponsors'
+    },
+    {
+      title: 'Attendees & Followers',
+      value: '2.1M+',
+      desc: 'Live B2B buyers & subscribers',
+      icon: UserCheck,
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-500/10',
+      badge: 'Live',
+      href: '/attendees'
     },
     {
       title: 'Client Inquiries',
@@ -607,6 +618,34 @@ export default function AdminOverview() {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Event Attendees & Followers Directory Banner */}
+      <div className="rounded-2xl border border-border bg-gradient-to-r from-card via-card to-primary/5 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-2xl bg-primary/10 text-primary shrink-0">
+            <Users className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-base text-foreground">Event Attendees &amp; Followers Directory</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Live Directory
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-2xl">
+              Inspect confirmed trade buyers, visitor pass holders, and subscribers following any exhibition. Filter by specific trade show, export attendee lists to CSV, or broadcast announcement alerts.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/attendees"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all shadow-xs shrink-0 self-start md:self-auto cursor-pointer"
+        >
+          <span>Open Attendees Console</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
       {/* Client-Side Form Submissions Section */}

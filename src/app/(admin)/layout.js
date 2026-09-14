@@ -84,6 +84,7 @@ export default function AdminLayout({ children }) {
     { name: 'Event Moderation', href: '/moderation', icon: CheckCircle2, badge: 'Queue' },
     { name: 'Event Categories', href: '/categories', icon: Layers },
     { name: 'Organizers & Events', href: '/organizers', icon: CalendarDays },
+    { name: 'Attendees & Followers', href: '/attendees', icon: Users, badge: 'Live' },
     { name: 'Our Sponsors', href: '/sponsors', icon: Award },
     { name: 'User Management', href: '/users', icon: Users },
     { name: 'Organizations', href: '/organizations', icon: Building2 },
@@ -104,6 +105,7 @@ export default function AdminLayout({ children }) {
     if (path === '/moderation') return 'Event Moderation & Approvals';
     if (path === '/categories') return 'Event Categories & Events Directory';
     if (path === '/organizers') return 'Organizers & Events Directory';
+    if (path === '/attendees') return 'Event Attendees & Followers Directory';
     if (path === '/sponsors') return 'Our Sponsors & Exhibitor Partners';
     if (path === '/contacts') return 'Landing Page Contact Inquiries';
     const clean = path.replace('/', '').replace(/-/g, ' ');
