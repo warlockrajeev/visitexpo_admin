@@ -56,29 +56,12 @@ import { useAuth } from '../../context/AuthContext.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// Mock datasets for global platform analytics
-const platformRevenueData = [
-  { month: 'Jan', revenue: 12000 },
-  { month: 'Feb', revenue: 19000 },
-  { month: 'Mar', revenue: 32000 },
-  { month: 'Apr', revenue: 28000 },
-  { month: 'May', revenue: 45000 },
-  { month: 'Jun', revenue: 58000 }
-];
-
-const subPlanDistribution = [
-  { name: 'Free Tier', value: 45, color: '#94a3b8' },
-  { name: 'Growth Plan', value: 90, color: 'var(--color-primary)' },
-  { name: 'Enterprise', value: 35, color: '#10b981' }
-];
-
-const recentTenants = [
-  { id: 1, name: 'Eco Fair 2026', owner: 'Amit Rawat', org: 'EcoWorld Ltd', plan: 'growth', status: 'active', signed: '2 hours ago' },
-  { id: 2, name: 'Auto Show Asia', owner: 'Sarah Chen', org: 'Motors Asia Co', plan: 'enterprise', status: 'active', signed: '1 day ago' },
-  { id: 3, name: 'Medical Expo 2026', owner: 'Dr. John', org: 'MedConnect Group', plan: 'growth', status: 'active', signed: '3 days ago' },
-  { id: 4, name: 'Real Estate Summit', owner: 'Rohit Malhotra', org: 'Malhotra Realtors', plan: 'free', status: 'suspended', signed: '1 week ago' },
-  { id: 5, name: 'EduCon India', owner: 'Neha Gupta', org: 'Gupta Foundations', plan: 'free', status: 'active', signed: '2 weeks ago' }
-];
+// Default plan color scheme
+const PLAN_COLORS = {
+  free: '#94a3b8',
+  growth: 'var(--color-primary)',
+  enterprise: '#10b981'
+};
 
 export default function AdminOverview() {
   const { user, accessToken } = useAuth();
@@ -128,7 +111,7 @@ export default function AdminOverview() {
     {
       title: 'Event Categories',
       value: loading ? '...' : String(metrics?.kpis?.totalCategories || 11),
-      desc: 'Across 1,918+ verified expos',
+      desc: loading ? 'Loading categories...' : `Across ${metrics?.kpis?.totalEvents ? Number(metrics.kpis.totalEvents).toLocaleString() : '2,660'} verified expos`,
       icon: Layers,
       color: 'text-indigo-500',
       bg: 'bg-indigo-500/10',
@@ -145,7 +128,7 @@ export default function AdminOverview() {
     },
     {
       title: 'Attendees & Followers',
-      value: '2.1M+',
+      value: loading ? '...' : String(metrics?.kpis?.totalAttendees || 26),
       desc: 'Live B2B buyers & subscribers',
       icon: UserCheck,
       color: 'text-emerald-500',
@@ -301,13 +284,11 @@ export default function AdminOverview() {
     }
   };
 
-  const subDistribution = metrics?.packagesBreakdown
-    ? [
-        { name: 'Free Tier', value: metrics.packagesBreakdown.free || 0, color: '#94a3b8' },
-        { name: 'Growth Plan', value: metrics.packagesBreakdown.growth || 0, color: 'var(--color-primary)' },
-        { name: 'Enterprise', value: metrics.packagesBreakdown.enterprise || 0, color: '#10b981' }
-      ]
-    : subPlanDistribution;
+  const subDistribution = [
+    { name: 'Free Tier', value: metrics?.packagesBreakdown?.free || 0, color: '#94a3b8' },
+    { name: 'Growth Plan', value: metrics?.packagesBreakdown?.growth || 0, color: 'var(--color-primary)' },
+    { name: 'Enterprise', value: metrics?.packagesBreakdown?.enterprise || 0, color: '#10b981' }
+  ];
 
   const totalPaidBase = loading
     ? 0
@@ -421,21 +402,22 @@ export default function AdminOverview() {
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm md:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-foreground">SaaS Platform Subscription MRR Growth</h3>
-              <p className="text-xs text-muted-foreground">Historical recurring billing aggregates</p>
+              <h3 className="font-bold text-foreground">SaaS Platform Revenue &amp; Orders</h3>
+              <p className="text-xs text-muted-foreground">Real monthly transaction billing aggregates</p>
             </div>
             <span className="inline-flex items-center gap-1 text-xs text-emerald-500 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full">
-              <TrendingUp className="h-3.5 w-3.5" /> +25% MRR YoY
+              <TrendingUp className="h-3.5 w-3.5" /> ₹{loading ? '...' : (metrics?.kpis?.totalRevenue || 0).toLocaleString()} Verified Volume
             </span>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={platformRevenueData}>
+              <BarChart data={metrics?.monthlyRevenue && metrics.monthlyRevenue.length > 0 ? metrics.monthlyRevenue : [{ month: 'Current', revenue: metrics?.kpis?.totalRevenue || 0 }]}>
                 <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
                   labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  formatter={(val) => [`₹${Number(val).toLocaleString()}`, 'Revenue']}
                 />
                 <Bar dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -584,26 +566,41 @@ export default function AdminOverview() {
             </p>
 
             <div className="space-y-2.5 pt-3">
-              {[
-                { name: 'Tata Motors EV', tier: 'Title / Platinum', expo: 'Bharat Mobility Global Expo', color: 'text-amber-500 bg-amber-500/10' },
-                { name: 'Siemens Healthineers', tier: 'Platinum', expo: 'India MedTech Expo', color: 'text-cyan-500 bg-cyan-500/10' },
-                { name: 'Google Cloud India', tier: 'Title Technology', expo: 'AI & Tech Convention', color: 'text-blue-500 bg-blue-500/10' },
-                { name: 'Larsen & Toubro', tier: 'Gold Partner', expo: 'BAUMA CONEXPO INDIA', color: 'text-yellow-600 bg-yellow-500/10' },
-                { name: 'Emirates Holidays', tier: 'Official Airline', expo: 'SATTE South Asia Travel', color: 'text-rose-500 bg-rose-500/10' }
-              ].map((sp, idx) => (
-                <div
-                  key={idx}
-                  className="p-2.5 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/50 transition-colors flex items-center justify-between text-xs"
-                >
-                  <div className="min-w-0 pr-2">
-                    <p className="font-bold text-foreground truncate">{sp.name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{sp.expo}</p>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${sp.color}`}>
-                    {sp.tier}
-                  </span>
+              {loading ? (
+                <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground text-xs">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span>Loading sponsors...</span>
                 </div>
-              ))}
+              ) : (!metrics?.recentSponsors || metrics.recentSponsors.length === 0) ? (
+                <div className="p-4 rounded-xl border border-border bg-secondary/10 text-center text-xs text-muted-foreground">
+                  No sponsors linked yet. Add sponsors to display them here.
+                </div>
+              ) : (
+                metrics.recentSponsors.map((sp, idx) => (
+                  <div
+                    key={sp._id || idx}
+                    className="p-2.5 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/50 transition-colors flex items-center justify-between text-xs"
+                  >
+                    <div className="min-w-0 pr-2 flex items-center gap-2">
+                      {sp.logo ? (
+                        <img
+                          src={sp.logo}
+                          alt={sp.name}
+                          className="h-6 w-6 rounded-md object-contain border border-border shrink-0 bg-white"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      ) : null}
+                      <div className="min-w-0">
+                        <p className="font-bold text-foreground truncate">{sp.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{sp.expo}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 capitalize ${sp.color}`}>
+                      {sp.tier} Sponsor
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -779,57 +776,81 @@ export default function AdminOverview() {
 
       {/* Tenants lists */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-border">
-          <h3 className="font-bold text-foreground">Recent Organization Tenants</h3>
-          <p className="text-xs text-muted-foreground">New event organizations added onto the platform</p>
+        <div className="p-6 border-b border-border flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-foreground">Recent Organization Tenants</h3>
+            <p className="text-xs text-muted-foreground">Live event organizations and registered organizer workspaces</p>
+          </div>
+          <Link
+            href="/organizations"
+            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+          >
+            <span>View All Organizations</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
-                <th className="px-6 py-4">Tenant Name</th>
-                <th className="px-6 py-4">Owner Contact</th>
-                <th className="px-6 py-4">Selected Plan</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Created At</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {recentTenants.map((tenant) => (
-                <tr key={tenant.id} className="hover:bg-secondary/40 transition-colors">
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-foreground">{tenant.name}</p>
-                    <span className="text-[11px] text-muted-foreground">{tenant.org}</span>
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground font-semibold">{tenant.owner}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase ${
-                      tenant.plan === 'enterprise' 
-                        ? 'bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20'
-                        : tenant.plan === 'growth'
-                        ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
-                        : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
-                    }`}>
-                      {tenant.plan}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    {tenant.status === 'active' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-500">
-                        <CheckCircle className="h-3 w-3" /> Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-500">
-                        <AlertTriangle className="h-3 w-3" /> Suspended
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">{tenant.signed}</td>
+        {loading ? (
+          <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-xs">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span>Loading organization tenants...</span>
+          </div>
+        ) : (!metrics?.recentTenants || metrics.recentTenants.length === 0) ? (
+          <div className="text-center py-12 text-muted-foreground text-xs space-y-2">
+            <Building2 className="h-8 w-8 mx-auto text-muted-foreground/40" />
+            <p className="font-semibold text-foreground">No organization tenants found</p>
+            <p className="text-[11px] max-w-sm mx-auto">
+              New organizations and organizer accounts created on the platform will appear here live.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                  <th className="px-6 py-4">Tenant Name</th>
+                  <th className="px-6 py-4">Owner Contact</th>
+                  <th className="px-6 py-4">Selected Plan</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Created At</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {metrics.recentTenants.map((tenant) => (
+                  <tr key={tenant.id} className="hover:bg-secondary/40 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-foreground">{tenant.name}</p>
+                      <span className="text-[11px] text-muted-foreground">{tenant.org}</span>
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground font-semibold">{tenant.owner}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase ${
+                        tenant.plan === 'enterprise' 
+                          ? 'bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20'
+                          : tenant.plan === 'growth'
+                          ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+                          : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
+                      }`}>
+                        {tenant.plan}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {tenant.status === 'active' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-500">
+                          <CheckCircle className="h-3 w-3" /> Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-500">
+                          <AlertTriangle className="h-3 w-3" /> Suspended
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground">{tenant.signed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
