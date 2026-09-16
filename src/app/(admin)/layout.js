@@ -31,7 +31,9 @@ import {
   ShieldCheck,
   Layers,
   Award,
-  CalendarDays
+  CalendarDays,
+  MessageSquare,
+  HelpCircle
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -97,6 +99,8 @@ export default function AdminLayout({ children }) {
       icon: Mail,
       badge: unreadInquiries > 0 ? `${unreadInquiries} New` : null
     },
+    { name: 'Reviews Moderation', href: '/reviews', icon: MessageSquare, badge: 'Live' },
+    { name: 'FAQ Management', href: '/faqs', icon: HelpCircle, badge: 'CMS' },
     { name: 'CMS & Settings', href: '/settings', icon: Settings },
   ];
 
@@ -108,6 +112,8 @@ export default function AdminLayout({ children }) {
     if (path === '/attendees') return 'Event Attendees & Followers Directory';
     if (path === '/sponsors') return 'Our Sponsors & Exhibitor Partners';
     if (path === '/contacts') return 'Landing Page Contact Inquiries';
+    if (path === '/reviews') return 'Reviews Moderation & Landing Showcase';
+    if (path === '/faqs') return 'FAQ Management & Landing Showcase';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   };
