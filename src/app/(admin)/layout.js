@@ -15,6 +15,7 @@ import axios from 'axios';
 import {
   ShieldAlert,
   Users,
+  Building,
   Building2,
   CreditCard,
   FileText,
@@ -41,6 +42,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadInquiries, setUnreadInquiries] = useState(0);
+  const [pendingCounts, setPendingCounts] = useState({
+    pendingOrganizers: 0,
+    pendingExhibitors: 0,
+    pendingClaims: 0,
+    pendingEvents: 0,
+    totalPending: 0
+  });
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -54,19 +62,28 @@ export default function AdminLayout({ children }) {
 
   useEffect(() => {
     if (!accessToken) return;
-    const fetchUnread = async () => {
+    const fetchCounters = async () => {
       try {
-        const res = await axios.get(`${API_URL}/contact?status=new&limit=1`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        if (res.data?.stats?.new !== undefined) {
-          setUnreadInquiries(res.data.stats.new);
+        const [contactRes, summaryRes] = await Promise.all([
+          axios.get(`${API_URL}/contact?status=new&limit=1`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          }).catch(() => null),
+          axios.get(`${API_URL}/admin/pending-summary`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          }).catch(() => null)
+        ]);
+
+        if (contactRes?.data?.stats?.new !== undefined) {
+          setUnreadInquiries(contactRes.data.stats.new);
+        }
+        if (summaryRes?.data?.success && summaryRes.data?.data) {
+          setPendingCounts(summaryRes.data.data);
         }
       } catch (e) {
         // silent
       }
     };
-    fetchUnread();
+    fetchCounters();
   }, [accessToken, pathname]);
 
   if (loading) {
@@ -83,10 +100,33 @@ export default function AdminLayout({ children }) {
 
   const navigation = [
     { name: 'Overview', href: '/', icon: ShieldAlert },
-    { name: 'Event Moderation', href: '/moderation', icon: CheckCircle2, badge: 'Queue' },
+    {
+      name: 'Approval System',
+      href: '/moderation',
+      icon: CheckCircle2,
+      badge: pendingCounts.totalPending > 0 ? `${pendingCounts.totalPending} Pending` : null,
+      badgeColor: 'bg-amber-500 text-white animate-pulse'
+    },
+    {
+      name: 'Organizers',
+      href: '/organizers',
+      icon: CalendarDays,
+      badge: pendingCounts.pendingOrganizers > 0 ? `${pendingCounts.pendingOrganizers} New` : null
+    },
+    {
+      name: 'Exhibitors',
+      href: '/exhibitors',
+      icon: Building,
+      badge: pendingCounts.pendingExhibitors > 0 ? `${pendingCounts.pendingExhibitors} New` : null
+    },
+    {
+      name: 'Visitors',
+      href: '/visitors',
+      icon: Users,
+      badge: 'Live'
+    },
     { name: 'Event Categories', href: '/categories', icon: Layers },
-    { name: 'Organizers & Events', href: '/organizers', icon: CalendarDays },
-    { name: 'Attendees & Followers', href: '/attendees', icon: Users, badge: 'Live' },
+    { name: 'Attendees & Followers', href: '/attendees', icon: Users },
     { name: 'Our Sponsors', href: '/sponsors', icon: Award },
     { name: 'User Management', href: '/users', icon: Users },
     { name: 'Organizations', href: '/organizations', icon: Building2 },
@@ -106,9 +146,11 @@ export default function AdminLayout({ children }) {
 
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
-    if (path === '/moderation') return 'Event Moderation & Approvals';
-    if (path === '/categories') return 'Event Categories & Events Directory';
+    if (path === '/moderation') return 'Approval & Moderation Command Center';
     if (path === '/organizers') return 'Organizers & Events Directory';
+    if (path === '/exhibitors') return 'Exhibitor Management & Approvals';
+    if (path === '/visitors') return 'Visitor Directory & Pass Management';
+    if (path === '/categories') return 'Event Categories & Events Directory';
     if (path === '/attendees') return 'Event Attendees & Followers Directory';
     if (path === '/sponsors') return 'Our Sponsors & Exhibitor Partners';
     if (path === '/contacts') return 'Landing Page Contact Inquiries';
@@ -174,7 +216,11 @@ export default function AdminLayout({ children }) {
                 </div>
                 {item.badge && (
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-primary'
+                    item.badgeColor
+                      ? item.badgeColor
+                      : isActive
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-primary/10 text-primary'
                   }`}>
                     {item.badge}
                   </span>

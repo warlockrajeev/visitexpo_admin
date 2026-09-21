@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
 import {
@@ -463,6 +464,59 @@ export default function ModerationPage() {
         </div>
       </div>
 
+      {/* Moderation Summary Metrics Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-card border border-border p-4 rounded-xl shadow-sm">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Pending Actions</span>
+          <p className="text-2xl font-black text-amber-500 mt-1">
+            {pendingOrganizers.length + pendingExhibitors.length + pendingClaims.length + pendingEvents.length}
+          </p>
+          <span className="text-[10px] text-muted-foreground">Awaiting approval</span>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('organizers')}
+          className={`bg-card border p-4 rounded-xl shadow-sm cursor-pointer transition-all ${
+            activeTab === 'organizers' ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/40'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Organizers</span>
+            <UserCheck className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <p className="text-2xl font-black text-foreground mt-1">{pendingOrganizers.length}</p>
+          <span className="text-[10px] text-primary font-semibold">Review accounts &rarr;</span>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('exhibitors')}
+          className={`bg-card border p-4 rounded-xl shadow-sm cursor-pointer transition-all ${
+            activeTab === 'exhibitors' ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/40'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Exhibitors</span>
+            <Building className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <p className="text-2xl font-black text-foreground mt-1">{pendingExhibitors.length}</p>
+          <span className="text-[10px] text-primary font-semibold">Review booths &rarr;</span>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('claims')}
+          className={`bg-card border p-4 rounded-xl shadow-sm cursor-pointer transition-all ${
+            activeTab === 'claims' || activeTab === 'events' ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/40'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Events & Claims</span>
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <p className="text-2xl font-black text-foreground mt-1">{pendingClaims.length + pendingEvents.length}</p>
+          <span className="text-[10px] text-primary font-semibold">Review listings &rarr;</span>
+        </div>
+      </div>
+
       {/* Alert Feedback Banner */}
       {message.text && (
         <div
@@ -568,12 +622,12 @@ export default function ModerationPage() {
                             >
                               <Mail className="h-3.5 w-3.5" /> Send Email
                             </button>
-                            <button
-                              onClick={() => setSelectedOrganizer(user)}
+                            <Link
+                              href={`/moderation/organizers/${user._id}`}
                               className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                             >
-                              <Eye className="h-3.5 w-3.5" /> View Details
-                            </button>
+                              <Eye className="h-3.5 w-3.5" /> Inspect Details
+                            </Link>
                             <button
                               onClick={() => handleOrganizerAction(user._id, 'reject')}
                               disabled={actionLoadingId === user._id}
@@ -744,6 +798,12 @@ export default function ModerationPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/moderation/exhibitors/${ex._id}`}
+                              className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Inspect Details
+                            </Link>
                             <button
                               onClick={() => handleExhibitorAction(ex._id, 'rejected')}
                               disabled={actionLoadingId === ex._id}
@@ -906,6 +966,12 @@ export default function ModerationPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/moderation/claims/${claim._id}`}
+                              className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Inspect Details
+                            </Link>
                             <button
                               onClick={() => handleClaimStatusChange(claim._id, 'reject')}
                               disabled={actionLoadingId === claim._id}
@@ -1056,6 +1122,12 @@ export default function ModerationPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/moderation/events/${evt._id}`}
+                              className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> Inspect Details
+                            </Link>
                             <button
                               type="button"
                               onClick={() => setEventToDelete(evt)}
