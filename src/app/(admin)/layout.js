@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   Layers,
   Award,
+  Calendar,
   CalendarDays,
   MessageSquare,
   HelpCircle
@@ -108,6 +109,12 @@ export default function AdminLayout({ children }) {
       badgeColor: 'bg-amber-500 text-white animate-pulse'
     },
     {
+      name: 'Events Management',
+      href: '/events',
+      icon: Calendar,
+      badge: pendingCounts.pendingEvents > 0 ? `${pendingCounts.pendingEvents} Draft` : null
+    },
+    {
       name: 'Organizers',
       href: '/organizers',
       icon: CalendarDays,
@@ -147,6 +154,7 @@ export default function AdminLayout({ children }) {
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
     if (path === '/moderation') return 'Approval & Moderation Command Center';
+    if (path === '/events') return 'Events Management & WordPress Sync';
     if (path === '/organizers') return 'Organizers & Events Directory';
     if (path === '/exhibitors') return 'Exhibitor Management & Approvals';
     if (path === '/visitors') return 'Visitor Directory & Pass Management';
