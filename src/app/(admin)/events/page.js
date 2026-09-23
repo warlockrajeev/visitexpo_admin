@@ -83,7 +83,8 @@ export default function AdminEventsPage() {
   // Edit Drawer state
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
-  const [editTab, setEditTab] = useState('basic'); // 'basic' | 'dates' | 'organizer' | 'media' | 'tickets'
+  const [editTab, setEditTab] = useState('basic'); // 'basic' | 'dates' | 'organizer' | 'media' | 'sponsors' | 'tickets'
+  const [newSponsor, setNewSponsor] = useState({ name: '', link: '', logo: '', tier: 'Our Sponsors' });
   const [saving, setSaving] = useState(false);
   const [syncingWpId, setSyncingWpId] = useState(null);
 
@@ -200,10 +201,33 @@ export default function AdminEventsPage() {
       paidTicketPrice: event.paidTicketPrice || 0,
       status: event.status || 'published',
       wpPostId: event.wpPostId || '',
-      wpUrl: event.wpUrl || ''
+      wpUrl: event.wpUrl || '',
+      sponsorsList: Array.isArray(event.sponsorsList) ? event.sponsorsList : []
     });
+    setNewSponsor({ name: '', link: '', logo: '', tier: 'Our Sponsors' });
     setEditTab('basic');
     setIsEditOpen(true);
+  };
+
+  // Add Sponsor Handler in Admin Edit Drawer
+  const handleAddSponsor = () => {
+    if (!newSponsor.name || !newSponsor.name.trim()) {
+      alert('Sponsor Name is required');
+      return;
+    }
+    setEditingEvent(prev => ({
+      ...prev,
+      sponsorsList: [...(prev.sponsorsList || []), { ...newSponsor, tier: newSponsor.tier?.trim() || 'Our Sponsors' }]
+    }));
+    setNewSponsor({ name: '', link: '', logo: '', tier: 'Our Sponsors' });
+  };
+
+  // Remove Sponsor Handler in Admin Edit Drawer
+  const handleRemoveSponsor = (index) => {
+    setEditingEvent(prev => ({
+      ...prev,
+      sponsorsList: (prev.sponsorsList || []).filter((_, idx) => idx !== index)
+    }));
   };
 
   // Handle Edit Input Changes
@@ -222,6 +246,12 @@ export default function AdminEventsPage() {
 
     setSaving(true);
     try {
+      // Auto-commit pending sponsor if filled
+      let finalSponsorsList = Array.isArray(editingEvent.sponsorsList) ? [...editingEvent.sponsorsList] : [];
+      if (newSponsor.name && newSponsor.name.trim()) {
+        finalSponsorsList.push({ ...newSponsor, tier: newSponsor.tier?.trim() || 'Our Sponsors' });
+      }
+
       const payload = {
         title: editingEvent.title,
         slug: editingEvent.slug,
@@ -241,6 +271,7 @@ export default function AdminEventsPage() {
         orgDesc: editingEvent.orgDesc,
         orgLogo: editingEvent.orgLogo,
         banner: editingEvent.banner,
+        sponsorsList: finalSponsorsList,
         isFreeEvent: editingEvent.isFreeEvent,
         paidTicketPrice: Number(editingEvent.paidTicketPrice) || 0,
         status: editingEvent.status
@@ -840,7 +871,8 @@ export default function AdminEventsPage() {
                 { id: 'dates', label: '2. Dates & Venue' },
                 { id: 'organizer', label: '3. Organizer Profile' },
                 { id: 'media', label: '4. Media & Branding' },
-                { id: 'tickets', label: '5. Tickets & Status' }
+                { id: 'sponsors', label: '5. Sponsors & Partners' },
+                { id: 'tickets', label: '6. Tickets & Status' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -1159,7 +1191,124 @@ export default function AdminEventsPage() {
                 </div>
               )}
 
-              {/* TAB 5: TICKETS & STATUS */}
+              {/* TAB 5: SPONSORS & PARTNERS */}
+              {editTab === 'sponsors' && (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                      Event Sponsors &amp; Exhibitor Partners
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Manage sponsors that appear on the VisitExpo event page and WordPress directory sponsor widget.
+                    </p>
+                  </div>
+
+                  {/* Add Sponsor Box */}
+                  <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                    <h5 className="text-xs font-bold text-foreground">Add New Sponsor / Partner</h5>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                          Sponsor Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={newSponsor.name}
+                          onChange={e => setNewSponsor(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="e.g. Google Cloud or Academic Forum"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                          Tier / Category
+                        </label>
+                        <input
+                          type="text"
+                          value={newSponsor.tier}
+                          onChange={e => setNewSponsor(prev => ({ ...prev, tier: e.target.value }))}
+                          placeholder="e.g. Our Sponsors, Platinum, Associate"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                          Website Link
+                        </label>
+                        <input
+                          type="url"
+                          value={newSponsor.link}
+                          onChange={e => setNewSponsor(prev => ({ ...prev, link: e.target.value }))}
+                          placeholder="https://..."
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                          Logo Image URL
+                        </label>
+                        <input
+                          type="url"
+                          value={newSponsor.logo}
+                          onChange={e => setNewSponsor(prev => ({ ...prev, logo: e.target.value }))}
+                          placeholder="https://.../logo.png"
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddSponsor}
+                        className="px-4 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs cursor-pointer shadow-xs"
+                      >
+                        + Add Sponsor to Event
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Existing Sponsors List */}
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase">
+                      Current Sponsors ({editingEvent.sponsorsList?.length || 0})
+                    </label>
+                    {(!editingEvent.sponsorsList || editingEvent.sponsorsList.length === 0) ? (
+                      <div className="p-4 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground">
+                        No sponsors added to this event yet.
+                      </div>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {editingEvent.sponsorsList.map((sp, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {sp.logo ? (
+                                <img src={sp.logo} alt={sp.name} className="h-8 w-8 object-contain rounded bg-white p-1 border border-border shrink-0" />
+                              ) : (
+                                <div className="h-8 w-8 rounded bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">
+                                  {sp.name ? sp.name.charAt(0).toUpperCase() : 'S'}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-foreground truncate">{sp.name}</p>
+                                <p className="text-[10px] text-primary font-semibold truncate">{sp.tier || 'Our Sponsors'}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSponsor(idx)}
+                              className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded hover:bg-red-500/10 cursor-pointer shrink-0"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 6: TICKETS & STATUS */}
               {editTab === 'tickets' && (
                 <div className="space-y-4">
                   {/* Status Selection */}
