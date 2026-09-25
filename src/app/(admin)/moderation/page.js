@@ -34,7 +34,8 @@ import {
   Send,
   ChevronLeft,
   ChevronRight,
-  Trash2
+  Trash2,
+  CheckCheck
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -57,6 +58,11 @@ export default function ModerationPage() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedOrganizer, setSelectedOrganizer] = useState(null);
+
+  // Bulk Event Selection & Moderation States
+  const [selectedEventIds, setSelectedEventIds] = useState([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkSelectAction, setBulkSelectAction] = useState('approve');
 
   // Pagination States for History
   const [organizerHistoryPage, setOrganizerHistoryPage] = useState(1);
@@ -251,6 +257,91 @@ export default function ModerationPage() {
       setMessage({ type: 'error', text: err.response?.data?.error || 'Action failed' });
     } finally {
       setActionLoadingId('');
+    }
+  };
+
+  const handleToggleSelectAllEvents = () => {
+    if (selectedEventIds.length === filteredEvents.length && filteredEvents.length > 0) {
+      setSelectedEventIds([]);
+    } else {
+      setSelectedEventIds(filteredEvents.map(e => e._id));
+    }
+  };
+
+  const handleToggleSelectEvent = (id) => {
+    setSelectedEventIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkEventAction = async (actionToRun, idsOverride = null) => {
+    const action = actionToRun || bulkSelectAction || 'approve';
+    const ids = idsOverride || selectedEventIds;
+    if (!ids || ids.length === 0) {
+      setMessage({ type: 'error', text: 'Please select at least one event first.' });
+      return;
+    }
+
+    setBulkActionLoading(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await axios.post(
+        `${API_URL}/admin/events/bulk-status`,
+        { eventIds: ids, action },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data && res.data.success) {
+        setMessage({
+          type: 'success',
+          text: res.data.message || `Successfully ${action}d ${ids.length} event(s)!`
+        });
+        setSelectedEventIds([]);
+        await fetchModerationData();
+      }
+    } catch (err) {
+      console.warn('Bulk endpoint failed, running fallback individual updates:', err);
+      try {
+        let successCount = 0;
+        for (const evtId of ids) {
+          await axios.put(
+            `${API_URL}/admin/events/${evtId}/status`,
+            { action },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          successCount++;
+        }
+        setMessage({
+          type: 'success',
+          text: `Bulk ${action} successfully processed ${successCount} event(s)!`
+        });
+        setSelectedEventIds([]);
+        await fetchModerationData();
+      } catch (fallbackErr) {
+        setMessage({
+          type: 'error',
+          text: err.response?.data?.error || fallbackErr.response?.data?.error || 'Bulk moderation failed.'
+        });
+      }
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkSelectDropdown = (val) => {
+    if (val === 'select_all') {
+      setSelectedEventIds(filteredEvents.map(e => e._id));
+    } else if (val === 'deselect_all') {
+      setSelectedEventIds([]);
+    } else if (val === 'approve_all') {
+      const allIds = filteredEvents.map(e => e._id);
+      setSelectedEventIds(allIds);
+      if (allIds.length > 0) {
+        handleBulkEventAction('approve', allIds);
+      }
+    } else if (val === 'approve_selected') {
+      handleBulkEventAction('approve');
+    } else if (val === 'reject_selected') {
+      handleBulkEventAction('reject');
     }
   };
 
@@ -1073,10 +1164,137 @@ export default function ModerationPage() {
       {activeTab === 'events' && (
         <div className="space-y-6">
           <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-border flex justify-between items-center">
-              <h3 className="font-bold text-foreground">Pending Event Onboarding Submissions</h3>
-              <span className="text-xs text-muted-foreground">Approve events to publish them to the frontend</span>
+            <div className="p-5 border-b border-border flex flex-wrap justify-between items-center gap-4 bg-muted/10">
+              <div>
+                <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <Calendar className="h-4.5 w-4.5 text-primary" />
+                  <span>Pending Event Onboarding Submissions</span>
+                  <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                    {filteredEvents.length}
+                  </span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Approve events to publish them to the live public platform and sync with directory
+                </p>
+              </div>
+
+              {filteredEvents.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Select Dropdown Option to Bulk Approve / Actions */}
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      handleBulkSelectDropdown(e.target.value);
+                      e.target.value = '';
+                    }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-border bg-card text-foreground cursor-pointer hover:bg-secondary/60 focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+                  >
+                    <option value="" disabled>Bulk Selection Actions ▾</option>
+                    <option value="select_all">Select All ({filteredEvents.length})</option>
+                    {selectedEventIds.length > 0 && (
+                      <>
+                        <option value="approve_selected">✓ Bulk Approve Selected ({selectedEventIds.length})</option>
+                        <option value="reject_selected">✕ Bulk Reject Selected ({selectedEventIds.length})</option>
+                        <option value="deselect_all">Clear Selection</option>
+                      </>
+                    )}
+                    <option value="approve_all">⚡ Approve All Pending ({filteredEvents.length})</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleToggleSelectAllEvents}
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground transition-all cursor-pointer shadow-2xs"
+                  >
+                    {filteredEvents.length > 0 && selectedEventIds.length === filteredEvents.length
+                      ? 'Deselect All'
+                      : `Select All (${filteredEvents.length})`}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleBulkEventAction('approve')}
+                    disabled={selectedEventIds.length === 0 || bulkActionLoading}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={selectedEventIds.length === 0 ? 'Select events below or choose an option from the dropdown' : `Approve ${selectedEventIds.length} selected events`}
+                  >
+                    {bulkActionLoading ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Processing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCheck className="h-3.5 w-3.5" />
+                        <span>Bulk Approve {selectedEventIds.length > 0 ? `(${selectedEventIds.length})` : ''}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Active Selection Floating / Action Bar */}
+            {selectedEventIds.length > 0 && (
+              <div className="bg-emerald-500/10 border-b border-emerald-500/20 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2.5">
+                  <span className="inline-flex items-center justify-center h-6 px-2.5 rounded-full bg-emerald-600 text-white font-extrabold text-xs shadow-2xs">
+                    {selectedEventIds.length}
+                  </span>
+                  <span className="text-xs font-bold text-foreground">
+                    {selectedEventIds.length} of {filteredEvents.length} events selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedEventIds.length === filteredEvents.length) {
+                        setSelectedEventIds([]);
+                      } else {
+                        setSelectedEventIds(filteredEvents.map(e => e._id));
+                      }
+                    }}
+                    className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer ml-1"
+                  >
+                    {selectedEventIds.length === filteredEvents.length ? 'Clear all' : `Select all ${filteredEvents.length} events`}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleBulkEventAction('approve')}
+                    disabled={bulkActionLoading}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {bulkActionLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCheck className="h-3.5 w-3.5" />
+                    )}
+                    <span>Approve & Publish ({selectedEventIds.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleBulkEventAction('reject')}
+                    disabled={bulkActionLoading}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-foreground bg-secondary hover:bg-secondary/80 border border-border transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span>Reject ({selectedEventIds.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEventIds([])}
+                    disabled={bulkActionLoading}
+                    className="text-xs text-muted-foreground hover:text-foreground font-semibold px-2.5 py-1.5 rounded-lg hover:bg-secondary/60 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
 
             {loading ? (
               <div className="py-16 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
@@ -1092,7 +1310,21 @@ export default function ModerationPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                    <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">
+                      <th className="px-4 py-4 w-12 text-center">
+                        <input
+                          type="checkbox"
+                          checked={filteredEvents.length > 0 && selectedEventIds.length === filteredEvents.length}
+                          ref={(el) => {
+                            if (el) {
+                              el.indeterminate = selectedEventIds.length > 0 && selectedEventIds.length < filteredEvents.length;
+                            }
+                          }}
+                          onChange={handleToggleSelectAllEvents}
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer accent-primary align-middle"
+                          title="Select / Deselect all pending events"
+                        />
+                      </th>
                       <th className="px-6 py-4">Event Details</th>
                       <th className="px-6 py-4">Organizer</th>
                       <th className="px-6 py-4">Status</th>
@@ -1100,66 +1332,84 @@ export default function ModerationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredEvents.map((evt) => (
-                      <tr key={evt._id} className="hover:bg-secondary/40 transition-colors group">
-                        <td className="px-6 py-4 cursor-pointer font-medium" onClick={() => setSelectedEvent(evt)}>
-                          <p className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
-                            {evt.title} <ExternalLink className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">{evt.venue || 'Exhibition Venue'}, {evt.city}</p>
-                          <p className="text-[10px] text-primary mt-0.5">
-                            {evt.startDate ? new Date(evt.startDate).toLocaleDateString() : ''} - {evt.endDate ? new Date(evt.endDate).toLocaleDateString() : ''}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organizer'}</p>
-                          <p className="text-[11px] text-muted-foreground">{evt.organizer?.contact?.email || 'N/A'}</p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 text-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase border border-amber-500/20">
-                            <Clock className="h-3 w-3" /> Under Review
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link
-                              href={`/moderation/events/${evt._id}`}
-                              className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                            >
-                              <Eye className="h-3.5 w-3.5" /> Inspect Details
-                            </Link>
-                            <button
-                              type="button"
-                              onClick={() => setEventToDelete(evt)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-500/20 transition-all cursor-pointer"
-                              title="Delete Event Permanently"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" /> Delete
-                            </button>
-                            <button
-                              onClick={() => handleEventAction(evt._id, 'reject')}
-                              disabled={actionLoadingId === evt._id}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-bold text-foreground hover:bg-secondary/80 transition-all cursor-pointer"
-                            >
-                              <X className="h-3.5 w-3.5" /> Reject
-                            </button>
-                            <button
-                              onClick={() => handleEventAction(evt._id, 'approve')}
-                              disabled={actionLoadingId === evt._id}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all cursor-pointer"
-                            >
-                              {actionLoadingId === evt._id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <>
-                                  <Check className="h-3.5 w-3.5" /> Approve Event
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredEvents.map((evt) => {
+                      const isSelected = selectedEventIds.includes(evt._id);
+                      return (
+                        <tr
+                          key={evt._id}
+                          className={`transition-colors group ${
+                            isSelected
+                              ? 'bg-emerald-500/5 hover:bg-emerald-500/10'
+                              : 'hover:bg-secondary/40'
+                          }`}
+                        >
+                          <td className="px-4 py-4 w-12 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectEvent(evt._id)}
+                              className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer accent-primary align-middle"
+                            />
+                          </td>
+                          <td className="px-6 py-4 cursor-pointer font-medium" onClick={() => setSelectedEvent(evt)}>
+                            <p className="font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+                              {evt.title} <ExternalLink className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">{evt.venue || 'Exhibition Venue'}, {evt.city}</p>
+                            <p className="text-[10px] text-primary mt-0.5">
+                              {evt.startDate ? new Date(evt.startDate).toLocaleDateString() : ''} - {evt.endDate ? new Date(evt.endDate).toLocaleDateString() : ''}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organizer'}</p>
+                            <p className="text-[11px] text-muted-foreground">{evt.organizer?.contact?.email || 'N/A'}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 text-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase border border-amber-500/20">
+                              <Clock className="h-3 w-3" /> Under Review
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Link
+                                href={`/moderation/events/${evt._id}`}
+                                className="inline-flex items-center gap-1 bg-secondary text-foreground hover:bg-secondary/80 border border-border px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                              >
+                                <Eye className="h-3.5 w-3.5" /> Inspect Details
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => setEventToDelete(evt)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-500/20 transition-all cursor-pointer"
+                                title="Delete Event Permanently"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </button>
+                              <button
+                                onClick={() => handleEventAction(evt._id, 'reject')}
+                                disabled={actionLoadingId === evt._id || bulkActionLoading}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-bold text-foreground hover:bg-secondary/80 transition-all cursor-pointer"
+                              >
+                                <X className="h-3.5 w-3.5" /> Reject
+                              </button>
+                              <button
+                                onClick={() => handleEventAction(evt._id, 'approve')}
+                                disabled={actionLoadingId === evt._id || bulkActionLoading}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all cursor-pointer"
+                              >
+                                {actionLoadingId === evt._id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Check className="h-3.5 w-3.5" /> Approve Event
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

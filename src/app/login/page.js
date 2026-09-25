@@ -57,19 +57,20 @@ export default function AdminLoginPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-zinc-950">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <div className="flex h-screen w-screen items-center justify-center bg-white">
+        <Loader2 className="h-10 w-10 animate-spin text-red-600" />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4 font-sans relative overflow-hidden">
-      {/* Glowing red/purple administrator glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-red-500/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 translate-y-1/2 w-[400px] h-[400px] rounded-full bg-violet-500/5 blur-[120px] pointer-events-none" />
+    <div className="flex min-h-screen items-center justify-center bg-white p-4 font-sans relative overflow-hidden">
+      {/* Subtle ambient glows for visual depth */}
+      <div className="absolute top-0 inset-x-0 h-96 bg-gradient-to-b from-red-500/5 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-red-500/10 blur-[120px] pointer-events-none" />
+      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-violet-500/10 blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-md p-8 shadow-2xl relative z-10 space-y-6">
+      <div className="w-full max-w-md rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-xl shadow-zinc-900/5 relative z-10 space-y-6">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center">
             <img
@@ -78,53 +79,53 @@ export default function AdminLoginPage() {
               className="h-16 w-16 object-contain"
             />
           </div>
-          <h2 className="text-2xl font-bold text-zinc-50 tracking-tight flex items-center justify-center gap-1.5">
+          <h2 className="text-2xl font-bold text-zinc-900 tracking-tight flex items-center justify-center gap-1.5">
             Super Admin Console
           </h2>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-zinc-500">
             Enter credentials to access root platform logs, tenant plans, and MRR metrics
           </p>
         </div>
 
         {formError && (
-          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-3.5 text-xs text-red-400">
-            <ShieldAlert className="h-4.5 w-4.5 flex-shrink-0" />
+          <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 p-3.5 text-xs text-red-700">
+            <ShieldAlert className="h-4.5 w-4.5 flex-shrink-0 text-red-600" />
             <span>{formError}</span>
           </div>
         )}
 
         <form onSubmit={handleLoginSubmit} className="space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-zinc-400 mb-1 uppercase tracking-wider">Admin Email</label>
+            <label className="block text-[10px] font-bold text-zinc-600 mb-1 uppercase tracking-wider">Admin Email</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-2.5 h-4.5 w-4.5 text-zinc-500" />
+              <Mail className="absolute left-3 top-3 h-4.5 w-4.5 text-zinc-400" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 py-2 pl-10 pr-4 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all"
+                className="w-full rounded-xl border border-zinc-300 bg-zinc-50/60 focus:bg-white py-2.5 pl-10 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                 placeholder="admin@visitexpo.in"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold text-zinc-400 mb-1 uppercase tracking-wider">Secret Password</label>
+            <label className="block text-[10px] font-bold text-zinc-600 mb-1 uppercase tracking-wider">Secret Password</label>
             <div className="relative">
-              <Key className="absolute left-3 top-2.5 h-4.5 w-4.5 text-zinc-500" />
+              <Key className="absolute left-3 top-3 h-4.5 w-4.5 text-zinc-400" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-zinc-800 bg-zinc-950/60 py-2 pl-10 pr-10 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition-all"
+                className="w-full rounded-xl border border-zinc-300 bg-zinc-50/60 focus:bg-white py-2.5 pl-10 pr-10 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
                 placeholder="••••••••"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-600 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
               </button>
@@ -134,7 +135,7 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-550 text-white font-semibold py-2.5 text-sm transition-all shadow-lg shadow-red-600/10 mt-6"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold py-3 text-sm transition-all shadow-md shadow-red-500/20 mt-6 cursor-pointer disabled:opacity-50"
           >
             {submitting ? (
               <Loader2 className="h-4.5 w-4.5 animate-spin" />
