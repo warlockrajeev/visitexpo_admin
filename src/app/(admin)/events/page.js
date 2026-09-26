@@ -973,7 +973,7 @@ export default function AdminEventsPage() {
                         name="startDate"
                         value={editingEvent.startDate}
                         onChange={handleEditChange}
-                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer dark:[color-scheme:dark]"
                       />
                     </div>
                     <div>
@@ -985,7 +985,7 @@ export default function AdminEventsPage() {
                         name="endDate"
                         value={editingEvent.endDate}
                         onChange={handleEditChange}
-                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer dark:[color-scheme:dark]"
                       />
                     </div>
                   </div>

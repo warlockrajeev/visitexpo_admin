@@ -42,7 +42,9 @@ import {
   Globe,
   Tag,
   Loader2,
-  Check
+  Check,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -80,6 +82,12 @@ export default function AttendeesAndFollowersPage() {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+
+  // Delete Attendee State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [targetDeleteAttendee, setTargetDeleteAttendee] = useState(null);
+  const [deleteAlsoUser, setDeleteAlsoUser] = useState(false);
+  const [deletingAttendee, setDeletingAttendee] = useState(false);
 
   // Load Attendees & Events
   const fetchData = async (isRefresh = false) => {
@@ -138,6 +146,57 @@ export default function AttendeesAndFollowersPage() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
+  // Delete Attendee Handlers
+  const openDeleteAttendeeModal = (att, e) => {
+    if (e) e.stopPropagation();
+    setTargetDeleteAttendee(att);
+    setDeleteAlsoUser(false);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteAttendeeConfirm = async () => {
+    if (!targetDeleteAttendee) return;
+    setDeletingAttendee(true);
+    try {
+      const params = new URLSearchParams({
+        id: targetDeleteAttendee.id,
+        deleteUser: deleteAlsoUser ? 'true' : 'false'
+      });
+      const res = await axios.delete(`/api/attendees?${params.toString()}`);
+      if (res.data?.success) {
+        showToast(
+          deleteAlsoUser
+            ? `Attendee and user account "${targetDeleteAttendee.email}" with all data permanently deleted.`
+            : `Attendee "${targetDeleteAttendee.name}" deleted successfully.`
+        );
+        // Optimistically remove from list
+        setAttendees((prev) =>
+          prev.filter((a) => {
+            if (deleteAlsoUser) {
+              return a.email?.toLowerCase() !== targetDeleteAttendee.email?.toLowerCase();
+            }
+            return a.id !== targetDeleteAttendee.id;
+          })
+        );
+        setIsDeleteModalOpen(false);
+        if (selectedAttendee?.id === targetDeleteAttendee.id) {
+          setSelectedAttendee(null);
+        }
+        fetchData(true);
+      } else {
+        showToast(res.data?.error || 'Failed to delete attendee');
+      }
+    } catch (err) {
+      console.error('Delete attendee error:', err);
+      const errMsg =
+        err.response?.data?.error || err.response?.data?.message || 'Error deleting attendee';
+      showToast(errMsg);
+    } finally {
+      setDeletingAttendee(false);
+    }
+  };
+
 
   // Filtered Attendees in Memory for Instant Type / Verification toggles
   const filteredAttendees = useMemo(() => {
@@ -686,15 +745,25 @@ export default function AttendeesAndFollowersPage() {
 
                     {/* Actions */}
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedAttendee(att)}
-                        className="p-1.5 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
-                        title="View Complete Profile"
-                      >
-                        <Eye className="h-3.5 w-3.5 text-primary" />
-                        <span>Details</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAttendee(att)}
+                          className="p-1.5 rounded-lg border border-border bg-card hover:bg-secondary text-foreground text-xs font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          title="View Complete Profile"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-primary" />
+                          <span>Details</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => openDeleteAttendeeModal(att, e)}
+                          className="p-1.5 rounded-lg border border-transparent hover:border-rose-500/20 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          title="Delete Attendee"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
 
                   </tr>
@@ -777,14 +846,24 @@ export default function AttendeesAndFollowersPage() {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAttendee(att)}
-                    className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-                  >
-                    <span>Inspect</span>
-                    <ArrowRight className="h-3 w-3" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAttendee(att)}
+                      className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <span>Inspect</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => openDeleteAttendeeModal(att, e)}
+                      className="p-1.5 rounded-lg border border-border bg-card hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 hover:border-rose-500/30 transition-all cursor-pointer"
+                      title="Delete Attendee"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -913,17 +992,28 @@ export default function AttendeesAndFollowersPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => {
-                  showToast(`Verification status toggled for ${selectedAttendee.name}`);
-                  setSelectedAttendee(null);
-                }}
-                className="px-3.5 py-2 rounded-xl border border-border hover:bg-secondary text-xs font-bold cursor-pointer"
-              >
-                Toggle Verified Status
-              </button>
+            <div className="flex items-center justify-between pt-2 border-t border-border flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    showToast(`Verification status toggled for ${selectedAttendee.name}`);
+                    setSelectedAttendee(null);
+                  }}
+                  className="px-3.5 py-2 rounded-xl border border-border hover:bg-secondary text-xs font-bold cursor-pointer"
+                >
+                  Toggle Verified Status
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => openDeleteAttendeeModal(selectedAttendee, e)}
+                  className="px-3.5 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 transition-colors"
+                  title="Delete this attendee record"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete Attendee</span>
+                </button>
+              </div>
 
               <div className="flex items-center gap-2">
                 <button
@@ -1038,7 +1128,109 @@ export default function AttendeesAndFollowersPage() {
         </div>
       )}
 
-      {/* 8. Toast Feedback */}
+      {/* 8. Delete Attendee Confirmation Modal */}
+      {isDeleteModalOpen && targetDeleteAttendee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-card text-foreground rounded-2xl shadow-2xl border border-border p-6 space-y-4">
+            <div className="flex items-start justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-foreground">Delete Attendee</h3>
+                  <p className="text-xs text-muted-foreground">Remove registration or permanently delete user.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-secondary/30 rounded-xl border border-border space-y-1.5 text-xs">
+              <div className="font-bold text-foreground text-sm flex items-center justify-between">
+                <span>{targetDeleteAttendee.name}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {targetDeleteAttendee.type}
+                </span>
+              </div>
+              <div className="text-muted-foreground flex items-center gap-1 font-mono text-[11px]">
+                <Mail className="h-3 w-3" /> {targetDeleteAttendee.email}
+              </div>
+              {targetDeleteAttendee.company && (
+                <div className="text-muted-foreground text-[11px]">
+                  Company: <strong className="text-foreground">{targetDeleteAttendee.company}</strong>
+                </div>
+              )}
+              <div className="text-muted-foreground text-[11px] pt-1 border-t border-border/50">
+                Event: <strong className="text-foreground">{targetDeleteAttendee.event?.title || 'Exhibition'}</strong>
+              </div>
+            </div>
+
+            {/* Checkbox: Also Delete User & All Platform Data */}
+            <div className="p-3.5 rounded-xl border border-rose-500/20 bg-rose-500/5 space-y-2">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={deleteAlsoUser}
+                  onChange={(e) => setDeleteAlsoUser(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-border text-rose-600 focus:ring-rose-500 cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-foreground block">
+                    Also permanently delete user account &amp; ALL platform data
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Erases this user's account ({targetDeleteAttendee.email}), all their visitor passes, exhibitor applications, orders, reviews, inquiries, and notifications across the entire platform.
+                  </span>
+                </div>
+              </label>
+
+              {deleteAlsoUser && (
+                <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-[11px] text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>Warning: This action is permanent and cannot be undone.</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border text-xs">
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={deletingAttendee}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAttendeeConfirm}
+                disabled={deletingAttendee}
+                className="px-4 py-2 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {deletingAttendee ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>{deleteAlsoUser ? 'Delete Attendee & User Account' : 'Delete Attendee Record'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Toast Feedback */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-zinc-900 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-2xl border border-zinc-700 animate-in slide-in-from-bottom-4 duration-200">
           <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />

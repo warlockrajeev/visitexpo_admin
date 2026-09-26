@@ -325,3 +325,53 @@ export async function GET(request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const deleteUser = searchParams.get('deleteUser') === 'true';
+
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {}
+
+    const targetId = id || body.id;
+    const shouldDeleteUser = deleteUser || body.deleteUser === true;
+
+    if (!targetId) {
+      return NextResponse.json(
+        { success: false, error: 'Attendee / Engagement ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const authHeader = request.headers.get('authorization') || '';
+
+    // Forward to Express server endpoint
+    const serverUrl = `${SERVER_API_URL}/engagements/${encodeURIComponent(targetId)}?deleteUser=${shouldDeleteUser ? 'true' : 'false'}`;
+    const res = await fetch(serverUrl, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {})
+      },
+      body: JSON.stringify({ deleteUser: shouldDeleteUser })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      return NextResponse.json(data);
+    } else {
+      return NextResponse.json(
+        { success: false, error: data.error || data.message || 'Failed to delete attendee from server' },
+        { status: res.status }
+      );
+    }
+  } catch (error) {
+    console.error('[client-admin/api/attendees DELETE] Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+

@@ -1705,16 +1705,23 @@ export default function UsersManagementPage() {
             {/* Modal Warning Body */}
             <div className="p-3.5 bg-rose-500/5 rounded-xl border border-rose-500/20 text-xs text-muted-foreground space-y-2">
               <p className="font-semibold text-rose-700">
-                Are you sure you want to permanently erase this user account?
+                Are you sure you want to permanently erase this user and all platform data?
               </p>
               <div className="bg-background/80 p-2.5 rounded-lg border border-border space-y-1">
                 <p className="text-foreground font-bold">{targetDeleteUser.name}</p>
                 <p className="text-muted-foreground font-mono text-[11px]">{targetDeleteUser.email}</p>
                 <p className="text-muted-foreground capitalize">Role: {targetDeleteUser.role?.replace('_', ' ')}</p>
               </div>
-              <p className="text-[11px] text-zinc-500">
-                All login credentials and organization team memberships for this user will be removed immediately.
-              </p>
+              <div className="text-[11px] text-zinc-500 space-y-1 pt-1">
+                <p className="font-semibold text-zinc-600 dark:text-zinc-400">All data across the entire platform will be purged:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>Attendee registrations & event engagements</li>
+                  <li>Visitor passes, badges & orders</li>
+                  <li>Exhibitor applications & booth assignments</li>
+                  <li>Reviews, inquiries, leads & support tickets</li>
+                  <li>Account credentials & organization memberships</li>
+                </ul>
+              </div>
             </div>
 
             {/* Modal Actions */}
