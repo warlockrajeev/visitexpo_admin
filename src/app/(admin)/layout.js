@@ -38,6 +38,8 @@ import {
   HelpCircle
 } from 'lucide-react';
 
+import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export default function AdminLayout({ children }) {
@@ -54,6 +56,10 @@ export default function AdminLayout({ children }) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { user, loading, logout, accessToken } = useAuth();
+
+  useEffect(() => {
+    initSweetAlertInterceptors();
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {

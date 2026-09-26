@@ -262,25 +262,58 @@ export async function GET(request) {
     }
   }
 
+  // 0. Primary: Direct fetch from Express admin/categories endpoint
+  try {
+    const adminRes = await fetch('http://localhost:5000/api/admin/categories', {
+      cache: 'no-store'
+    });
+    if (adminRes.ok) {
+      const adminJson = await adminRes.json();
+      if (adminJson.success && adminJson.data?.categories) {
+        cachedData = adminJson.data;
+        cacheTime = now;
+        return NextResponse.json({ success: true, data: cachedData });
+      }
+    }
+  } catch (err) {
+    // Fallback to local aggregation below
+  }
+
   // Group events by category
   const categoriesMap = {};
   CATEGORIES_METADATA.forEach((meta) => {
     categoriesMap[meta.name] = {
       ...meta,
+      isCustom: false,
       count: 0,
       events: []
     };
   });
 
   events.forEach((evt) => {
-    const catName = evt.category && categoriesMap[evt.category] ? evt.category : inferCategory(evt.title, evt.description || '');
-    if (categoriesMap[catName]) {
-      categoriesMap[catName].events.push(evt);
-      categoriesMap[catName].count++;
-    } else {
-      categoriesMap['Trade & Industry'].events.push(evt);
-      categoriesMap['Trade & Industry'].count++;
+    let catName = evt.category;
+    if (!catName || (!categoriesMap[catName] && !evt.isCustom)) {
+      catName = inferCategory(evt.title, evt.description || '');
     }
+    if (!categoriesMap[catName]) {
+      categoriesMap[catName] = {
+        name: catName,
+        slug: catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+        icon: 'Tag',
+        color: '#f59e0b',
+        bg: 'bg-amber-500/10',
+        text: 'text-amber-600 dark:text-amber-400',
+        border: 'border-amber-500/30',
+        scope: `Exhibitions, buyer summits, and pavilions focused on ${catName}.`,
+        subSectors: ['General ' + catName],
+        topHubs: ['New Delhi', 'Mumbai', 'Bengaluru'],
+        isCustom: true,
+        count: 0,
+        events: []
+      };
+    }
+    categoriesMap[catName].events.push(evt);
+    categoriesMap[catName].count++;
   });
 
   const totalEvents = events.length;
@@ -300,4 +333,27 @@ export async function GET(request) {
     success: true,
     data: cachedData
   });
+}
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const identifier = searchParams.get('id') || searchParams.get('name') || searchParams.get('slug');
+    if (!identifier) {
+      return NextResponse.json({ success: false, error: 'Identifier is required' }, { status: 400 });
+    }
+
+    cachedData = null;
+    cacheTime = 0;
+
+    const res = await fetch(`http://localhost:5000/api/admin/categories/${encodeURIComponent(identifier)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    const data = await res.json();
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
 }

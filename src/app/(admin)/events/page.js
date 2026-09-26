@@ -57,6 +57,20 @@ const CATEGORIES_LIST = [
   'Services, Finance & Education'
 ];
 
+const CURRENCY_OPTIONS = [
+  { code: 'INR', symbol: '₹', name: 'INR (₹) - Indian Rupee' },
+  { code: 'USD', symbol: '$', name: 'USD ($) - US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'EUR (€) - Euro' },
+  { code: 'GBP', symbol: '£', name: 'GBP (£) - British Pound' },
+  { code: 'AED', symbol: 'AED', name: 'AED - UAE Dirham' },
+  { code: 'SAR', symbol: 'SAR', name: 'SAR - Saudi Riyal' },
+  { code: 'SGD', symbol: 'S$', name: 'SGD (S$) - Singapore Dollar' },
+  { code: 'CAD', symbol: 'CA$', name: 'CAD (CA$) - Canadian Dollar' },
+  { code: 'AUD', symbol: 'A$', name: 'AUD (A$) - Australian Dollar' },
+  { code: 'JPY', symbol: '¥', name: 'JPY (¥) - Japanese Yen' },
+  { code: 'CHF', symbol: 'CHF', name: 'CHF - Swiss Franc' }
+];
+
 export default function AdminEventsPage() {
   const { accessToken } = useAuth();
 
@@ -199,6 +213,7 @@ export default function AdminEventsPage() {
       brochurePdf: event.brochurePdf || '',
       isFreeEvent: event.isFreeEvent !== false,
       paidTicketPrice: event.paidTicketPrice || 0,
+      currency: event.currency || 'INR',
       status: event.status || 'published',
       wpPostId: event.wpPostId || '',
       wpUrl: event.wpUrl || '',
@@ -274,6 +289,7 @@ export default function AdminEventsPage() {
         sponsorsList: finalSponsorsList,
         isFreeEvent: editingEvent.isFreeEvent,
         paidTicketPrice: Number(editingEvent.paidTicketPrice) || 0,
+        currency: editingEvent.currency || 'INR',
         status: editingEvent.status
       };
 
@@ -1347,17 +1363,38 @@ export default function AdminEventsPage() {
                     </div>
 
                     {!editingEvent.isFreeEvent && (
-                      <div className="pt-2 border-t border-border">
-                        <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
-                          Standard Ticket Price (INR ₹)
-                        </label>
-                        <input
-                          type="number"
-                          name="paidTicketPrice"
-                          value={editingEvent.paidTicketPrice}
-                          onChange={handleEditChange}
-                          className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        />
+                      <div className="pt-2 border-t border-border grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
+                            Currency
+                          </label>
+                          <select
+                            name="currency"
+                            value={editingEvent.currency || 'INR'}
+                            onChange={handleEditChange}
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          >
+                            {CURRENCY_OPTIONS.map(c => (
+                              <option key={c.code} value={c.code}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-muted-foreground uppercase mb-1">
+                            Ticket Price ({editingEvent.currency || 'INR'})
+                          </label>
+                          <input
+                            type="number"
+                            name="paidTicketPrice"
+                            value={editingEvent.paidTicketPrice}
+                            onChange={handleEditChange}
+                            min="1"
+                            step="any"
+                            className="w-full rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

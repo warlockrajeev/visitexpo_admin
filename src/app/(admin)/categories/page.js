@@ -235,7 +235,67 @@ export default function EventCategoriesPage() {
   // Deletion States
   const [eventToDelete, setEventToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState(null);
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    setDeletingCategory(true);
+    setFeedbackMsg(null);
+
+    const targetId = categoryToDelete._id || categoryToDelete.id || categoryToDelete.slug || categoryToDelete.name;
+
+    try {
+      let deleted = false;
+      // 1. Try Express direct delete
+      try {
+        const res = await axios.delete(`${API_URL}/admin/categories/${encodeURIComponent(targetId)}`, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+        });
+        if (res.data?.success) deleted = true;
+      } catch (e) {
+        console.warn('Express category delete note:', e.message);
+      }
+
+      // 2. Fallback to Next.js API proxy route
+      if (!deleted) {
+        const proxyRes = await axios.delete(`/api/categories?name=${encodeURIComponent(categoryToDelete.name)}&id=${encodeURIComponent(targetId)}`);
+        if (proxyRes.data?.success) deleted = true;
+      }
+
+      // Update local state
+      setCategoriesData((prev) => {
+        if (!prev?.categories) return prev;
+        const remaining = prev.categories.filter(
+          (c) => c.name !== categoryToDelete.name && c.slug !== categoryToDelete.slug
+        );
+        return {
+          ...prev,
+          totalCategories: remaining.length,
+          categories: remaining
+        };
+      });
+
+      if (selectedCategory === categoryToDelete.name) {
+        setSelectedCategory('All');
+      }
+
+      setFeedbackMsg({
+        type: 'success',
+        text: `Custom category "${categoryToDelete.name}" was permanently deleted and events reassigned to Trade & Industry.`
+      });
+      setCategoryToDelete(null);
+    } catch (err) {
+      console.error('Delete category error:', err);
+      setFeedbackMsg({
+        type: 'error',
+        text: err.response?.data?.error || err.message || 'Failed to delete custom category.'
+      });
+    } finally {
+      setDeletingCategory(false);
+    }
+  };
 
   const handleConfirmDelete = async () => {
     if (!eventToDelete) return;
@@ -319,52 +379,74 @@ export default function EventCategoriesPage() {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      // 1. Direct fetch from Express backend organizers-directory if authenticated
-      if (accessToken) {
-        try {
-          const expRes = await axios.get(`${API_URL}/admin/organizers-directory?refresh=true`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          });
-          if (expRes.data?.success && Array.isArray(expRes.data?.data?.organizers)) {
-            const orgs = expRes.data.data.organizers;
-            const allEvents = [];
-            orgs.forEach((o) => {
-              (o.events || []).forEach((e) => allEvents.push(e));
-            });
-
-            // Group by category
-            const grouped = {};
-            DEFAULT_CATEGORIES.forEach((cat) => {
-              grouped[cat.name] = { ...cat, count: 0, events: [] };
-            });
-            allEvents.forEach((e) => {
-              const catName = e.category && grouped[e.category] ? e.category : 'Trade & Industry';
-              grouped[catName].events.push(e);
-              grouped[catName].count++;
-            });
-
-            const cats = Object.values(grouped).map((c) => ({
-              ...c,
-              sharePercent: allEvents.length > 0 ? Number(((c.count / allEvents.length) * 100).toFixed(1)) : 0
-            }));
-
-            setCategoriesData({
-              totalCategories: cats.length,
-              totalEvents: allEvents.length,
-              categories: cats
-            });
-            setLoading(false);
-            return;
-          }
-        } catch (expErr) {
-          console.warn('[CategoriesPage] Express direct fetch warning:', expErr.message);
+      // 1. Direct fetch from Express admin/categories endpoint (includes all custom categories)
+      try {
+        const expCatRes = await axios.get(`${API_URL}/admin/categories?refresh=true`, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+        });
+        if (expCatRes.data?.success && Array.isArray(expCatRes.data?.data?.categories)) {
+          setCategoriesData(expCatRes.data.data);
+          setLoading(false);
+          return;
         }
+      } catch (expCatErr) {
+        console.warn('[CategoriesPage] Express direct categories fetch warning:', expCatErr.message);
       }
 
       // 2. Fallback to Next.js API route on port 3001
       const res = await axios.get(`/api/categories?t=${Date.now()}&refresh=true`);
       if (res.data?.success && res.data?.data) {
         setCategoriesData(res.data.data);
+        setLoading(false);
+        return;
+      }
+
+      // 3. Fallback to organizers-directory
+      if (accessToken) {
+        const expRes = await axios.get(`${API_URL}/admin/organizers-directory?refresh=true`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (expRes.data?.success && Array.isArray(expRes.data?.data?.organizers)) {
+          const orgs = expRes.data.data.organizers;
+          const allEvents = [];
+          orgs.forEach((o) => {
+            (o.events || []).forEach((e) => allEvents.push(e));
+          });
+
+          const grouped = {};
+          DEFAULT_CATEGORIES.forEach((cat) => {
+            grouped[cat.name] = { ...cat, isCustom: false, count: 0, events: [] };
+          });
+          allEvents.forEach((e) => {
+            const catName = e.category || 'Trade & Industry';
+            if (!grouped[catName]) {
+              grouped[catName] = {
+                name: catName,
+                slug: catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+                count: 0,
+                scope: `Specialized trade fairs and buyer expos in ${catName}.`,
+                subSectors: ['General ' + catName],
+                topHubs: ['New Delhi', 'Mumbai', 'Bengaluru'],
+                isCustom: true,
+                events: []
+              };
+            }
+            grouped[catName].events.push(e);
+            grouped[catName].count++;
+          });
+
+          const cats = Object.values(grouped).map((c) => ({
+            ...c,
+            sharePercent: allEvents.length > 0 ? Number(((c.count / allEvents.length) * 100).toFixed(1)) : 0
+          }));
+
+          setCategoriesData({
+            totalCategories: cats.length,
+            totalEvents: allEvents.length,
+            categories: cats
+          });
+          return;
+        }
       }
     } catch (err) {
       console.warn('Categories API fetch note:', err.message);
@@ -597,25 +679,47 @@ export default function EventCategoriesPage() {
 
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div>
-                    {/* Header: Icon, Category Name, Event Count Badge */}
+                    {/* Header: Icon, Category Name, Event Count Badge, Custom Badge & Action */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className={`p-2.5 rounded-xl ${theme.bg} ${theme.text} flex-shrink-0`}>
                           <IconComponent className="w-6 h-6" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight">
-                            {cat.name}
-                          </h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight">
+                              {cat.name}
+                            </h3>
+                            {cat.isCustom && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                Custom
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[11px] text-muted-foreground font-semibold">
                             {cat.sharePercent || 0}% of all platform expos
                           </span>
                         </div>
                       </div>
 
-                      <span className="text-xs font-black text-foreground px-2.5 py-1 rounded-lg bg-secondary border border-border shadow-2xs whitespace-nowrap">
-                        {cat.count.toLocaleString()} Events
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-foreground px-2.5 py-1 rounded-lg bg-secondary border border-border shadow-2xs whitespace-nowrap">
+                          {cat.count.toLocaleString()} Events
+                        </span>
+                        {cat.isCustom && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCategoryToDelete(cat);
+                            }}
+                            className="p-1 rounded-lg text-rose-500 hover:bg-rose-500/15 border border-rose-500/20 hover:border-rose-500/40 transition-colors cursor-pointer"
+                            title={`Delete Custom Category "${cat.name}"`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Scope & Description */}
@@ -696,12 +800,24 @@ export default function EventCategoriesPage() {
               </div>
             </div>
 
-            <button
-              onClick={() => handleCategorySelect('All')}
-              className="px-3.5 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold border border-border transition-colors self-start md:self-auto"
-            >
-              Clear Category Filter
-            </button>
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              {activeCategoryObj.isCustom && (
+                <button
+                  type="button"
+                  onClick={() => setCategoryToDelete(activeCategoryObj)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-500/30 text-xs font-bold transition-all cursor-pointer shadow-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Custom Category</span>
+                </button>
+              )}
+              <button
+                onClick={() => handleCategorySelect('All')}
+                className="px-3.5 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold border border-border transition-colors cursor-pointer"
+              >
+                Clear Category Filter
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-border text-xs">
@@ -1160,6 +1276,65 @@ export default function EventCategoriesPage() {
                   <>
                     <Trash2 className="h-3.5 w-3.5" />
                     <span>Delete Event</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Custom Category Confirmation Modal */}
+      {categoryToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-red-500/10 text-red-600 border border-red-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-foreground">Delete Custom Category</h3>
+                <p className="text-xs text-muted-foreground">Remove category from platform directory.</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-1 text-xs">
+              <div className="flex items-center justify-between">
+                <p className="font-bold text-base text-foreground">{categoryToDelete.name}</p>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">Custom Category</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground pt-1">
+                Currently linked to <strong className="text-foreground">{categoryToDelete.count || 0} events</strong>.
+              </p>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete the custom category <strong className="text-foreground">"{categoryToDelete.name}"</strong>? Any active events assigned to this category will be safely reassigned to the default <strong>Trade &amp; Industry</strong> category.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setCategoryToDelete(null)}
+                disabled={deletingCategory}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-foreground bg-secondary hover:bg-secondary/80 border border-border transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteCategory}
+                disabled={deletingCategory}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 shadow-md shadow-red-500/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {deletingCategory ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Deleting Category...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Confirm Delete Category</span>
                   </>
                 )}
               </button>
