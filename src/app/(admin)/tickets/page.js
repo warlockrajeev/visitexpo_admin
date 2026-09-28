@@ -548,8 +548,14 @@ export default function SupportTicketsPage() {
 
       {/* ================= ADMIN TICKET DETAIL & REPLY MODAL ================= */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+          onClick={() => { setSelectedTicket(null); setReplyMessage(''); setResolutionNotesInput(''); }}
+        >
+          <div 
+            className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
             <div className="p-5 border-b border-border flex items-center justify-between bg-muted/20">
               <div className="flex items-center gap-3">
@@ -564,8 +570,9 @@ export default function SupportTicketsPage() {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedTicket(null)}
-                className="text-muted-foreground hover:text-foreground p-1"
+                type="button"
+                onClick={() => { setSelectedTicket(null); setReplyMessage(''); setResolutionNotesInput(''); }}
+                className="text-muted-foreground hover:text-foreground p-1 cursor-pointer"
               >
                 <X className="h-6 w-6" />
               </button>
