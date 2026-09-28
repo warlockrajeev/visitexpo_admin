@@ -85,12 +85,23 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await axios.post(`${API_URL}/auth/login`, { email, password });
       
-      // Ensure the logged in user is actually a super admin!
-      if (res.data.user.role !== 'super_admin') {
+      // Ensure the logged in user is a platform administrator or subadmin
+      const userRole = res.data.user?.role;
+      const isAdminUser = userRole === 'super_admin' || userRole === 'sub_admin' || userRole === 'admin';
+      
+      if (!isAdminUser) {
         await axios.post(`${API_URL}/auth/logout`, {}, {
           headers: { Authorization: `Bearer ${res.data.accessToken}` }
         });
-        return { success: false, error: 'Access Denied: Only platform administrators are allowed' };
+        return { success: false, error: 'Access Denied: Only platform administrators and subadmins are allowed' };
+      }
+
+      // Check if subadmin account is suspended
+      if (res.data.user.status === 'suspended' || res.data.user.isSuspended) {
+        await axios.post(`${API_URL}/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${res.data.accessToken}` }
+        });
+        return { success: false, error: 'Account Suspended: Your administrative access has been suspended by the Super Administrator' };
       }
 
       setUser(res.data.user);
@@ -114,15 +125,25 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Logout error:', error);
-    } fontally: {
+    } finally {
       setUser(null);
       setAccessToken(null);
       setLoading(false);
     }
   };
 
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  const hasPermission = (permissionKey) => {
+    if (!user) return false;
+    if (user.role === 'super_admin') return true;
+    if (!permissionKey) return true;
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+    return perms.includes('*') || perms.includes(permissionKey);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, accessToken, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, accessToken, loading, login, logout, isSuperAdmin, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

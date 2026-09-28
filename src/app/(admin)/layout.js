@@ -56,7 +56,7 @@ export default function AdminLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const { user, loading, logout, accessToken } = useAuth();
+  const { user, loading, logout, accessToken, isSuperAdmin, hasPermission } = useAuth();
 
   useEffect(() => {
     initSweetAlertInterceptors();
@@ -107,63 +107,84 @@ export default function AdminLayout({ children }) {
   }
 
   const navigation = [
-    { name: 'Overview', href: '/', icon: ShieldAlert },
+    { name: 'Overview', href: '/', icon: ShieldAlert, permission: 'dashboard.view' },
     {
       name: 'Approval System',
       href: '/moderation',
       icon: CheckCircle2,
       badge: pendingCounts.totalPending > 0 ? `${pendingCounts.totalPending} Pending` : null,
-      badgeColor: 'bg-amber-500 text-white animate-pulse'
+      badgeColor: 'bg-amber-500 text-white animate-pulse',
+      permission: 'moderation.view'
     },
     {
       name: 'Events Management',
       href: '/events',
       icon: Calendar,
-      badge: pendingCounts.pendingEvents > 0 ? `${pendingCounts.pendingEvents} Draft` : null
+      badge: pendingCounts.pendingEvents > 0 ? `${pendingCounts.pendingEvents} Draft` : null,
+      permission: 'events.view'
     },
     {
       name: 'Organizers',
       href: '/organizers',
       icon: CalendarDays,
-      badge: pendingCounts.pendingOrganizers > 0 ? `${pendingCounts.pendingOrganizers} New` : null
+      badge: pendingCounts.pendingOrganizers > 0 ? `${pendingCounts.pendingOrganizers} New` : null,
+      permission: 'organizers.view'
     },
     {
       name: 'Exhibitors',
       href: '/exhibitors',
       icon: Building,
-      badge: pendingCounts.pendingExhibitors > 0 ? `${pendingCounts.pendingExhibitors} New` : null
+      badge: pendingCounts.pendingExhibitors > 0 ? `${pendingCounts.pendingExhibitors} New` : null,
+      permission: 'exhibitors.view'
     },
     {
       name: 'Visitors',
       href: '/visitors',
       icon: Users,
-      badge: 'Live'
+      badge: 'Live',
+      permission: 'visitors.view'
     },
-    { name: 'Event Categories', href: '/categories', icon: Layers },
-    { name: 'Attendees & Followers', href: '/attendees', icon: Users },
-    { name: 'Our Sponsors', href: '/sponsors', icon: Award },
-    { name: 'User Management', href: '/users', icon: Users },
+    { name: 'Event Categories', href: '/categories', icon: Layers, permission: 'categories.view' },
+    { name: 'Attendees & Followers', href: '/attendees', icon: Users, permission: 'attendees.view' },
+    { name: 'Our Sponsors', href: '/sponsors', icon: Award, permission: 'sponsors.manage' },
+    { name: 'User Management', href: '/users', icon: Users, permission: 'users.view' },
     {
       name: 'Rapid Creation',
       href: '/rapid-creation',
       icon: Zap,
       badge: 'Dummy Tools',
-      badgeColor: 'bg-emerald-500 text-white'
+      badgeColor: 'bg-emerald-500 text-white',
+      permission: 'rapid_creation.access'
     },
-    { name: 'Organizations', href: '/organizations', icon: Building2 },
-    { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
-    { name: 'Invoices & Sales', href: '/invoices', icon: FileText },
-    { name: 'Support Tickets', href: '/tickets', icon: LifeBuoy },
+    {
+      name: 'Subadmins & Roles',
+      href: '/subadmins',
+      icon: ShieldCheck,
+      badge: 'RBAC',
+      badgeColor: 'bg-indigo-500 text-white',
+      permission: 'subadmins.manage'
+    },
+    { name: 'Organizations', href: '/organizations', icon: Building2, permission: 'organizations.view' },
+    { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard, permission: 'subscriptions.view' },
+    { name: 'Invoices & Sales', href: '/invoices', icon: FileText, permission: 'invoices.view' },
+    { name: 'Support Tickets', href: '/tickets', icon: LifeBuoy, permission: 'tickets.manage' },
     {
       name: 'Contact Inquiries',
       href: '/contacts',
       icon: Mail,
-      badge: unreadInquiries > 0 ? `${unreadInquiries} New` : null
+      badge: unreadInquiries > 0 ? `${unreadInquiries} New` : null,
+      permission: 'contacts.manage'
     },
-    { name: 'Reviews Moderation', href: '/reviews', icon: MessageSquare, badge: 'Live' },
-    { name: 'FAQ Management', href: '/faqs', icon: HelpCircle, badge: 'CMS' },
-    { name: 'CMS & Settings', href: '/settings', icon: Settings },
+    { name: 'Reviews Moderation', href: '/reviews', icon: MessageSquare, badge: 'Live', permission: 'reviews.manage' },
+    { name: 'FAQ Management', href: '/faqs', icon: HelpCircle, badge: 'CMS', permission: 'faqs.manage' },
+    { name: 'CMS & Settings', href: '/settings', icon: Settings, permission: 'settings.manage' },
   ];
+
+  const visibleNavigation = navigation.filter((item) => {
+    if (isSuperAdmin) return true;
+    if (!item.permission) return true;
+    return hasPermission(item.permission);
+  });
 
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
@@ -179,6 +200,7 @@ export default function AdminLayout({ children }) {
     if (path === '/reviews') return 'Reviews Moderation & Landing Showcase';
     if (path === '/faqs') return 'FAQ Management & Landing Showcase';
     if (path === '/rapid-creation') return 'Rapid Dummy User Creation & Impersonation';
+    if (path === '/subadmins') return 'Subadmins & Role-Based Access Control (RBAC)';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   };
@@ -221,7 +243,7 @@ export default function AdminLayout({ children }) {
 
         {/* Links */}
         <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -267,12 +289,12 @@ export default function AdminLayout({ children }) {
 
           <div className="flex items-center gap-3 rounded-xl bg-card p-3 border border-border shadow-sm">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-primary font-bold uppercase text-xs">
-              SU
+              {isSuperAdmin ? 'SU' : (user?.name?.slice(0, 2).toUpperCase() || 'SA')}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold truncate text-foreground">{user?.name || 'Super Admin'}</p>
-              <span className="text-[10px] text-primary font-bold">
-                Global Controller
+              <p className="text-xs font-bold truncate text-foreground">{user?.name || 'Administrator'}</p>
+              <span className="text-[10px] text-primary font-bold truncate block">
+                {isSuperAdmin ? 'Super Administrator' : (user?.adminRole || 'Sub Administrator')}
               </span>
             </div>
             <button
@@ -315,7 +337,39 @@ export default function AdminLayout({ children }) {
         </header>
 
         <main className="flex-1 overflow-y-auto p-6 bg-muted/10">
-          {children}
+          {(() => {
+            const currentItem = navigation.find((n) => n.href === pathname);
+            const isAuthorized = !currentItem || !currentItem.permission || isSuperAdmin || hasPermission(currentItem.permission);
+
+            if (!isAuthorized) {
+              return (
+                <div className="flex flex-col items-center justify-center min-h-[500px] text-center p-8 bg-card border border-border rounded-3xl max-w-lg mx-auto shadow-sm space-y-4 my-10">
+                  <div className="h-16 w-16 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
+                    <ShieldAlert className="h-8 w-8" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h2 className="text-lg font-bold text-foreground">Access Restricted</h2>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-sm">
+                      Your subadmin account does not have permission to access <strong>{currentItem?.name || pathname}</strong>.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground font-mono bg-muted/40 px-2.5 py-1 rounded-md inline-block">
+                      Required Permission: {currentItem?.permission}
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <Link
+                      href={visibleNavigation[0]?.href || '/'}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow hover:bg-primary/90 transition-all"
+                    >
+                      Go to Accessible Module
+                    </Link>
+                  </div>
+                </div>
+              );
+            }
+
+            return children;
+          })()}
         </main>
       </div>
     </div>
