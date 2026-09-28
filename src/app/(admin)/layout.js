@@ -35,7 +35,8 @@ import {
   Calendar,
   CalendarDays,
   MessageSquare,
-  HelpCircle
+  HelpCircle,
+  Zap
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -142,6 +143,13 @@ export default function AdminLayout({ children }) {
     { name: 'Attendees & Followers', href: '/attendees', icon: Users },
     { name: 'Our Sponsors', href: '/sponsors', icon: Award },
     { name: 'User Management', href: '/users', icon: Users },
+    {
+      name: 'Rapid Creation',
+      href: '/rapid-creation',
+      icon: Zap,
+      badge: 'Dummy Tools',
+      badgeColor: 'bg-emerald-500 text-white'
+    },
     { name: 'Organizations', href: '/organizations', icon: Building2 },
     { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
     { name: 'Invoices & Sales', href: '/invoices', icon: FileText },
@@ -170,6 +178,7 @@ export default function AdminLayout({ children }) {
     if (path === '/contacts') return 'Landing Page Contact Inquiries';
     if (path === '/reviews') return 'Reviews Moderation & Landing Showcase';
     if (path === '/faqs') return 'FAQ Management & Landing Showcase';
+    if (path === '/rapid-creation') return 'Rapid Dummy User Creation & Impersonation';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   };
