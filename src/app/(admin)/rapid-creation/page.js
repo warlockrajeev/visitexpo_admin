@@ -21,7 +21,6 @@ import {
   Users,
   Building,
   Ticket,
-  Sparkles,
   ExternalLink,
   Copy,
   Check,
@@ -435,7 +434,7 @@ export default function RapidCreationPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-border gap-4">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" /> Single Dummy User Setup
+                <UserPlus className="h-5 w-5 text-primary" /> Single Dummy User Setup
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Generate a ready-to-use user with pre-filled realistic details or customize as needed.

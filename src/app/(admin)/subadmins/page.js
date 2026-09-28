@@ -29,7 +29,6 @@ import {
   X,
   Check,
   SlidersHorizontal,
-  Sparkles,
   Calendar,
   CreditCard,
   Building2,
@@ -511,7 +510,7 @@ export default function SubadminsManagementPage() {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <h3 className="text-sm font-extrabold text-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> 1-Click Role Presets
+              <SlidersHorizontal className="h-4 w-4 text-primary" /> 1-Click Role Presets
             </h3>
             <p className="text-xs text-muted-foreground">
               Standardized security profiles you can instantly apply when provisioning new subadmins.
