@@ -36,7 +36,6 @@ import {
   Mail,
   HelpCircle,
   MessageSquare,
-  Zap,
   Layers,
   Settings,
   Shield,

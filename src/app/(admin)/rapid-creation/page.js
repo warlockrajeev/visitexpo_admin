@@ -17,7 +17,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
 import {
-  Zap,
   Users,
   Building,
   Ticket,
@@ -351,8 +350,8 @@ export default function RapidCreationPage() {
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="space-y-2 max-w-2xl relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wider">
-            <Zap className="h-3.5 w-3.5" /> Rapid Creation &amp; Impersonation Engine
+          <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wider">
+            Rapid Creation &amp; Impersonation Engine
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
             Rapid User Creation
@@ -773,7 +772,7 @@ export default function RapidCreationPage() {
                     </>
                   ) : (
                     <>
-                      <Zap className="h-4 w-4" /> Generate {bulkCount} {bulkRole}s
+                      <UserPlus className="h-4 w-4" /> Generate {bulkCount} {bulkRole}s
                     </>
                   )}
                 </button>

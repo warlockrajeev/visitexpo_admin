@@ -36,7 +36,7 @@ import {
   CalendarDays,
   MessageSquare,
   HelpCircle,
-  Zap
+  UserPlus
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -151,7 +151,7 @@ export default function AdminLayout({ children }) {
     {
       name: 'Rapid Creation',
       href: '/rapid-creation',
-      icon: Zap,
+      icon: UserPlus,
       badge: 'Dummy Tools',
       badgeColor: 'bg-emerald-500 text-white',
       permission: 'rapid_creation.access'
