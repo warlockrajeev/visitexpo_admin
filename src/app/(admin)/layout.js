@@ -17,6 +17,7 @@ import {
   Users,
   Building,
   Building2,
+  MapPin,
   CreditCard,
   FileText,
   LifeBuoy,
@@ -124,6 +125,14 @@ export default function AdminLayout({ children }) {
       permission: 'events.view'
     },
     {
+      name: 'Venues Directory',
+      href: '/venues',
+      icon: MapPin,
+      badge: 'Profiles',
+      badgeColor: 'bg-emerald-500 text-white',
+      permission: 'events.view'
+    },
+    {
       name: 'Organizers',
       href: '/organizers',
       icon: CalendarDays,
@@ -190,6 +199,7 @@ export default function AdminLayout({ children }) {
     if (path === '/') return 'System Administration Console';
     if (path === '/moderation') return 'Approval & Moderation Command Center';
     if (path === '/events') return 'Events Management & WordPress Sync';
+    if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
     if (path === '/organizers') return 'Organizers & Events Directory';
     if (path === '/exhibitors') return 'Exhibitor Management & Approvals';
     if (path === '/visitors') return 'Visitor Directory & Pass Management';
