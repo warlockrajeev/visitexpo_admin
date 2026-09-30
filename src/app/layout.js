@@ -1,5 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Suspense } from "react";
+import NavigationProgress from "../components/NavigationProgress.js";
 import { ThemeProvider } from '../context/ThemeContext.js';
 import { AuthProvider } from '../context/AuthContext.js';
 
@@ -29,6 +31,9 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col transition-colors duration-200">
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
         <ThemeProvider>
           <AuthProvider>
             {children}
