@@ -46,6 +46,7 @@ import {
   Trash2,
   AlertTriangle
 } from 'lucide-react';
+import { getClientUrl } from '../../../utils/clientUrl.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -491,7 +492,7 @@ export default function AttendeesAndFollowersPage() {
                 <div className="text-[11px] text-muted-foreground">{selectedEvent.followersCount?.toLocaleString()} Followers</div>
               </div>
               <a
-                href={`http://localhost:3000/expo/${selectedEvent.slug}`}
+                href={`${getClientUrl()}/expo/${selectedEvent.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3.5 py-2 rounded-xl bg-card border border-border hover:bg-secondary text-foreground text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors"

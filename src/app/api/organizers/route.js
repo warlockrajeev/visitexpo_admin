@@ -522,7 +522,8 @@ export async function GET(request) {
 
   // Fallback to client-dashboard events endpoint
   try {
-    const dashRes = await fetch('http://localhost:3000/api/wordpress-events');
+    const clientBase = process.env.NEXT_PUBLIC_CLIENT_URL || (process.env.NODE_ENV === 'production' ? 'https://client.visitexpo.in' : 'http://localhost:3000');
+    const dashRes = await fetch(`${clientBase}/api/wordpress-events`);
     if (dashRes.ok) {
       const data = await dashRes.json();
       const events = data.events || [];

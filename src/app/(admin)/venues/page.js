@@ -51,13 +51,9 @@ import {
   Clock,
   Layers
 } from 'lucide-react';
+import { getClientUrl } from '../../../utils/clientUrl.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-const CLIENT_URL =
-  process.env.NEXT_PUBLIC_CLIENT_URL ||
-  (typeof window !== 'undefined' && window.location.hostname.includes('visitexpo.in')
-    ? 'https://visitexpo.in'
-    : 'http://localhost:3000');
 
 export default function AdminVenuesPage() {
   const { accessToken } = useAuth();
@@ -665,12 +661,16 @@ export default function AdminVenuesPage() {
                 key={venue.id || venue.slug}
                 className="bg-card border border-border hover:border-primary/50 rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col group"
               >
-                {/* Hero Banner with badges */}
-                <div className="relative h-44 w-full overflow-hidden bg-muted">
+                {/* Hero Banner with badges - clicking opens live venue profile in new tab */}
+                <div
+                  onClick={() => window.open(`${getClientUrl()}/venue/${venue.slug}`, '_blank')}
+                  className="relative h-44 w-full overflow-hidden bg-muted cursor-pointer group/banner"
+                  title="Click to view live venue profile"
+                >
                   <img
                     src={venue.heroBanner}
                     alt={venue.name}
-                    className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover/banner:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
@@ -697,7 +697,7 @@ export default function AdminVenuesPage() {
                       className="w-12 h-12 rounded-xl object-cover border-2 border-white bg-card shadow-sm shrink-0"
                     />
                     <div className="min-w-0 flex-1 text-white">
-                      <h3 className="font-extrabold text-sm leading-tight truncate drop-shadow-sm">
+                      <h3 className="font-extrabold text-sm leading-tight truncate drop-shadow-sm group-hover/banner:underline group-hover/banner:text-primary transition-colors">
                         {venue.name}
                       </h3>
                       <p className="text-[11px] text-zinc-200 truncate mt-0.5 drop-shadow-sm">
@@ -799,10 +799,10 @@ export default function AdminVenuesPage() {
                     </button>
 
                     <a
-                      href={`${CLIENT_URL}/venue/${venue.slug}`}
+                      href={`${getClientUrl()}/venue/${venue.slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                       title="View Live Venue Profile on Client Portal"
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -884,11 +884,11 @@ export default function AdminVenuesPage() {
                             <Edit className="h-3.5 w-3.5" />
                           </button>
                           <a
-                            href={`${CLIENT_URL}/venue/${venue.slug}`}
+                            href={`${getClientUrl()}/venue/${venue.slug}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground"
-                            title="View Live"
+                            className="p-1.5 rounded-lg border border-border hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                            title="View Live Venue Profile on Client Portal"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>

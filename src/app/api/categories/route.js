@@ -213,10 +213,11 @@ export async function GET(request) {
     console.warn('[client-admin/api/categories] Fetch from /api/events/directory failed:', dirErr.message);
   }
 
-  // 2. Fallback to client-dashboard on port 3000 if needed
+  // 2. Fallback to client-dashboard if needed
   if (events.length === 0) {
     try {
-      const res = await fetch('http://localhost:3000/api/wordpress-events', {
+      const clientBase = process.env.NEXT_PUBLIC_CLIENT_URL || (process.env.NODE_ENV === 'production' ? 'https://client.visitexpo.in' : 'http://localhost:3000');
+      const res = await fetch(`${clientBase}/api/wordpress-events`, {
         cache: 'no-store'
       });
       if (res.ok) {
@@ -226,7 +227,7 @@ export async function GET(request) {
         }
       }
     } catch (err) {
-      console.warn('[client-admin/api/categories] Fetch from localhost:3000 failed:', err.message);
+      console.warn('[client-admin/api/categories] Fetch from client portal failed:', err.message);
     }
   }
 

@@ -41,7 +41,8 @@ async function fetchAllEvents() {
   // 2. Fallback to client-dashboard wordpress-events if directory is empty
   if (events.length === 0) {
     try {
-      const res = await fetch('http://localhost:3000/api/wordpress-events', { cache: 'no-store' });
+      const clientBase = process.env.NEXT_PUBLIC_CLIENT_URL || (process.env.NODE_ENV === 'production' ? 'https://client.visitexpo.in' : 'http://localhost:3000');
+      const res = await fetch(`${clientBase}/api/wordpress-events`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data?.success && Array.isArray(data.events)) {
