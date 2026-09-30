@@ -37,6 +37,7 @@ import {
   Globe,
   SlidersHorizontal,
   ChevronRight,
+  ChevronLeft,
   Grid,
   List,
   Users,
@@ -231,6 +232,11 @@ export default function EventCategoriesPage() {
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
+
+  // Category Cards Pagination & Search State
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [categoriesPerPage, setCategoriesPerPage] = useState(6);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
 
   // Deletion States
   const [eventToDelete, setEventToDelete] = useState(null);
@@ -479,11 +485,60 @@ export default function EventCategoriesPage() {
     return Array.from(set).sort();
   }, [allEvents]);
 
+  // All category cards from API or fallback
+  const rawCategories = useMemo(() => {
+    return categoriesData?.categories || DEFAULT_CATEGORIES;
+  }, [categoriesData]);
+
+  // Filtered categories based on categorySearchQuery
+  const filteredCategoryCards = useMemo(() => {
+    if (!categorySearchQuery.trim()) return rawCategories;
+    const q = categorySearchQuery.toLowerCase().trim();
+    return rawCategories.filter((cat) =>
+      (cat.name && cat.name.toLowerCase().includes(q)) ||
+      (cat.scope && cat.scope.toLowerCase().includes(q)) ||
+      (cat.subSectors && cat.subSectors.some((s) => s.toLowerCase().includes(q))) ||
+      (cat.topHubs && cat.topHubs.some((h) => h.toLowerCase().includes(q)))
+    );
+  }, [rawCategories, categorySearchQuery]);
+
+  // Category cards pagination
+  const totalCategoryPages = useMemo(() => {
+    if (categoriesPerPage === 'all') return 1;
+    const size = Number(categoriesPerPage) || 6;
+    return Math.max(1, Math.ceil(filteredCategoryCards.length / size));
+  }, [filteredCategoryCards.length, categoriesPerPage]);
+
+  const paginatedCategories = useMemo(() => {
+    if (categoriesPerPage === 'all') return filteredCategoryCards;
+    const size = Number(categoriesPerPage) || 6;
+    const start = (categoryPage - 1) * size;
+    return filteredCategoryCards.slice(start, start + size);
+  }, [filteredCategoryCards, categoryPage, categoriesPerPage]);
+
+  // Auto-clamp categoryPage if out of bounds
+  useEffect(() => {
+    if (categoryPage > totalCategoryPages) {
+      setCategoryPage(Math.max(1, totalCategoryPages));
+    }
+  }, [totalCategoryPages, categoryPage]);
+
+  const handleCategoryPageChange = (newPage) => {
+    setCategoryPage(newPage);
+    const el = document.getElementById('categories-directory-section');
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < 0) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   // Active category object
   const activeCategoryObj = useMemo(() => {
     if (selectedCategory === 'All') return null;
-    return categoriesData?.categories?.find((c) => c.name === selectedCategory) || null;
-  }, [categoriesData, selectedCategory]);
+    return rawCategories.find((c) => c.name === selectedCategory) || null;
+  }, [rawCategories, selectedCategory]);
 
   // Filtered Events
   const filteredEvents = useMemo(() => {
@@ -535,6 +590,8 @@ export default function EventCategoriesPage() {
     setSelectedCategory('All');
     setSearchQuery('');
     setSelectedCity('all');
+    setCategorySearchQuery('');
+    setCategoryPage(1);
     setPage(1);
   };
 
@@ -633,148 +690,296 @@ export default function EventCategoriesPage() {
       </div>
 
       {/* ========================================================================= */}
-      {/* ALL 11 EVENT CATEGORIES DIRECTORY CARDS WITH RICH DETAILS                 */}
+      {/* ALL EVENT CATEGORIES DIRECTORY CARDS WITH RICH DETAILS & PAGINATION       */}
       {/* ========================================================================= */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
+      <div id="categories-directory-section" className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
           <div>
-            <h2 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
-              <Layers className="w-5 h-5 text-primary" />
-              <span>All 11 Industry Categories &amp; Detailed Scope</span>
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
+                <Layers className="w-5 h-5 text-primary" />
+                <span>Industry Categories &amp; Detailed Scope</span>
+              </h2>
+              <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {rawCategories.length} Categories
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Select any industry sector below to view its key sub-sectors, focus topics, top hubs, and complete event list.
             </p>
           </div>
-          {selectedCategory !== 'All' && (
-            <button
-              onClick={() => handleCategorySelect('All')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs font-bold text-primary hover:bg-secondary/80 border border-border transition-colors self-start sm:self-auto"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Show All Sectors</span>
-            </button>
-          )}
+
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            {/* Quick search categories */}
+            <div className="relative min-w-[190px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Filter categories..."
+                value={categorySearchQuery}
+                onChange={(e) => {
+                  setCategorySearchQuery(e.target.value);
+                  setCategoryPage(1);
+                }}
+                className="w-full pl-8 pr-7 py-1.5 text-xs bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary font-medium"
+              />
+              {categorySearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategorySearchQuery('');
+                    setCategoryPage(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {selectedCategory !== 'All' && (
+              <button
+                type="button"
+                onClick={() => handleCategorySelect('All')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary text-xs font-bold text-primary hover:bg-secondary/80 border border-border transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Show All Sectors</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* 11 Category Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {(categoriesData?.categories || DEFAULT_CATEGORIES).map((cat) => {
-            const IconComponent = ICON_MAP[cat.name] || Briefcase;
-            const theme = COLOR_MAP[cat.name] || COLOR_MAP['Trade & Industry'];
-            const isSelected = selectedCategory === cat.name;
+        {/* Category Cards Grid or Empty State */}
+        {filteredCategoryCards.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl border border-dashed border-border bg-card space-y-2">
+            <p className="text-sm font-semibold text-foreground">
+              No categories match "{categorySearchQuery}"
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setCategorySearchQuery('');
+                setCategoryPage(1);
+              }}
+              className="text-xs text-primary font-bold hover:underline cursor-pointer"
+            >
+              Clear category search
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paginatedCategories.map((cat) => {
+              const IconComponent = ICON_MAP[cat.name] || Briefcase;
+              const theme = COLOR_MAP[cat.name] || COLOR_MAP['Trade & Industry'];
+              const isSelected = selectedCategory === cat.name;
 
-            return (
-              <div
-                key={cat.name}
-                onClick={() => handleCategorySelect(cat.name)}
-                className={`group relative rounded-2xl bg-card border transition-all cursor-pointer flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md ${
-                  isSelected
-                    ? 'border-primary ring-2 ring-primary/20 shadow-md'
-                    : 'border-border hover:border-primary/40'
-                }`}
-              >
-                {/* Top Accent Line */}
-                <div className={`h-1.5 w-full ${theme.accent}`} />
+              return (
+                <div
+                  key={cat.name}
+                  onClick={() => handleCategorySelect(cat.name)}
+                  className={`group relative rounded-2xl bg-card border transition-all cursor-pointer flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md ${
+                    isSelected
+                      ? 'border-primary ring-2 ring-primary/20 shadow-md'
+                      : 'border-border hover:border-primary/40'
+                  }`}
+                >
+                  {/* Top Accent Line */}
+                  <div className={`h-1.5 w-full ${theme.accent}`} />
 
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <div>
-                    {/* Header: Icon, Category Name, Event Count Badge, Custom Badge & Action */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-xl ${theme.bg} ${theme.text} flex-shrink-0`}>
-                          <IconComponent className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight">
-                              {cat.name}
-                            </h3>
-                            {cat.isCustom && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                                Custom
-                              </span>
-                            )}
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                    <div>
+                      {/* Header: Icon, Category Name, Event Count Badge, Custom Badge & Action */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2.5 rounded-xl ${theme.bg} ${theme.text} flex-shrink-0`}>
+                            <IconComponent className="w-6 h-6" />
                           </div>
-                          <span className="text-[11px] text-muted-foreground font-semibold">
-                            {cat.sharePercent || 0}% of all platform expos
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors leading-tight">
+                                {cat.name}
+                              </h3>
+                              {cat.isCustom && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-muted-foreground font-semibold">
+                              {cat.sharePercent || 0}% of all platform expos
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-foreground px-2.5 py-1 rounded-lg bg-secondary border border-border shadow-2xs whitespace-nowrap">
+                            {cat.count.toLocaleString()} Events
                           </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-black text-foreground px-2.5 py-1 rounded-lg bg-secondary border border-border shadow-2xs whitespace-nowrap">
-                          {cat.count.toLocaleString()} Events
-                        </span>
-                        {cat.isCustom && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCategoryToDelete(cat);
-                            }}
-                            className="p-1 rounded-lg text-rose-500 hover:bg-rose-500/15 border border-rose-500/20 hover:border-rose-500/40 transition-colors cursor-pointer"
-                            title={`Delete Custom Category "${cat.name}"`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Scope & Description */}
-                    <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
-                      {cat.scope || 'Trade shows, manufacturer pavilions, and international buyer summits.'}
-                    </p>
-
-                    {/* Sub-sectors & Key Focus Topics Badges */}
-                    {cat.subSectors && cat.subSectors.length > 0 && (
-                      <div className="mt-3.5 pt-3 border-t border-border">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                          <Tag className="w-3 h-3 text-primary" />
-                          <span>Key Focus Sub-sectors</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {cat.subSectors.slice(0, 5).map((sub, i) => (
-                            <span
-                              key={i}
-                              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-secondary/70 text-foreground border border-border/80"
+                          {cat.isCustom && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCategoryToDelete(cat);
+                              }}
+                              className="p-1 rounded-lg text-rose-500 hover:bg-rose-500/15 border border-rose-500/20 hover:border-rose-500/40 transition-colors cursor-pointer"
+                              title={`Delete Custom Category "${cat.name}"`}
                             >
-                              {sub}
-                            </span>
-                          ))}
-                          {cat.subSectors.length > 5 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 text-muted-foreground">
-                              +{cat.subSectors.length - 5} more
-                            </span>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </div>
-                    )}
-                  </div>
 
-                  {/* Footer Stats: Top Hubs & Action */}
-                  <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
-                    <div className="text-[11px] text-muted-foreground truncate max-w-[170px]">
-                      <span className="font-semibold text-foreground">Hubs: </span>
-                      <span>{(cat.topHubs || []).slice(0, 2).join(', ')}</span>
+                      {/* Scope & Description */}
+                      <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                        {cat.scope || 'Trade shows, manufacturer pavilions, and international buyer summits.'}
+                      </p>
+
+                      {/* Sub-sectors & Key Focus Topics Badges */}
+                      {cat.subSectors && cat.subSectors.length > 0 && (
+                        <div className="mt-3.5 pt-3 border-t border-border">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Tag className="w-3 h-3 text-primary" />
+                            <span>Key Focus Sub-sectors</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {cat.subSectors.slice(0, 5).map((sub, i) => (
+                              <span
+                                key={i}
+                                className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-secondary/70 text-foreground border border-border/80"
+                              >
+                                {sub}
+                              </span>
+                            ))}
+                            {cat.subSectors.length > 5 && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 text-muted-foreground">
+                                +{cat.subSectors.length - 5} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <button
-                      type="button"
-                      className={`inline-flex items-center gap-1 text-xs font-bold transition-transform group-hover:translate-x-0.5 ${
-                        isSelected ? 'text-primary' : 'text-foreground group-hover:text-primary'
-                      }`}
-                    >
-                      <span>{isSelected ? 'Viewing Events' : 'View Events'}</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Footer Stats: Top Hubs & Action */}
+                    <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
+                      <div className="text-[11px] text-muted-foreground truncate max-w-[170px]">
+                        <span className="font-semibold text-foreground">Hubs: </span>
+                        <span>{(cat.topHubs || []).slice(0, 2).join(', ')}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className={`inline-flex items-center gap-1 text-xs font-bold transition-transform group-hover:translate-x-0.5 ${
+                          isSelected ? 'text-primary' : 'text-foreground group-hover:text-primary'
+                        }`}
+                      >
+                        <span>{isSelected ? 'Viewing Events' : 'View Events'}</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Category Cards Pagination Controls (Positioned exactly where the user marked in red) */}
+        {filteredCategoryCards.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-border text-xs">
+            {/* Left: Range and Per-page Selector */}
+            <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
+              <span>
+                Showing{' '}
+                <strong className="text-foreground">
+                  {categoriesPerPage === 'all'
+                    ? 1
+                    : (categoryPage - 1) * (Number(categoriesPerPage) || 6) + 1}
+                </strong>
+                {' '}-{' '}
+                <strong className="text-foreground">
+                  {categoriesPerPage === 'all'
+                    ? filteredCategoryCards.length
+                    : Math.min(categoryPage * (Number(categoriesPerPage) || 6), filteredCategoryCards.length)}
+                </strong>{' '}
+                of <strong className="text-foreground">{filteredCategoryCards.length}</strong> categories
+              </span>
+
+              <div className="flex items-center gap-1.5 pl-2 border-l border-border">
+                <span className="text-[11px] font-medium text-muted-foreground">Cards per page:</span>
+                <div className="inline-flex rounded-lg bg-secondary/80 p-0.5 border border-border">
+                  {[6, 9, 12, 'all'].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        setCategoriesPerPage(size);
+                        setCategoryPage(1);
+                      }}
+                      className={`px-2 py-0.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
+                        categoriesPerPage === size
+                          ? 'bg-primary text-primary-foreground shadow-2xs font-extrabold'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {size === 'all' ? 'All' : size}
+                    </button>
+                  ))}
+                </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+
+            {/* Right: Page Navigation Buttons */}
+            {totalCategoryPages > 1 && (
+              <div className="flex items-center gap-1.5 self-center sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => handleCategoryPageChange(Math.max(1, categoryPage - 1))}
+                  disabled={categoryPage === 1}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+                  title="Previous Category Page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Previous</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalCategoryPages }, (_, i) => i + 1).map((pageNum) => {
+                    const isActive = pageNum === categoryPage;
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => handleCategoryPageChange(pageNum)}
+                        className={`h-7 min-w-[28px] px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground font-black shadow-xs'
+                            : 'bg-card border border-border text-foreground hover:bg-secondary'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleCategoryPageChange(Math.min(totalCategoryPages, categoryPage + 1))}
+                  disabled={categoryPage === totalCategoryPages}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
+                  title="Next Category Page"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ========================================================================= */}
@@ -949,8 +1154,8 @@ export default function EventCategoriesPage() {
                 onChange={(e) => handleCategorySelect(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground focus:outline-none focus:border-primary font-medium"
               >
-                <option value="All">All Categories (11 Sectors)</option>
-                {DEFAULT_CATEGORIES.map((c) => (
+                <option value="All">All Categories ({rawCategories.length} Sectors)</option>
+                {rawCategories.map((c) => (
                   <option key={c.name} value={c.name}>
                     {c.name}
                   </option>
