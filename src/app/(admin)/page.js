@@ -67,6 +67,11 @@ export default function AdminOverview() {
   const { user, accessToken } = useAuth();
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -367,8 +372,8 @@ export default function AdminOverview() {
         </div>
       )}
 
-      {/* KPI Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      {/* KPI Stats - 8 cards arranged into 2 balanced rows of 4 */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {adminKPIs.map((kpi, idx) => (
           <Link
             key={idx}
@@ -410,18 +415,24 @@ export default function AdminOverview() {
             </span>
           </div>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.monthlyRevenue && metrics.monthlyRevenue.length > 0 ? metrics.monthlyRevenue : [{ month: 'Current', revenue: metrics?.kpis?.totalRevenue || 0 }]}>
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                  labelStyle={{ color: 'hsl(var(--foreground))' }}
-                  formatter={(val) => [`₹${Number(val).toLocaleString()}`, 'Revenue']}
-                />
-                <Bar dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {isMounted ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metrics?.monthlyRevenue && metrics.monthlyRevenue.length > 0 ? metrics.monthlyRevenue : [{ month: 'Current', revenue: metrics?.kpis?.totalRevenue || 0 }]}>
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    formatter={(val) => [`₹${Number(val).toLocaleString()}`, 'Revenue']}
+                  />
+                  <Bar dataKey="revenue" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground animate-pulse">
+                Loading revenue analytics...
+              </div>
+            )}
           </div>
         </div>
 
@@ -432,26 +443,32 @@ export default function AdminOverview() {
             <p className="text-xs text-muted-foreground">Active organizational distributions</p>
           </div>
           <div className="h-44 flex items-center justify-center relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={subDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={75}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {subDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {isMounted ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={subDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={75}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {subDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground animate-pulse">
+                Loading tier metrics...
+              </div>
+            )}
             <div className="absolute flex flex-col items-center">
               <span className="text-2xl font-bold text-foreground">{loading ? '...' : String(totalPaidBase)}</span>
               <span className="text-[10px] uppercase font-bold text-muted-foreground">Paid Base</span>
