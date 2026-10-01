@@ -238,7 +238,7 @@ export default function AdminEventsPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 10;
 
   // Edit Drawer state
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -774,13 +774,13 @@ export default function AdminEventsPage() {
             <table className="w-full text-left text-xs text-muted-foreground">
               <thead className="bg-muted/40 uppercase text-[10px] font-bold text-foreground/80 tracking-wider border-b border-border">
                 <tr>
-                  <th className="px-4 py-3.5">Event Identity</th>
-                  <th className="px-4 py-3.5">Organizer</th>
-                  <th className="px-4 py-3.5">Dates & Timings</th>
-                  <th className="px-4 py-3.5">Location</th>
-                  <th className="px-4 py-3.5">Status</th>
-                  <th className="px-4 py-3.5">WordPress Sync</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
+                  <th className="px-3 py-2">Event Identity</th>
+                  <th className="px-3 py-2">Organizer</th>
+                  <th className="px-3 py-2">Dates</th>
+                  <th className="px-3 py-2">Location</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">WordPress</th>
+                  <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -791,28 +791,28 @@ export default function AdminEventsPage() {
                   return (
                     <tr key={event._id} className="hover:bg-muted/20 transition-colors">
                       {/* Event Identity */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-16 rounded-xl bg-muted overflow-hidden shrink-0 border border-border/60 relative">
+                      <td className="px-3 py-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-11 rounded-lg bg-muted overflow-hidden shrink-0 border border-border/60 relative">
                             {event.banner ? (
                               <img src={event.banner} alt={event.title} className="h-full w-full object-cover" />
                             ) : (
-                              <div className="h-full w-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-[9px] font-bold text-primary">
+                              <div className="h-full w-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-[8px] font-bold text-primary">
                                 Expo
                               </div>
                             )}
                           </div>
-                          <div className="min-w-0 max-w-xs">
-                            <h4 className="font-extrabold text-foreground truncate text-sm hover:text-primary transition-colors">
+                          <div className="min-w-0 max-w-[220px]">
+                            <h4 className="font-bold text-foreground truncate text-xs hover:text-primary transition-colors leading-tight" title={event.title}>
                               {event.title}
                             </h4>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-1.5 mt-0.5">
                               {event.categories && event.categories[0] && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-semibold bg-primary/10 text-primary border border-primary/20 shrink-0">
                                   {event.categories[0]}
                                 </span>
                               )}
-                              <span className="text-[10px] text-muted-foreground font-mono truncate">
+                              <span className="text-[9px] text-muted-foreground font-mono truncate">
                                 /{event.slug}
                               </span>
                             </div>
@@ -821,118 +821,107 @@ export default function AdminEventsPage() {
                       </td>
 
                       {/* Organizer */}
-                      <td className="px-4 py-3.5">
-                        <div className="space-y-0.5">
-                          <p className="font-bold text-foreground flex items-center gap-1.5 truncate">
-                            <Building2 className="h-3 w-3 text-muted-foreground" />
-                            {event.orgName || event.organizer?.name || 'VisitExpo Organizer'}
+                      <td className="px-3 py-1.5">
+                        <div className="space-y-0.5 max-w-[150px]">
+                          <p className="font-semibold text-foreground flex items-center gap-1 truncate text-xs leading-tight" title={event.orgName || event.organizer?.name}>
+                            <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="truncate">{event.orgName || event.organizer?.name || 'VisitExpo Organizer'}</span>
                           </p>
-                          <p className="text-[11px] text-muted-foreground truncate">
+                          <p className="text-[10px] text-muted-foreground truncate" title={event.orgEmail || event.organizer?.email}>
                             {event.orgEmail || event.organizer?.email || 'organizer@visitexpo.in'}
                           </p>
                         </div>
                       </td>
 
                       {/* Dates */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-3 py-1.5 whitespace-nowrap">
                         <div className="space-y-0.5">
-                          <div className="flex items-center gap-1 font-semibold text-foreground text-[11px]">
-                            <Calendar className="h-3 w-3 text-primary" />
+                          <div className="flex items-center gap-1 font-semibold text-foreground text-[11px] leading-tight">
+                            <Calendar className="h-3 w-3 text-primary shrink-0" />
                             <span>
                               {event.startDate ? new Date(event.startDate).toLocaleDateString() : 'TBD'} to{' '}
                               {event.endDate ? new Date(event.endDate).toLocaleDateString() : 'TBD'}
                             </span>
                           </div>
                           {event.timings && (
-                            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-2.5 w-2.5 text-muted-foreground" /> {event.timings}
+                            <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-2.5 w-2.5 text-muted-foreground shrink-0" /> {event.timings}
                             </p>
                           )}
                         </div>
                       </td>
 
                       {/* Location */}
-                      <td className="px-4 py-3.5">
-                        <div className="space-y-0.5">
-                          <p className="font-bold text-foreground flex items-center gap-1 truncate text-[11px]">
-                            <MapPin className="h-3 w-3 text-primary" />
-                            {event.city || 'India'}, {event.country || 'India'}
+                      <td className="px-3 py-1.5">
+                        <div className="space-y-0.5 max-w-[140px]">
+                          <p className="font-semibold text-foreground flex items-center gap-1 truncate text-[11px] leading-tight">
+                            <MapPin className="h-3 w-3 text-primary shrink-0" />
+                            <span className="truncate">{event.city || 'India'}, {event.country || 'India'}</span>
                           </p>
-                          <p className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                          <p className="text-[10px] text-muted-foreground truncate" title={event.venue}>
                             {event.venue || 'Exhibition Ground'}
                           </p>
                         </div>
                       </td>
 
                       {/* Status */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-3 py-1.5 whitespace-nowrap">
                         {event.status === 'published' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                            <CheckCircle2 className="h-3 w-3" /> Live
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                            <CheckCircle2 className="h-2.5 w-2.5" /> Live
                           </span>
                         ) : event.status === 'draft' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                            <Clock className="h-3 w-3" /> Draft
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                            <Clock className="h-2.5 w-2.5" /> Draft
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
-                            <X className="h-3 w-3" /> Cancelled
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                            <X className="h-2.5 w-2.5" /> Cancelled
                           </span>
                         )}
                       </td>
 
                       {/* WordPress Sync */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-3 py-1.5 whitespace-nowrap">
                         {hasWpSync ? (
-                          <div className="space-y-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
-                              <Globe className="h-3 w-3" /> WP #{event.wpPostId}
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
+                              <Globe className="h-2.5 w-2.5" /> #{event.wpPostId}
                             </span>
-                            <div>
-                              <a
-                                href={event.wpUrl || `https://visitexpo.in/event/${event.slug}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-medium"
-                              >
-                                View on WP <ExternalLink className="h-2.5 w-2.5" />
-                              </a>
-                            </div>
+                            <a
+                              href={event.wpUrl || `https://visitexpo.in/event/${event.slug}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline font-medium"
+                              title="View on WordPress"
+                            >
+                              View <ExternalLink className="h-2 w-2" />
+                            </a>
                           </div>
                         ) : (
-                          <div className="space-y-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                              <AlertTriangle className="h-3 w-3" /> Unsynced
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                              Unsynced
                             </span>
-                            <div>
-                              <button
-                                onClick={() => handleForceSyncWp(event._id, event.title)}
-                                disabled={isSyncing}
-                                className="inline-flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 dark:text-blue-400 font-bold hover:underline cursor-pointer"
-                              >
-                                {isSyncing ? (
-                                  <>
-                                    <Loader2 className="h-2.5 w-2.5 animate-spin" /> Syncing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <UploadCloud className="h-2.5 w-2.5" /> Sync Now
-                                  </>
-                                )}
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => handleForceSyncWp(event._id, event.title)}
+                              disabled={isSyncing}
+                              className="text-[9px] text-blue-600 hover:text-blue-800 dark:text-blue-400 font-bold hover:underline cursor-pointer"
+                            >
+                              {isSyncing ? 'Syncing...' : 'Sync'}
+                            </button>
                           </div>
                         )}
                       </td>
 
                       {/* Actions */}
-                      <td className="px-4 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
                           {/* Edit Event Button */}
                           <button
                             onClick={() => handleOpenEdit(event)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-primary hover:bg-primary/90 px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-xs transition-all cursor-pointer"
-                            title="Edit Event & Sync with WordPress"
+                            className="inline-flex items-center gap-1 rounded-md bg-primary hover:bg-primary/90 px-2 py-1 text-[11px] font-bold text-primary-foreground shadow-2xs transition-all cursor-pointer"
+                            title="Edit Event"
                           >
                             <Edit className="h-3 w-3" />
                             <span>Edit</span>
@@ -942,23 +931,23 @@ export default function AdminEventsPage() {
                           <button
                             onClick={() => handleForceSyncWp(event._id, event.title)}
                             disabled={isSyncing}
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer"
                             title="Push updates to WordPress"
                           >
                             {isSyncing ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
                             ) : (
-                              <UploadCloud className="h-3.5 w-3.5 text-blue-500" />
+                              <UploadCloud className="h-3 w-3 text-blue-500" />
                             )}
                           </button>
 
                           {/* Delete Button */}
                           <button
                             onClick={() => setDeleteModal({ isOpen: true, event: event, isDeleting: false })}
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-border bg-card hover:bg-rose-500/10 hover:border-rose-500/30 text-rose-500 transition-all cursor-pointer"
+                            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border bg-card hover:bg-rose-500/10 hover:border-rose-500/30 text-rose-500 transition-all cursor-pointer"
                             title="Delete Event"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
                       </td>
@@ -972,7 +961,7 @@ export default function AdminEventsPage() {
 
         {/* Pagination Footer */}
         {filteredEvents.length > itemsPerPage && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/20 text-xs">
+          <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-muted/20 text-xs">
             <span className="text-muted-foreground">
               Page <strong className="text-foreground">{currentPage}</strong> of <strong className="text-foreground">{totalPages}</strong>
             </span>

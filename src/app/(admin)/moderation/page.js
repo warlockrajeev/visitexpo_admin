@@ -555,59 +555,6 @@ export default function ModerationPage() {
         </div>
       </div>
 
-      {/* Moderation Summary Metrics Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-card border border-border p-4 rounded-xl shadow-sm">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Pending Actions</span>
-          <p className="text-2xl font-black text-amber-500 mt-1">
-            {pendingOrganizers.length + pendingExhibitors.length + pendingClaims.length + pendingEvents.length}
-          </p>
-          <span className="text-[10px] text-muted-foreground">Awaiting approval</span>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('organizers')}
-          className={`bg-card border p-4 rounded-xl shadow-sm cursor-pointer transition-all ${
-            activeTab === 'organizers' ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/40'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Organizers</span>
-            <UserCheck className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <p className="text-2xl font-black text-foreground mt-1">{pendingOrganizers.length}</p>
-          <span className="text-[10px] text-primary font-semibold">Review accounts &rarr;</span>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('exhibitors')}
-          className={`bg-card border p-4 rounded-xl shadow-sm cursor-pointer transition-all ${
-            activeTab === 'exhibitors' ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/40'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Exhibitors</span>
-            <Building className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <p className="text-2xl font-black text-foreground mt-1">{pendingExhibitors.length}</p>
-          <span className="text-[10px] text-primary font-semibold">Review booths &rarr;</span>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('claims')}
-          className={`bg-card border p-4 rounded-xl shadow-sm cursor-pointer transition-all ${
-            activeTab === 'claims' || activeTab === 'events' ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/40'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Events & Claims</span>
-            <Calendar className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <p className="text-2xl font-black text-foreground mt-1">{pendingClaims.length + pendingEvents.length}</p>
-          <span className="text-[10px] text-primary font-semibold">Review listings &rarr;</span>
-        </div>
-      </div>
-
       {/* Alert Feedback Banner */}
       {message.text && (
         <div

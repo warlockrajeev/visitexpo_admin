@@ -5,7 +5,7 @@
  * @description Super Admin Dashboard index page showing platform-wide health, revenue MRR, and Moderation Queue status.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import {
@@ -68,6 +68,8 @@ export default function AdminOverview() {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  const [tenantsPage, setTenantsPage] = useState(1);
+  const tenantsPerPage = 10;
 
   useEffect(() => {
     setIsMounted(true);
@@ -91,6 +93,15 @@ export default function AdminOverview() {
     };
     fetchDashboardData();
   }, [accessToken]);
+
+  const totalTenants = metrics?.recentTenants?.length || 0;
+  const totalTenantsPages = Math.max(1, Math.ceil(totalTenants / tenantsPerPage));
+
+  const paginatedTenants = useMemo(() => {
+    if (!metrics?.recentTenants) return [];
+    const startIndex = (tenantsPage - 1) * tenantsPerPage;
+    return metrics.recentTenants.slice(startIndex, startIndex + tenantsPerPage);
+  }, [metrics?.recentTenants, tenantsPage, tenantsPerPage]);
 
   const totalPending = loading
     ? 0
@@ -820,53 +831,82 @@ export default function AdminOverview() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
-                  <th className="px-6 py-4">Tenant Name</th>
-                  <th className="px-6 py-4">Owner Contact</th>
-                  <th className="px-6 py-4">Selected Plan</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Created At</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {metrics.recentTenants.map((tenant) => (
-                  <tr key={tenant.id} className="hover:bg-secondary/40 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="font-bold text-foreground">{tenant.name}</p>
-                      <span className="text-[11px] text-muted-foreground">{tenant.org}</span>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground font-semibold">{tenant.owner}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase ${
-                        tenant.plan === 'enterprise' 
-                          ? 'bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20'
-                          : tenant.plan === 'growth'
-                          ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
-                          : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
-                      }`}>
-                        {tenant.plan}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {tenant.status === 'active' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-500">
-                          <CheckCircle className="h-3 w-3" /> Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-500">
-                          <AlertTriangle className="h-3 w-3" /> Suspended
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">{tenant.signed}</td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
+                    <th className="px-6 py-4">Tenant Name</th>
+                    <th className="px-6 py-4">Owner Contact</th>
+                    <th className="px-6 py-4">Selected Plan</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Created At</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {paginatedTenants.map((tenant) => (
+                    <tr key={tenant.id} className="hover:bg-secondary/40 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-foreground">{tenant.name}</p>
+                        <span className="text-[11px] text-muted-foreground">{tenant.org}</span>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground font-semibold">{tenant.owner}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase ${
+                          tenant.plan === 'enterprise' 
+                            ? 'bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20'
+                            : tenant.plan === 'growth'
+                            ? 'bg-primary/10 text-primary ring-1 ring-primary/20'
+                            : 'bg-slate-500/10 text-slate-500 ring-1 ring-slate-500/20'
+                        }`}>
+                          {tenant.plan}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {tenant.status === 'active' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-500">
+                            <CheckCircle className="h-3 w-3" /> Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-500">
+                            <AlertTriangle className="h-3 w-3" /> Suspended
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">{tenant.signed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Footer */}
+            {totalTenants > 0 && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/20 text-xs">
+                <span className="text-muted-foreground">
+                  Page <strong className="text-foreground">{tenantsPage}</strong> of <strong className="text-foreground">{totalTenantsPages}</strong>
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setTenantsPage(p => Math.max(1, p - 1))}
+                    disabled={tenantsPage === 1}
+                    className="rounded-lg border border-border px-3 py-1 font-semibold text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTenantsPage(p => Math.min(totalTenantsPages, p + 1))}
+                    disabled={tenantsPage === totalTenantsPages}
+                    className="rounded-lg border border-border px-3 py-1 font-semibold text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -1411,12 +1411,11 @@ export default function AdminVenuesPage() {
 
               <div className="grid sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">City *</label>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Country</label>
                   <input
                     type="text"
-                    required
-                    value={editForm.city}
-                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    value={editForm.country}
+                    onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                   />
                 </div>
@@ -1430,11 +1429,12 @@ export default function AdminVenuesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Country</label>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">City *</label>
                   <input
                     type="text"
-                    value={editForm.country}
-                    onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                    required
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                   />
                 </div>
@@ -1587,13 +1587,12 @@ export default function AdminVenuesPage() {
 
               <div className="grid sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">City *</label>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Country</label>
                   <input
                     type="text"
-                    required
-                    placeholder="Dubai"
-                    value={createForm.city}
-                    onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
+                    placeholder="United Arab Emirates"
+                    value={createForm.country}
+                    onChange={(e) => setCreateForm({ ...createForm, country: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                   />
                 </div>
@@ -1608,12 +1607,13 @@ export default function AdminVenuesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Country</label>
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">City *</label>
                   <input
                     type="text"
-                    placeholder="United Arab Emirates"
-                    value={createForm.country}
-                    onChange={(e) => setCreateForm({ ...createForm, country: e.target.value })}
+                    required
+                    placeholder="Dubai"
+                    value={createForm.city}
+                    onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
                   />
                 </div>
