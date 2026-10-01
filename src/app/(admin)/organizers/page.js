@@ -81,6 +81,8 @@ export default function OrganizersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'international' | 'national' | 'high_volume' | 'regular'
   const [cityFilter, setCityFilter] = useState('all');
+  const [cityAutocompleteValue, setCityAutocompleteValue] = useState('');
+  const [cityAutocompleteFocused, setCityAutocompleteFocused] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
   const [sortBy, setSortBy] = useState('events_desc'); // 'events_desc' | 'name_asc' | 'events_asc'
@@ -375,6 +377,8 @@ export default function OrganizersPage() {
     setSearchQuery('');
     setTypeFilter('all');
     setCityFilter('all');
+    setCityAutocompleteValue('');
+    setCityAutocompleteFocused(false);
     setCategoryFilter('all');
     setSortBy('events_desc');
     setPage(1);
@@ -706,22 +710,43 @@ export default function OrganizersPage() {
 
           {/* Quick Selectors & View Toggle */}
           <div className="flex items-center gap-2.5 flex-wrap">
-            {/* City Dropdown */}
-            <select
-              value={cityFilter}
-              onChange={(e) => {
-                setCityFilter(e.target.value);
-                setPage(1);
-              }}
-              className="px-3 py-2 rounded-xl border border-border bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="all">All Cities ({availableCities.length})</option>
-              {availableCities.map((city) => (
-                <option key={city} value={city}>
-                  {city}
-                </option>
-              ))}
-            </select>
+            {/* City Autocomplete */}
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                list="organizer-city-options"
+                value={cityAutocompleteFocused
+                  ? cityAutocompleteValue
+                  : cityAutocompleteValue || (cityFilter === 'all' ? `All Cities (${availableCities.length})` : cityFilter)}
+                onFocus={() => {
+                  setCityAutocompleteFocused(true);
+                  setCityAutocompleteValue('');
+                }}
+                onBlur={() => {
+                  setCityAutocompleteFocused(false);
+                  setCityAutocompleteValue('');
+                }}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const matchingCity = availableCities.find(
+                    (city) => city.toLowerCase() === value.trim().toLowerCase()
+                  );
+                  setCityAutocompleteValue(value);
+                  setCityFilter(matchingCity || 'all');
+                  setPage(1);
+                }}
+                aria-label="Search and filter by city"
+                placeholder="Search cities..."
+                className="w-[220px] rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <datalist id="organizer-city-options">
+                <option value={`All Cities (${availableCities.length})`} />
+                {availableCities.map((city) => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
+            </div>
 
             {/* Category Dropdown */}
             <select

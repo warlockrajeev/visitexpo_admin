@@ -63,6 +63,8 @@ export default function ModerationPage() {
   const [selectedEventIds, setSelectedEventIds] = useState([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [bulkSelectAction, setBulkSelectAction] = useState('approve');
+  const [eventRejectionRequest, setEventRejectionRequest] = useState(null);
+  const [eventRejectionReason, setEventRejectionReason] = useState('');
 
   // Pagination States for History
   const [organizerHistoryPage, setOrganizerHistoryPage] = useState(1);
@@ -239,13 +241,19 @@ export default function ModerationPage() {
     }
   };
 
-  const handleEventAction = async (eventId, action) => {
+  const handleEventAction = async (eventId, action, rejectionReason = '') => {
+    if (action === 'reject' && !rejectionReason.trim()) {
+      setEventRejectionRequest({ eventIds: [eventId], isBulk: false });
+      setEventRejectionReason('');
+      return;
+    }
+
     setActionLoadingId(eventId);
     setMessage({ type: '', text: '' });
     try {
       const res = await axios.put(
         `${API_URL}/admin/events/${eventId}/status`,
-        { action },
+        { action, ...(action === 'reject' ? { rejectionReason: rejectionReason.trim() } : {}) },
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       if (res.data && res.data.success) {
@@ -274,11 +282,16 @@ export default function ModerationPage() {
     );
   };
 
-  const handleBulkEventAction = async (actionToRun, idsOverride = null) => {
+  const handleBulkEventAction = async (actionToRun, idsOverride = null, rejectionReason = '') => {
     const action = actionToRun || bulkSelectAction || 'approve';
     const ids = idsOverride || selectedEventIds;
     if (!ids || ids.length === 0) {
       setMessage({ type: 'error', text: 'Please select at least one event first.' });
+      return;
+    }
+    if (action === 'reject' && !rejectionReason.trim()) {
+      setEventRejectionRequest({ eventIds: ids, isBulk: true });
+      setEventRejectionReason('');
       return;
     }
 
@@ -287,7 +300,7 @@ export default function ModerationPage() {
     try {
       const res = await axios.post(
         `${API_URL}/admin/events/bulk-status`,
-        { eventIds: ids, action },
+        { eventIds: ids, action, ...(action === 'reject' ? { rejectionReason: rejectionReason.trim() } : {}) },
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       if (res.data && res.data.success) {
@@ -305,7 +318,7 @@ export default function ModerationPage() {
         for (const evtId of ids) {
           await axios.put(
             `${API_URL}/admin/events/${evtId}/status`,
-            { action },
+            { action, ...(action === 'reject' ? { rejectionReason: rejectionReason.trim() } : {}) },
             { headers: { Authorization: `Bearer ${accessToken}` } }
           );
           successCount++;
@@ -324,6 +337,20 @@ export default function ModerationPage() {
       }
     } finally {
       setBulkActionLoading(false);
+    }
+  };
+
+  const handleConfirmEventRejection = async (e) => {
+    e.preventDefault();
+    const reason = eventRejectionReason.trim();
+    if (!reason || !eventRejectionRequest) return;
+
+    const request = eventRejectionRequest;
+    setEventRejectionRequest(null);
+    if (request.isBulk) {
+      await handleBulkEventAction('reject', request.eventIds, reason);
+    } else {
+      await handleEventAction(request.eventIds[0], 'reject', reason);
     }
   };
 
@@ -1403,6 +1430,11 @@ export default function ModerationPage() {
                             {evt.title} <ExternalLink className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                           </p>
                           <p className="text-[11px] text-muted-foreground">{evt.venue || 'Exhibition Venue'}, {evt.city}</p>
+                          {evt.status === 'cancelled' && evt.rejectionReason && (
+                            <p className="mt-1 max-w-xl whitespace-pre-wrap text-[11px] text-destructive">
+                              <span className="font-bold">Rejection reason: </span>{evt.rejectionReason}
+                            </p>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organizer'}</p>
@@ -1450,6 +1482,56 @@ export default function ModerationPage() {
               onPageChange={setEventHistoryPage}
             />
           </div>
+        </div>
+      )}
+
+      {/* Event Rejection Reason Modal */}
+      {eventRejectionRequest && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <form
+            onSubmit={handleConfirmEventRejection}
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-card p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-rejection-title"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              <div>
+                <h3 id="event-rejection-title" className="font-bold text-foreground">
+                  Reason for {eventRejectionRequest.isBulk ? `rejecting ${eventRejectionRequest.eventIds.length} events` : 'rejection'}
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The organizer will see this reason in their event management page.
+                </p>
+              </div>
+            </div>
+            <textarea
+              value={eventRejectionReason}
+              onChange={(e) => setEventRejectionReason(e.target.value)}
+              required
+              rows={4}
+              autoFocus
+              placeholder="Explain why this event cannot be approved..."
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEventRejectionRequest(null)}
+                className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!eventRejectionReason.trim() || bulkActionLoading}
+                className="rounded-lg bg-destructive px-4 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

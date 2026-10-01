@@ -40,7 +40,6 @@ import {
   Eye,
   RefreshCw,
   Sparkles,
-  Filter,
   Edit,
   Star,
   SlidersHorizontal,
@@ -66,6 +65,7 @@ export default function AdminVenuesPage() {
 
   // Filters & display
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState('All');
   const [selectedCity, setSelectedCity] = useState('All');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
 
@@ -144,6 +144,7 @@ export default function AdminVenuesPage() {
   // Filter venues
   const filteredVenues = useMemo(() => {
     return venues.filter((v) => {
+      const matchesCountry = selectedCountry === 'All' || v.country === selectedCountry;
       const matchesCity = selectedCity === 'All' || v.city === selectedCity;
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
@@ -155,9 +156,9 @@ export default function AdminVenuesPage() {
         v.address?.toLowerCase().includes(q) ||
         v.slug?.toLowerCase().includes(q);
 
-      return matchesCity && matchesSearch;
+      return matchesCountry && matchesCity && matchesSearch;
     });
-  }, [venues, selectedCity, searchQuery]);
+  }, [venues, selectedCountry, selectedCity, searchQuery]);
 
   // Pagination calculations
   const totalPages = useMemo(() => {
@@ -176,7 +177,7 @@ export default function AdminVenuesPage() {
   // Reset to page 1 on filter changes
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, selectedCity]);
+  }, [searchQuery, selectedCountry, selectedCity]);
 
   // Auto-clamp page if totalPages changes
   useEffect(() => {
@@ -221,11 +222,25 @@ export default function AdminVenuesPage() {
     return pages;
   };
 
-  // Unique cities list
-  const cities = useMemo(() => {
-    const list = Array.from(new Set(venues.map((v) => v.city).filter(Boolean)));
-    return ['All', ...list];
+  // Unique location filter options
+  const countries = useMemo(() => {
+    const list = Array.from(new Set(venues.map((v) => v.country).filter(Boolean)));
+    return ['All', ...list.sort((a, b) => a.localeCompare(b))];
   }, [venues]);
+
+  const cities = useMemo(() => {
+    const countryVenues = selectedCountry === 'All'
+      ? venues
+      : venues.filter((venue) => venue.country === selectedCountry);
+    const list = Array.from(new Set(countryVenues.map((v) => v.city).filter(Boolean)));
+    return ['All', ...list.sort((a, b) => a.localeCompare(b))];
+  }, [venues, selectedCountry]);
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSelectedCountry('All');
+    setSelectedCity('All');
+  };
 
   // Aggregate statistics
   const totalGalleryCount = useMemo(() => {
@@ -671,25 +686,52 @@ export default function AdminVenuesPage() {
           </div>
         </div>
 
-        {/* City Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 flex items-center gap-1">
-            <Filter className="h-3 w-3" /> City:
-          </span>
-          {cities.map((city) => (
-            <button
-              key={city}
-              type="button"
-              onClick={() => setSelectedCity(city)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCity === city
-                  ? 'bg-primary text-primary-foreground font-bold shadow-2xs'
-                  : 'bg-background border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
+        {/* Location Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
+            <Globe className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">Country</span>
+            <select
+              value={selectedCountry}
+              onChange={(e) => {
+                setSelectedCountry(e.target.value);
+                setSelectedCity('All');
+              }}
+              aria-label="Filter venues by country"
+              className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none"
             >
-              {city}
-            </button>
-          ))}
+              <option value="All">All Countries</option>
+              {countries.filter((country) => country !== 'All').map((country) => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
+            <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <span className="text-[10px] font-bold uppercase text-muted-foreground">City</span>
+            <select
+              value={selectedCity}
+              onChange={(e) => setSelectedCity(e.target.value)}
+              aria-label="Filter venues by city"
+              className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none"
+            >
+              <option value="All">All Cities</option>
+              {cities.filter((city) => city !== 'All').map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={resetFilters}
+            disabled={!searchQuery && selectedCountry === 'All' && selectedCity === 'All'}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Reset filters
+          </button>
         </div>
       </div>
 
@@ -705,14 +747,11 @@ export default function AdminVenuesPage() {
             <Building className="h-10 w-10 text-muted-foreground/40 mx-auto" />
             <h3 className="font-bold text-base text-foreground">No Venues Found</h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              No venues match &quot;{searchQuery}&quot; in {selectedCity}. Try resetting your search filters.
+              No venues match the current search and location filters. Try changing or resetting your filters.
             </p>
             <button
               type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCity('All');
-              }}
+              onClick={resetFilters}
               className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
             >
               Reset Filters

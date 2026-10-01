@@ -55,6 +55,8 @@ export default function ModerationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Booth Edit State (For Exhibitors)
   const [editingBooth, setEditingBooth] = useState(false);
@@ -96,7 +98,13 @@ export default function ModerationDetailPage() {
   }, [accessToken, type, id]);
 
   // 2. Handle Approval Action
-  const handleAction = async (statusOrAction) => {
+  const handleAction = async (statusOrAction, rejectionReasonValue = '') => {
+    if (type === 'events' && statusOrAction === 'rejected' && !rejectionReasonValue.trim()) {
+      setRejectionReason('');
+      setRejectionModalOpen(true);
+      return;
+    }
+
     setActionLoading(true);
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
@@ -125,10 +133,18 @@ export default function ModerationDetailPage() {
       } else if (type === 'events' || type === 'claims') {
         const action = statusOrAction === 'approved' ? 'approve' : 'reject';
         const endpoint = type === 'claims' ? `/admin/claims/${id}/status` : `/admin/events/${id}/status`;
-        const res = await axios.put(`${API_URL}${endpoint}`, { action }, { headers });
+        const res = await axios.put(
+          `${API_URL}${endpoint}`,
+          { action, ...(type === 'events' && action === 'reject' ? { rejectionReason: rejectionReasonValue.trim() } : {}) },
+          { headers }
+        );
         if (res.data?.success) {
           setToast({ type: 'success', message: `Event request ${action}d successfully!` });
-          setData(prev => ({ ...prev, status: action === 'approve' ? 'published' : 'rejected' }));
+          setData(prev => ({
+            ...prev,
+            status: action === 'approve' ? 'published' : 'cancelled',
+            rejectionReason: action === 'reject' ? rejectionReasonValue.trim() : ''
+          }));
         }
       }
     } catch (err) {
@@ -307,6 +323,13 @@ export default function ModerationDetailPage() {
                 {currentStatus === 'pending' ? 'Pending Admin Review' : currentStatus}
               </span>
             </div>
+
+            {type === 'events' && currentStatus === 'cancelled' && data.rejectionReason && (
+              <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs">
+                <p className="mb-1 font-bold text-destructive">Rejection reason</p>
+                <p className="whitespace-pre-wrap text-foreground">{data.rejectionReason}</p>
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Submitted for moderation review on {new Date(data.createdAt || Date.now()).toLocaleDateString('en-US', { dateStyle: 'medium' })}
@@ -619,6 +642,55 @@ export default function ModerationDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Event Rejection Reason Modal */}
+      {rejectionModalOpen && type === 'events' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const reason = rejectionReason.trim();
+              if (!reason) return;
+              setRejectionModalOpen(false);
+              handleAction('rejected', reason);
+            }}
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-card p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-rejection-title"
+          >
+            <div>
+              <h3 id="event-rejection-title" className="font-bold text-foreground">Reason for rejection</h3>
+              <p className="mt-1 text-xs text-muted-foreground">The organizer will see this reason in their event management page.</p>
+            </div>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              required
+              rows={4}
+              autoFocus
+              placeholder="Explain why this event cannot be approved..."
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRejectionModalOpen(false)}
+                className="rounded-lg border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!rejectionReason.trim() || actionLoading}
+                className="rounded-lg bg-destructive px-4 py-2 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Direct Email Modal */}
       {emailModal.isOpen && (
