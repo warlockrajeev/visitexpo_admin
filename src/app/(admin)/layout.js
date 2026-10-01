@@ -140,6 +140,14 @@ export default function AdminLayout({ children }) {
       permission: 'organizers.view'
     },
     {
+      name: 'Live Chat Organizers',
+      href: '/chat-organizers',
+      icon: MessageSquare,
+      badge: 'Live',
+      badgeColor: 'bg-emerald-500 text-white',
+      permission: 'organizers.view'
+    },
+    {
       name: 'Exhibitors',
       href: '/exhibitors',
       icon: Building,
@@ -201,6 +209,7 @@ export default function AdminLayout({ children }) {
     if (path === '/events') return 'Events Management & WordPress Sync';
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
     if (path === '/organizers') return 'Organizers & Events Directory';
+    if (path === '/chat-organizers') return 'Live Chat Organizers & Inquiries Control';
     if (path === '/exhibitors') return 'Exhibitor Management & Approvals';
     if (path === '/visitors') return 'Visitor Directory & Pass Management';
     if (path === '/categories') return 'Event Categories & Events Directory';
