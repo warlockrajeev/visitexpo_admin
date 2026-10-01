@@ -6,7 +6,7 @@
  * Create, edit, reorder, categorize, toggle, and delete FAQs displayed across VisitExpo frontend.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
 import {
@@ -28,7 +28,9 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
-  Check
+  Check,
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -55,13 +57,17 @@ export default function AdminFaqsPage() {
   const [formData, setFormData] = useState({
     question: '',
     answer: '',
-    category: 'General',
+    contentType: 'faq',
+    images: [],
+    category: 'Organizers',
     customCategory: '',
     order: 0,
     isActive: true
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [modalError, setModalError] = useState('');
+  const imageInputRef = useRef(null);
 
   // Expanded Answer Accordion
   const [expandedFaqId, setExpandedFaqId] = useState(null);
@@ -110,7 +116,9 @@ export default function AdminFaqsPage() {
     setFormData({
       question: '',
       answer: '',
-      category: 'General',
+      contentType: 'faq',
+      images: [],
+      category: 'Organizers',
       customCategory: '',
       order: faqs.length + 1,
       isActive: true
@@ -126,6 +134,8 @@ export default function AdminFaqsPage() {
     setFormData({
       question: faq.question || '',
       answer: faq.answer || '',
+      contentType: faq.contentType === 'guide' ? 'guide' : 'faq',
+      images: Array.isArray(faq.images) ? faq.images : [],
       category: isStandardCat ? faq.category : 'Custom',
       customCategory: isStandardCat ? '' : faq.category,
       order: faq.order !== undefined ? faq.order : 0,
@@ -155,6 +165,8 @@ export default function AdminFaqsPage() {
       const payload = {
         question: formData.question.trim(),
         answer: formData.answer.trim(),
+        contentType: formData.contentType,
+        images: formData.contentType === 'guide' ? formData.images : [],
         category: finalCategory,
         order: Number(formData.order) || 0,
         isActive: formData.isActive
@@ -173,6 +185,39 @@ export default function AdminFaqsPage() {
       setModalError(err.response?.data?.error || 'Failed to save FAQ.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGuideImageUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length === 0) return;
+
+    if (formData.images.length + files.length > 8) {
+      setModalError('A guide can include up to 8 images.');
+      return;
+    }
+
+    setUploadingImages(true);
+    setModalError('');
+    try {
+      const uploadedImages = [];
+      for (const file of files) {
+        const uploadData = new FormData();
+        uploadData.append('file', file);
+        const res = await axios.post(`${API_URL}/upload`, uploadData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            ...headers
+          }
+        });
+        if (res.data?.success && res.data?.url) uploadedImages.push(res.data.url);
+      }
+      setFormData((prev) => ({ ...prev, images: [...prev.images, ...uploadedImages] }));
+    } catch (err) {
+      setModalError(err.response?.data?.error || 'Could not upload guide images. Please try again.');
+    } finally {
+      setUploadingImages(false);
     }
   };
 
@@ -213,7 +258,7 @@ export default function AdminFaqsPage() {
             FAQ Management
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Create, edit, categorize, and control the visibility of FAQs displayed on the VisitExpo landing page.
+            Manage FAQs and illustrated website guides for the VisitExpo help surfaces.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -230,7 +275,7 @@ export default function AdminFaqsPage() {
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            <span>Create FAQ</span>
+            <span>Add Help Content</span>
           </button>
         </div>
       </div>
@@ -239,7 +284,7 @@ export default function AdminFaqsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-card border border-border rounded-xl p-3.5 text-center shadow-xs">
           <p className="text-xl font-bold text-foreground">{stats.total}</p>
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase mt-0.5">Total Questions</p>
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase mt-0.5">Help Entries</p>
         </div>
         <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3.5 text-center shadow-xs">
           <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{stats.active}</p>
@@ -317,14 +362,14 @@ export default function AdminFaqsPage() {
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
             {searchQuery || selectedCategory !== 'All' || selectedStatus !== 'all'
               ? 'No questions match your filter criteria. Try resetting filters.'
-              : 'Start by clicking "Create FAQ" to add questions for your visitors and exhibitors.'}
+              : 'Add FAQs or step-by-step website guides for organizers.'}
           </p>
           <button
             onClick={handleOpenCreate}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:opacity-90 transition-opacity cursor-pointer mt-2"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Create First FAQ</span>
+            <span>Create Help Content</span>
           </button>
         </div>
       ) : (
@@ -348,6 +393,9 @@ export default function AdminFaqsPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
                           {faq.category || 'General'}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {faq.contentType === 'guide' ? 'Website Guide' : 'FAQ'}
                         </span>
                         {faq.isActive ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
@@ -377,15 +425,27 @@ export default function AdminFaqsPage() {
                         {faq.answer}
                       </p>
 
-                      {faq.answer.length > 140 && (
+                      {(faq.answer.length > 140 || faq.images?.length > 0) && (
                         <button
                           type="button"
                           onClick={() => setExpandedFaqId(isExpanded ? null : faq._id)}
                           className="text-[10px] font-bold text-primary hover:underline cursor-pointer flex items-center gap-0.5 pt-0.5"
                         >
-                          <span>{isExpanded ? 'Show less' : 'Read full answer'}</span>
+                          <span>{isExpanded ? 'Show less' : faq.contentType === 'guide' ? 'Preview guide' : 'Read full answer'}</span>
                           {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                         </button>
+                      )}
+                      {isExpanded && faq.images?.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2 pt-2 sm:grid-cols-3">
+                          {faq.images.map((image, index) => (
+                            <img
+                              key={`${faq._id}-image-${index}`}
+                              src={image}
+                              alt={`${faq.question} step ${index + 1}`}
+                              className="h-24 w-full rounded-lg border border-border object-cover"
+                            />
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -470,7 +530,11 @@ export default function AdminFaqsPage() {
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                 <HelpCircle className="h-5 w-5 text-primary" />
-                <span>{editingFaq ? 'Edit FAQ' : 'Create New FAQ'}</span>
+                <span>
+                  {editingFaq
+                    ? `Edit ${formData.contentType === 'guide' ? 'Website Guide' : 'FAQ'}`
+                    : `Create ${formData.contentType === 'guide' ? 'Website Guide' : 'FAQ'}`}
+                </span>
               </h2>
               <button
                 onClick={() => setModalOpen(false)}
@@ -489,15 +553,28 @@ export default function AdminFaqsPage() {
 
             {/* Modal Form */}
             <form onSubmit={handleSaveFaq} className="space-y-4">
-              {/* Question */}
+              {/* Content Type */}
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">Content Type</label>
+                <select
+                  value={formData.contentType}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, contentType: e.target.value }))}
+                  className="w-full p-2.5 rounded-xl border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  <option value="faq">FAQ</option>
+                  <option value="guide">Website Guide (text and images)</option>
+                </select>
+              </div>
+
+              {/* Question or Guide Title */}
               <div>
                 <label className="block text-xs font-bold text-foreground mb-1">
-                  Question *
+                  {formData.contentType === 'guide' ? 'Guide Title *' : 'Question *'}
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. How do I claim or publish an event on VisitExpo?"
+                  placeholder={formData.contentType === 'guide' ? 'e.g. How to publish your first event' : 'e.g. How do I claim or publish an event on VisitExpo?'}
                   value={formData.question}
                   onChange={(e) => setFormData((prev) => ({ ...prev, question: e.target.value }))}
                   className="w-full p-2.5 rounded-xl border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -522,6 +599,9 @@ export default function AdminFaqsPage() {
                     ))}
                     <option value="Custom">+ Custom Category...</option>
                   </select>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Use Organizers to show this content in the dashboard floating help icon.
+                  </p>
                 </div>
 
                 {formData.category === 'Custom' ? (
@@ -553,27 +633,75 @@ export default function AdminFaqsPage() {
                 )}
               </div>
 
-              {/* Answer */}
+              {/* Answer or Guide Instructions */}
               <div>
                 <label className="block text-xs font-bold text-foreground mb-1">
-                  Answer *
+                  {formData.contentType === 'guide' ? 'Instructions *' : 'Answer *'}
                 </label>
                 <textarea
                   required
-                  rows={4}
-                  placeholder="Provide a clear, detailed, and helpful answer..."
+                  rows={formData.contentType === 'guide' ? 7 : 4}
+                  placeholder={formData.contentType === 'guide' ? 'Describe the website workflow step by step...' : 'Provide a clear, detailed, and helpful answer...'}
                   value={formData.answer}
                   onChange={(e) => setFormData((prev) => ({ ...prev, answer: e.target.value }))}
                   className="w-full p-2.5 rounded-xl border border-border bg-background text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
                 />
               </div>
 
+              {formData.contentType === 'guide' && (
+                <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Guide Images</p>
+                      <p className="text-[10px] text-muted-foreground">Upload up to 8 screenshots or illustrations.</p>
+                    </div>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleGuideImageUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={uploadingImages || formData.images.length >= 8}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[11px] font-bold text-foreground hover:bg-secondary disabled:opacity-50"
+                    >
+                      {uploadingImages ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      {uploadingImages ? 'Uploading...' : 'Upload Images'}
+                    </button>
+                  </div>
+                  {formData.images.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {formData.images.map((image, index) => (
+                        <div key={`${image}-${index}`} className="relative overflow-hidden rounded-lg border border-border bg-background">
+                          <img src={image} alt={`Guide image ${index + 1}`} className="h-24 w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setFormData((prev) => ({
+                              ...prev,
+                              images: prev.images.filter((_, imageIndex) => imageIndex !== index)
+                            }))}
+                            aria-label={`Remove guide image ${index + 1}`}
+                            className="absolute right-1 top-1 rounded-md bg-black/70 p-1 text-white hover:bg-black"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Visibility Switch */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border">
                 <div>
                   <p className="text-xs font-bold text-foreground">Make Active on Frontend</p>
                   <p className="text-[11px] text-muted-foreground">
-                    If active, this question will immediately appear on the landing page FAQ section.
+                    Published content appears on the matching public FAQ or organizer help surface.
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -609,7 +737,9 @@ export default function AdminFaqsPage() {
                   ) : (
                     <>
                       <Save className="h-3.5 w-3.5" />
-                      <span>{editingFaq ? 'Update FAQ' : 'Publish FAQ'}</span>
+                      <span>
+                        {editingFaq ? 'Update' : 'Publish'} {formData.contentType === 'guide' ? 'Guide' : 'FAQ'}
+                      </span>
                     </>
                   )}
                 </button>

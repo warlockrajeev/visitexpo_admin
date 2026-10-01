@@ -148,6 +148,12 @@ export default function AdminLayout({ children }) {
       permission: 'chat_organizers.view'
     },
     {
+      name: 'Organizer Support Chat',
+      href: '/organizer-support',
+      icon: MessageSquare,
+      permission: 'chat_organizers.view'
+    },
+    {
       name: 'Exhibitors',
       href: '/exhibitors',
       icon: Building,
@@ -200,7 +206,7 @@ export default function AdminLayout({ children }) {
   const checkNavPermission = (item) => {
     if (isSuperAdmin) return true;
     if (!item || !item.permission) return true;
-    if (item.href === '/chat-organizers') {
+    if (item.href === '/chat-organizers' || item.href === '/organizer-support') {
       return (
         hasPermission('chat_organizers.view') ||
         hasPermission('chat_organizers.manage') ||
@@ -220,6 +226,7 @@ export default function AdminLayout({ children }) {
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
     if (path === '/organizers') return 'Organizers & Events Directory';
     if (path === '/chat-organizers') return 'Live Chat Organizers & Inquiries Control';
+    if (path === '/organizer-support') return 'Organizer Support Chat';
     if (path === '/exhibitors') return 'Exhibitor Management & Approvals';
     if (path === '/visitors') return 'Visitor Directory & Pass Management';
     if (path === '/categories') return 'Event Categories & Events Directory';
