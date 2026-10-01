@@ -145,7 +145,7 @@ export default function AdminLayout({ children }) {
       icon: MessageSquare,
       badge: 'Live',
       badgeColor: 'bg-emerald-500 text-white',
-      permission: 'organizers.view'
+      permission: 'chat_organizers.view'
     },
     {
       name: 'Exhibitors',
@@ -197,11 +197,21 @@ export default function AdminLayout({ children }) {
     { name: 'CMS & Settings', href: '/settings', icon: Settings, permission: 'settings.manage' },
   ];
 
-  const visibleNavigation = navigation.filter((item) => {
+  const checkNavPermission = (item) => {
     if (isSuperAdmin) return true;
-    if (!item.permission) return true;
+    if (!item || !item.permission) return true;
+    if (item.href === '/chat-organizers') {
+      return (
+        hasPermission('chat_organizers.view') ||
+        hasPermission('chat_organizers.manage') ||
+        hasPermission('chat-organizers') ||
+        hasPermission('organizers.view')
+      );
+    }
     return hasPermission(item.permission);
-  });
+  };
+
+  const visibleNavigation = navigation.filter(checkNavPermission);
 
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
@@ -358,7 +368,7 @@ export default function AdminLayout({ children }) {
         <main className="flex-1 overflow-y-auto p-6 bg-muted/10">
           {(() => {
             const currentItem = navigation.find((n) => n.href === pathname);
-            const isAuthorized = !currentItem || !currentItem.permission || isSuperAdmin || hasPermission(currentItem.permission);
+            const isAuthorized = checkNavPermission(currentItem);
 
             if (!isAuthorized) {
               return (
