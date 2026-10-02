@@ -15,6 +15,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import { showSweetSuccess, showSweetError, showSweetConfirm } from '../../../utils/sweetalert.js';
 import {
   Building,
@@ -46,8 +47,6 @@ import {
   Check,
   Copy,
   ArrowUpRight,
-  ChevronRight,
-  ChevronLeft,
   Clock,
   Layers
 } from 'lucide-react';
@@ -195,31 +194,6 @@ export default function AdminVenuesPage() {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }
-  };
-
-  const getPageNumbers = (current, total) => {
-    if (total <= 7) {
-      return Array.from({ length: total }, (_, i) => i + 1);
-    }
-    const pages = [];
-    if (current <= 4) {
-      for (let i = 1; i <= 5; i++) pages.push(i);
-      pages.push('...');
-      pages.push(total);
-    } else if (current >= total - 3) {
-      pages.push(1);
-      pages.push('...');
-      for (let i = total - 4; i <= total; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      pages.push('...');
-      pages.push(current - 1);
-      pages.push(current);
-      pages.push(current + 1);
-      pages.push('...');
-      pages.push(total);
-    }
-    return pages;
   };
 
   // Unique location filter options
@@ -1011,105 +985,21 @@ export default function AdminVenuesPage() {
       )}
 
         {/* Venues Pagination Controls */}
-        {filteredVenues.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-border text-xs">
-            {/* Left: Range and Per-page Selector */}
-            <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
-              <span>
-                Showing{' '}
-                <strong className="text-foreground">
-                  {venuesPerPage === 'all'
-                    ? 1
-                    : (page - 1) * (Number(venuesPerPage) || 9) + 1}
-                </strong>
-                {' '}-{' '}
-                <strong className="text-foreground">
-                  {venuesPerPage === 'all'
-                    ? filteredVenues.length
-                    : Math.min(page * (Number(venuesPerPage) || 9), filteredVenues.length)}
-                </strong>{' '}
-                of <strong className="text-foreground">{filteredVenues.length}</strong> venues
-              </span>
-
-              <div className="flex items-center gap-1.5 pl-2 border-l border-border">
-                <span className="text-[11px] font-medium text-muted-foreground">Venues per page:</span>
-                <div className="inline-flex rounded-lg bg-secondary/80 p-0.5 border border-border">
-                  {[9, 12, 18, 'all'].map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => {
-                        setVenuesPerPage(size);
-                        setPage(1);
-                      }}
-                      className={`px-2 py-0.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
-                        venuesPerPage === size
-                          ? 'bg-primary text-primary-foreground shadow-2xs font-extrabold'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {size === 'all' ? 'All' : size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Page Navigation Buttons */}
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1.5 self-center sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
-                  title="Previous Venues Page"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span>Previous</span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {getPageNumbers(page, totalPages).map((pageNum, idx) => {
-                    if (pageNum === '...') {
-                      return (
-                        <span key={`dots-${idx}`} className="px-1 text-muted-foreground font-bold">
-                          ...
-                        </span>
-                      );
-                    }
-                    const isActive = pageNum === page;
-                    return (
-                      <button
-                        key={pageNum}
-                        type="button"
-                        onClick={() => handlePageChange(pageNum)}
-                        className={`h-7 min-w-[28px] px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground font-black shadow-xs'
-                            : 'bg-card border border-border text-foreground hover:bg-secondary'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
-                  disabled={page === totalPages}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
-                  title="Next Venues Page"
-                >
-                  <span>Next</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filteredVenues.length}
+          itemsPerPage={venuesPerPage}
+          itemLabel="venues"
+          pageSizeLabel="Venues per page"
+          pageSizeOptions={[9, 12, 18, 'all']}
+          onPageChange={handlePageChange}
+          onPageSizeChange={(size) => {
+            setVenuesPerPage(size);
+            setPage(1);
+          }}
+          alwaysVisible={filteredVenues.length > 0}
+        />
       </div>
 
       {/* ========================================================================= */}

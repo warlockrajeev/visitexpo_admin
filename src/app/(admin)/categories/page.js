@@ -11,6 +11,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   Layers,
   Search,
@@ -20,6 +21,9 @@ import {
   Building2,
   Filter,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   TrendingUp,
   Cpu,
   Activity,
@@ -37,7 +41,6 @@ import {
   Globe,
   SlidersHorizontal,
   ChevronRight,
-  ChevronLeft,
   Grid,
   List,
   Users,
@@ -231,7 +234,8 @@ export default function EventCategoriesPage() {
   const [selectedCity, setSelectedCity] = useState('all');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [page, setPage] = useState(1);
-  const ITEMS_PER_PAGE = 20;
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   // Category Cards Pagination & Search State
   const [categoryPage, setCategoryPage] = useState(1);
@@ -566,15 +570,52 @@ export default function EventCategoriesPage() {
       );
     }
 
+    if (sortConfig.key) {
+      const getSortValue = (event) => {
+        if (sortConfig.key === 'date') {
+          const date = new Date(event.startDate || event.start_date || event.date || event.dates || '').getTime();
+          return Number.isFinite(date) ? date : null;
+        }
+        if (sortConfig.key === 'scale') {
+          const count = Number.parseInt(String(event.attendees || '').replace(/[^\d]/g, ''), 10);
+          return Number.isFinite(count) ? count : null;
+        }
+        if (sortConfig.key === 'location') {
+          return `${event.city || ''} ${event.venue || ''}`.trim().toLowerCase();
+        }
+        return String(event[sortConfig.key] || '').trim().toLowerCase();
+      };
+
+      list.sort((first, second) => {
+        const firstValue = getSortValue(first);
+        const secondValue = getSortValue(second);
+        if (firstValue === null) return secondValue === null ? 0 : 1;
+        if (secondValue === null) return -1;
+        const comparison = typeof firstValue === 'number' && typeof secondValue === 'number'
+          ? firstValue - secondValue
+          : String(firstValue).localeCompare(String(secondValue));
+        return sortConfig.direction === 'asc' ? comparison : -comparison;
+      });
+    }
+
     return list;
-  }, [allEvents, selectedCategory, selectedCity, searchQuery]);
+  }, [allEvents, selectedCategory, selectedCity, searchQuery, sortConfig]);
+
+  const handleSort = (key) => {
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+    setPage(1);
+  };
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / itemsPerPage));
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
   const paginatedEvents = useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE;
-    return filteredEvents.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredEvents, page]);
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredEvents.slice(start, start + itemsPerPage);
+  }, [filteredEvents, currentPage, itemsPerPage]);
 
   const handleCategorySelect = (categoryName) => {
     setSelectedCategory(categoryName);
@@ -695,7 +736,7 @@ export default function EventCategoriesPage() {
       <div id="categories-directory-section" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <h2 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
                 <Layers className="w-5 h-5 text-primary" />
                 <span>Industry Categories &amp; Detailed Scope</span>
@@ -889,96 +930,21 @@ export default function EventCategoriesPage() {
 
         {/* Category Cards Pagination Controls (Positioned exactly where the user marked in red) */}
         {filteredCategoryCards.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-1 border-t border-border text-xs">
-            {/* Left: Range and Per-page Selector */}
-            <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
-              <span>
-                Showing{' '}
-                <strong className="text-foreground">
-                  {categoriesPerPage === 'all'
-                    ? 1
-                    : (categoryPage - 1) * (Number(categoriesPerPage) || 6) + 1}
-                </strong>
-                {' '}-{' '}
-                <strong className="text-foreground">
-                  {categoriesPerPage === 'all'
-                    ? filteredCategoryCards.length
-                    : Math.min(categoryPage * (Number(categoriesPerPage) || 6), filteredCategoryCards.length)}
-                </strong>{' '}
-                of <strong className="text-foreground">{filteredCategoryCards.length}</strong> categories
-              </span>
-
-              <div className="flex items-center gap-1.5 pl-2 border-l border-border">
-                <span className="text-[11px] font-medium text-muted-foreground">Cards per page:</span>
-                <div className="inline-flex rounded-lg bg-secondary/80 p-0.5 border border-border">
-                  {[6, 9, 12, 'all'].map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => {
-                        setCategoriesPerPage(size);
-                        setCategoryPage(1);
-                      }}
-                      className={`px-2 py-0.5 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
-                        categoriesPerPage === size
-                          ? 'bg-primary text-primary-foreground shadow-2xs font-extrabold'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {size === 'all' ? 'All' : size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Page Navigation Buttons */}
-            {totalCategoryPages > 1 && (
-              <div className="flex items-center gap-1.5 self-center sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => handleCategoryPageChange(Math.max(1, categoryPage - 1))}
-                  disabled={categoryPage === 1}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
-                  title="Previous Category Page"
-                >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span>Previous</span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalCategoryPages }, (_, i) => i + 1).map((pageNum) => {
-                    const isActive = pageNum === categoryPage;
-                    return (
-                      <button
-                        key={pageNum}
-                        type="button"
-                        onClick={() => handleCategoryPageChange(pageNum)}
-                        className={`h-7 min-w-[28px] px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground font-black shadow-xs'
-                            : 'bg-card border border-border text-foreground hover:bg-secondary'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleCategoryPageChange(Math.min(totalCategoryPages, categoryPage + 1))}
-                  disabled={categoryPage === totalCategoryPages}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary disabled:opacity-35 disabled:cursor-not-allowed transition-all shadow-2xs cursor-pointer"
-                  title="Next Category Page"
-                >
-                  <span>Next</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
+          <Pagination
+            currentPage={categoryPage}
+            totalPages={totalCategoryPages}
+            totalItems={filteredCategoryCards.length}
+            itemsPerPage={categoriesPerPage}
+            itemLabel="categories"
+            pageSizeLabel="Cards per page"
+            pageSizeOptions={[6, 9, 12, 'all']}
+            onPageChange={handleCategoryPageChange}
+            onPageSizeChange={(size) => {
+              setCategoriesPerPage(size);
+              setCategoryPage(1);
+            }}
+            alwaysVisible
+          />
         )}
       </div>
 
@@ -1211,11 +1177,36 @@ export default function EventCategoriesPage() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border bg-muted/40 font-bold text-muted-foreground uppercase tracking-wider">
-                  <th className="px-6 py-4">Exhibition Title &amp; ID</th>
-                  <th className="px-6 py-4">Category</th>
-                  <th className="px-6 py-4">City &amp; Venue</th>
-                  <th className="px-6 py-4">Event Dates</th>
-                  <th className="px-6 py-4">Scale</th>
+                  <th className="px-6 py-4" aria-sort={sortConfig.key === 'title' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => handleSort('title')} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                      Exhibition Title &amp; ID
+                      {sortConfig.key === 'title' ? sortConfig.direction === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="px-6 py-4" aria-sort={sortConfig.key === 'category' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => handleSort('category')} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                      Category
+                      {sortConfig.key === 'category' ? sortConfig.direction === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="px-6 py-4" aria-sort={sortConfig.key === 'location' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => handleSort('location')} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                      City &amp; Venue
+                      {sortConfig.key === 'location' ? sortConfig.direction === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="px-6 py-4" aria-sort={sortConfig.key === 'date' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => handleSort('date')} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                      Event Dates
+                      {sortConfig.key === 'date' ? sortConfig.direction === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="px-6 py-4" aria-sort={sortConfig.key === 'scale' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => handleSort('scale')} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                      Scale
+                      {sortConfig.key === 'scale' ? sortConfig.direction === 'asc' ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />}
+                    </button>
+                  </th>
                   <th className="px-6 py-4 text-right">Action</th>
                 </tr>
               </thead>
@@ -1386,42 +1377,22 @@ export default function EventCategoriesPage() {
         )}
 
         {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <p className="text-muted-foreground">
-              Showing{' '}
-              <span className="font-bold text-foreground">
-                {(page - 1) * ITEMS_PER_PAGE + 1}
-              </span>{' '}
-              to{' '}
-              <span className="font-bold text-foreground">
-                {Math.min(page * ITEMS_PER_PAGE, filteredEvents.length)}
-              </span>{' '}
-              of <span className="font-bold text-foreground">{filteredEvents.length}</span> exhibitions
-            </p>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1.5 rounded-lg border border-border bg-secondary text-foreground font-bold text-xs hover:bg-secondary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Previous
-              </button>
-              <span className="px-3 py-1.5 text-muted-foreground font-bold">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="px-3 py-1.5 rounded-lg border border-border bg-secondary text-foreground font-bold text-xs hover:bg-secondary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Next
-              </button>
-            </div>
-          </div>
+        {filteredEvents.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredEvents.length}
+            itemsPerPage={itemsPerPage}
+            itemLabel="exhibitions"
+            pageSizeLabel="Events per page"
+            pageSizeOptions={[10, 20, 50, 100]}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setItemsPerPage(size);
+              setPage(1);
+            }}
+            alwaysVisible
+          />
         )}
       </div>
       {/* Delete Event Confirmation Modal */}

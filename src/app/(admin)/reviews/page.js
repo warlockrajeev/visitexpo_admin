@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   MessageSquare,
   Star,
@@ -19,8 +20,6 @@ import {
   Trash2,
   Search,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Eye,
   ThumbsUp,
@@ -440,29 +439,14 @@ export default function AdminReviewsPage() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-[11px] text-muted-foreground font-medium">
-            Showing page {page} of {totalPages} · {total} total reviews
-          </p>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page <= 1}
-              className="h-8 w-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center cursor-pointer disabled:opacity-30"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-              disabled={page >= totalPages}
-              className="h-8 w-8 rounded-lg border border-border bg-card hover:bg-muted flex items-center justify-center cursor-pointer disabled:opacity-30"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        totalItems={total}
+        itemsPerPage={20}
+        itemLabel="reviews"
+        onPageChange={setPage}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   CheckCircle2,
   XCircle,
@@ -32,8 +33,6 @@ import {
   UserCheck,
   Building,
   Send,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
   CheckCheck
 } from 'lucide-react';
@@ -798,7 +797,7 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
-            <PaginationControls
+            <Pagination
               currentPage={organizerHistoryPage}
               totalPages={Math.ceil(filteredOrganizerHistory.length / itemsPerPage) || 1}
               totalItems={filteredOrganizerHistory.length}
@@ -971,7 +970,7 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
-            <PaginationControls
+            <Pagination
               currentPage={exhibitorHistoryPage}
               totalPages={Math.ceil(filteredExhibitorHistory.length / itemsPerPage) || 1}
               totalItems={filteredExhibitorHistory.length}
@@ -1123,7 +1122,7 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
-            <PaginationControls
+            <Pagination
               currentPage={claimHistoryPage}
               totalPages={Math.ceil(filteredClaimHistory.length / itemsPerPage) || 1}
               totalItems={filteredClaimHistory.length}
@@ -1474,7 +1473,7 @@ export default function ModerationPage() {
                 </table>
               </div>
             )}
-            <PaginationControls
+            <Pagination
               currentPage={eventHistoryPage}
               totalPages={Math.ceil(filteredEventHistory.length / itemsPerPage) || 1}
               totalItems={filteredEventHistory.length}
@@ -2078,62 +2077,6 @@ export default function ModerationPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function PaginationControls({ currentPage, totalPages, totalItems, itemsPerPage, onPageChange }) {
-  if (totalItems <= itemsPerPage) return null;
-
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
-
-  return (
-    <div className="px-5 py-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 bg-muted/10 text-xs">
-      <div className="text-muted-foreground font-medium">
-        Showing <span className="font-bold text-foreground">{startItem}</span> to{' '}
-        <span className="font-bold text-foreground">{endItem}</span> of{' '}
-        <span className="font-bold text-foreground">{totalItems}</span> history records
-      </div>
-      <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-card text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition-all shadow-xs"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" /> Previous
-        </button>
-
-        {Array.from({ length: totalPages }, (_, i) => i + 1)
-          .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1)
-          .map((page, idx, arr) => {
-            const prev = arr[idx - 1];
-            const showEllipsis = prev && page - prev > 1;
-            return (
-              <React.Fragment key={page}>
-                {showEllipsis && <span className="px-1 text-muted-foreground font-bold">...</span>}
-                <button
-                  onClick={() => onPageChange(page)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    currentPage === page
-                      ? 'bg-primary text-primary-foreground shadow-xs'
-                      : 'border border-border bg-card text-foreground hover:bg-secondary'
-                  }`}
-                >
-                  {page}
-                </button>
-              </React.Fragment>
-            );
-          })}
-
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border bg-card text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed font-semibold transition-all shadow-xs"
-        >
-          Next <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   Calendar,
   Building2,
@@ -22,7 +23,6 @@ import {
   Phone,
   Filter,
   CheckCircle2,
-  ChevronRight,
   Layers,
   ArrowRight,
   RefreshCw,
@@ -960,29 +960,14 @@ export default function AdminEventsPage() {
         )}
 
         {/* Pagination Footer */}
-        {filteredEvents.length > itemsPerPage && (
-          <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-muted/20 text-xs">
-            <span className="text-muted-foreground">
-              Page <strong className="text-foreground">{currentPage}</strong> of <strong className="text-foreground">{totalPages}</strong>
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="rounded-lg border border-border px-3 py-1 font-semibold text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="rounded-lg border border-border px-3 py-1 font-semibold text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredEvents.length}
+          itemsPerPage={itemsPerPage}
+          itemLabel="events"
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* ============================================================== */}

@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   Users,
   UserCheck,
@@ -34,8 +35,6 @@ import {
   QrCode,
   Download,
   Ticket,
-  ChevronLeft,
-  ChevronRight,
   ShieldCheck,
   Printer
 } from 'lucide-react';
@@ -287,7 +286,7 @@ export default function AdminVisitorsPage() {
     <div className="space-y-6 pb-12">
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold animate-in slide-in-from-bottom-5 duration-200 ${
+        <div className={`fixed top-20 right-4 sm:right-6 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold animate-in slide-in-from-top-5 duration-200 ${
           toast.type === 'success'
             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
             : 'bg-destructive/10 border-destructive/30 text-destructive'
@@ -628,32 +627,14 @@ export default function AdminVisitorsPage() {
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-border bg-muted/10 text-xs">
-            <span className="text-muted-foreground">
-              Showing {(page - 1) * itemsPerPage + 1} to {Math.min(page * itemsPerPage, filteredVisitors.length)} of {filteredVisitors.length} visitors
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                disabled={page === 1}
-                className="p-1 rounded-lg border border-border text-foreground hover:bg-secondary disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="px-2 font-bold text-foreground">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={page === totalPages}
-                className="p-1 rounded-lg border border-border text-foreground hover:bg-secondary disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filteredVisitors.length}
+          itemsPerPage={itemsPerPage}
+          itemLabel="visitors"
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Digital Visitor Pass Modal */}

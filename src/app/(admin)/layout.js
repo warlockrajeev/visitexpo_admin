@@ -253,7 +253,7 @@ export default function AdminLayout({ children }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform duration-300 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex min-h-0 w-64 flex-col border-r border-border bg-card transition-transform duration-300 md:static md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -278,7 +278,7 @@ export default function AdminLayout({ children }) {
         </div>
 
         {/* Links */}
-        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
+        <nav className="min-h-0 flex-1 space-y-1 px-3 py-4 overflow-y-auto">
           {visibleNavigation.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -345,7 +345,7 @@ export default function AdminLayout({ children }) {
       </aside>
 
       {/* Main Panel Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-16 items-center justify-between border-b border-border bg-card/50 backdrop-blur-md px-6">
           <div className="flex items-center gap-4">
             <button
@@ -372,7 +372,7 @@ export default function AdminLayout({ children }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 bg-muted/10">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-6 bg-muted/10">
           {(() => {
             const currentItem = navigation.find((n) => n.href === pathname);
             const isAuthorized = checkNavPermission(currentItem);

@@ -11,6 +11,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   Building,
   CheckCircle2,
@@ -19,6 +20,7 @@ import {
   Search,
   Filter,
   RefreshCw,
+  RotateCcw,
   Eye,
   Trash2,
   Check,
@@ -37,8 +39,7 @@ import {
   ShieldCheck,
   Building2,
   SlidersHorizontal,
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   Edit3
 } from 'lucide-react';
 
@@ -68,8 +69,37 @@ export default function AdminExhibitorsPage() {
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEventId, setSelectedEventId] = useState('all');
+  const [isEventPickerOpen, setIsEventPickerOpen] = useState(false);
+  const [eventSearchQuery, setEventSearchQuery] = useState('');
+  const [activeEventIndex, setActiveEventIndex] = useState(0);
   const [page, setPage] = useState(1);
   const itemsPerPage = 12;
+
+  const eventOptions = useMemo(() => [
+    { id: 'all', title: `All Events (${events.length})` },
+    ...events.map((event) => ({
+      id: event._id,
+      title: event.title || 'Untitled Event',
+      searchText: `${event.title || ''} ${event.city || ''} ${event.country || ''}`.toLowerCase()
+    }))
+  ], [events]);
+  const filteredEventOptions = useMemo(() => {
+    const query = eventSearchQuery.trim().toLowerCase();
+    if (!query) return eventOptions;
+    return eventOptions.filter((option) =>
+      `${option.title} ${option.searchText || ''}`.toLowerCase().includes(query)
+    );
+  }, [eventOptions, eventSearchQuery]);
+
+  const resetGridFilters = () => {
+    setSearchQuery('');
+    setSelectedEventId('all');
+    setActiveTab('all');
+    setEventSearchQuery('');
+    setIsEventPickerOpen(false);
+    setActiveEventIndex(0);
+    setPage(1);
+  };
 
   // Detail Modal / Drawer
   const [selectedExhibitor, setSelectedExhibitor] = useState(null);
@@ -244,10 +274,11 @@ export default function AdminExhibitorsPage() {
   }, [exhibitors, searchQuery, activeTab, selectedEventId]);
 
   const totalPages = Math.ceil(filteredExhibitors.length / itemsPerPage) || 1;
+  const currentPage = Math.min(Math.max(page, 1), totalPages);
   const paginatedExhibitors = useMemo(() => {
-    const start = (page - 1) * itemsPerPage;
+    const start = (currentPage - 1) * itemsPerPage;
     return filteredExhibitors.slice(start, start + itemsPerPage);
-  }, [filteredExhibitors, page]);
+  }, [filteredExhibitors, currentPage]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -390,6 +421,15 @@ export default function AdminExhibitorsPage() {
 
           {/* Search & Event Filters */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={resetGridFilters}
+              title="Reset grid filters"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary/80"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Reset</span>
+            </button>
             <div className="relative min-w-[240px] flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
@@ -409,18 +449,100 @@ export default function AdminExhibitorsPage() {
               )}
             </div>
 
-            <select
-              value={selectedEventId}
-              onChange={e => setSelectedEventId(e.target.value)}
-              className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[200px]"
+            <div
+              className="relative w-full sm:w-[230px]"
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) {
+                  setIsEventPickerOpen(false);
+                }
+              }}
             >
-              <option value="all">All Events ({events.length})</option>
-              {events.map(ev => (
-                <option key={ev._id} value={ev._id}>
-                  {ev.title}
-                </option>
-              ))}
-            </select>
+              <button
+                type="button"
+                role="combobox"
+                aria-label="Filter exhibitors by event"
+                aria-expanded={isEventPickerOpen}
+                aria-controls="exhibitor-event-options"
+                onClick={() => {
+                  setIsEventPickerOpen((open) => !open);
+                  setEventSearchQuery('');
+                  setActiveEventIndex(0);
+                }}
+                className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 py-1.5 text-left text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <span className="truncate">
+                  {eventOptions.find((option) => option.id === selectedEventId)?.title || 'Select Event'}
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${isEventPickerOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isEventPickerOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-full min-w-[250px] overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+                  <div className="relative border-b border-border p-2">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="search"
+                      role="searchbox"
+                      aria-label="Search events"
+                      aria-controls="exhibitor-event-options"
+                      autoFocus
+                      value={eventSearchQuery}
+                      onChange={(e) => {
+                        setEventSearchQuery(e.target.value);
+                        setActiveEventIndex(0);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setActiveEventIndex((index) => Math.min(index + 1, filteredEventOptions.length - 1));
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setActiveEventIndex((index) => Math.max(index - 1, 0));
+                        } else if (e.key === 'Enter' && filteredEventOptions[activeEventIndex]) {
+                          e.preventDefault();
+                          setSelectedEventId(filteredEventOptions[activeEventIndex].id);
+                          setIsEventPickerOpen(false);
+                        } else if (e.key === 'Escape') {
+                          setIsEventPickerOpen(false);
+                        }
+                      }}
+                      placeholder="Search events..."
+                      className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div
+                    id="exhibitor-event-options"
+                    role="listbox"
+                    aria-label="Events"
+                    className="max-h-64 overflow-y-auto p-1"
+                  >
+                    {filteredEventOptions.length ? filteredEventOptions.map((option, index) => (
+                      <button
+                        key={option.id}
+                        id={`exhibitor-event-option-${index}`}
+                        type="button"
+                        role="option"
+                        aria-selected={selectedEventId === option.id}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onMouseEnter={() => setActiveEventIndex(index)}
+                        onClick={() => {
+                          setSelectedEventId(option.id);
+                          setIsEventPickerOpen(false);
+                        }}
+                        className={`w-full truncate rounded-lg px-3 py-2 text-left text-xs transition-colors ${
+                          activeEventIndex === index
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {option.title}
+                      </button>
+                    )) : (
+                      <p className="px-3 py-4 text-center text-xs text-muted-foreground">No matching events</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -610,32 +732,14 @@ export default function AdminExhibitorsPage() {
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t border-border bg-muted/10 text-xs">
-            <span className="text-muted-foreground">
-              Showing {(page - 1) * itemsPerPage + 1} to {Math.min(page * itemsPerPage, filteredExhibitors.length)} of {filteredExhibitors.length} exhibitors
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                disabled={page === 1}
-                className="p-1 rounded-lg border border-border text-foreground hover:bg-secondary disabled:opacity-40"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="px-2 font-bold text-foreground">
-                {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={page === totalPages}
-                className="p-1 rounded-lg border border-border text-foreground hover:bg-secondary disabled:opacity-40"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredExhibitors.length}
+          itemsPerPage={itemsPerPage}
+          itemLabel="exhibitors"
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Exhibitor Profile Drawer / Modal */}

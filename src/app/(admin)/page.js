@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
+import Pagination from '../../components/Pagination.js';
 import {
   Building2,
   Users,
@@ -881,31 +882,15 @@ export default function AdminOverview() {
             </div>
 
             {/* Pagination Footer */}
-            {totalTenants > 0 && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/20 text-xs">
-                <span className="text-muted-foreground">
-                  Page <strong className="text-foreground">{tenantsPage}</strong> of <strong className="text-foreground">{totalTenantsPages}</strong>
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setTenantsPage(p => Math.max(1, p - 1))}
-                    disabled={tenantsPage === 1}
-                    className="rounded-lg border border-border px-3 py-1 font-semibold text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer transition-colors"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTenantsPage(p => Math.min(totalTenantsPages, p + 1))}
-                    disabled={tenantsPage === totalTenantsPages}
-                    className="rounded-lg border border-border px-3 py-1 font-semibold text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer transition-colors"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              currentPage={tenantsPage}
+              totalPages={totalTenantsPages}
+              totalItems={totalTenants}
+              itemsPerPage={tenantsPerPage}
+              itemLabel="organizations"
+              onPageChange={setTenantsPage}
+              alwaysVisible={totalTenants > 0}
+            />
           </>
         )}
       </div>

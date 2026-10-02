@@ -11,6 +11,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   Users,
   UserCheck,
@@ -872,31 +873,12 @@ export default function AttendeesAndFollowersPage() {
         )}
 
         {/* Pagination Footer */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-border bg-secondary/20 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              Showing page <strong className="text-foreground">{page}</strong> of <strong className="text-foreground">{totalPages}</strong>
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                className="px-3 py-1.5 rounded-lg border border-border bg-card disabled:opacity-40 text-xs font-bold cursor-pointer"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="px-3 py-1.5 rounded-lg border border-border bg-card disabled:opacity-40 text-xs font-bold cursor-pointer"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          itemsPerPage={50}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* 6. Attendee Detail Profile Modal */}

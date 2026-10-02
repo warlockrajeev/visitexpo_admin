@@ -12,6 +12,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   Building2,
   Calendar,
@@ -1228,38 +1229,15 @@ export default function OrganizersPage() {
       )}
 
       {/* Pagination Controls */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{(page - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
-            <span className="font-semibold text-foreground">
-              {Math.min(page * ITEMS_PER_PAGE, filteredOrganizers.length)}
-            </span>{' '}
-            of <span className="font-semibold text-foreground">{filteredOrganizers.length}</span> organizers
-          </p>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Previous
-            </button>
-            <span className="text-xs font-bold text-foreground px-2">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+      {!loading && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filteredOrganizers.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          itemLabel="organizers"
+          onPageChange={setPage}
+        />
       )}
 
       {/* ============================================================ */}
