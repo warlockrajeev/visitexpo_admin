@@ -216,7 +216,7 @@ export default function OrganizersPage() {
       // 1. Direct authenticated Express backend endpoint
       if (accessToken) {
         try {
-          const expressRes = await axios.get(`${API_URL}/admin/organizers-directory?refresh=true`, {
+          const expressRes = await axios.get(`${API_URL}/admin/organizers-directory`, {
             headers: { Authorization: `Bearer ${accessToken}` }
           });
           if (expressRes.data?.success && expressRes.data?.data) {
@@ -228,8 +228,8 @@ export default function OrganizersPage() {
         }
       }
 
-      // 2. Fallback to Next.js API route on port 3001 with cache busting
-      const res = await axios.get(`/api/organizers?t=${Date.now()}&refresh=true`);
+      // 2. Fallback to Next.js API route without forcing a full refresh every time
+      const res = await axios.get('/api/organizers');
       if (res.data?.success && res.data?.data) {
         setData(res.data.data);
         return;

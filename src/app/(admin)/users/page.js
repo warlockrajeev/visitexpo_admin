@@ -46,6 +46,7 @@ import {
   Globe,
   Hash,
   ChevronRight,
+  ChevronLeft,
   Smartphone,
   Layers,
   Database
@@ -111,6 +112,11 @@ export default function UsersManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [verificationFilter, setVerificationFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [resultCount, setResultCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // ==========================================
   // USER DETAILS DOSSIER DRAWER
@@ -171,23 +177,29 @@ export default function UsersManagementPage() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (requestedPage = currentPage, filterOverrides = {}) => {
     if (!accessToken) return;
     setLoading(true);
     setError('');
     try {
       const res = await axios.get(`${API_URL}/admin/users`, {
         params: {
-          search: searchTerm,
-          role: roleFilter,
-          status: statusFilter,
-          limit: 150
+          search: filterOverrides.search ?? searchTerm,
+          role: filterOverrides.role ?? roleFilter,
+          status: filterOverrides.status ?? statusFilter,
+          verification: filterOverrides.verification ?? verificationFilter,
+          page: requestedPage,
+          limit: pageSize
         },
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data && res.data.success) {
         const fetchedDocs = res.data.data.docs || [];
         setUsers(fetchedDocs);
+        setResultCount(res.data.data.total ?? fetchedDocs.length);
+        const fetchedPages = Math.max(1, res.data.data.pages || 1);
+        setTotalPages(fetchedPages);
+        if (requestedPage > fetchedPages) setCurrentPage(fetchedPages);
         setStats({
           total: res.data.data.total ?? fetchedDocs.length,
           active: res.data.data.totalActive ?? fetchedDocs.filter(u => !u.isSuspended && u.status !== 'suspended').length,
@@ -204,12 +216,13 @@ export default function UsersManagementPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [accessToken, roleFilter, statusFilter]);
+  }, [accessToken, roleFilter, statusFilter, verificationFilter, currentPage, pageSize]);
 
   // Trigger search on submit
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchUsers();
+    if (currentPage === 1) fetchUsers(1);
+    else setCurrentPage(1);
   };
 
   // Helper checks
@@ -457,7 +470,7 @@ export default function UsersManagementPage() {
   const activeActivity = detailData?.activity || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Toast Notification Banner */}
       {feedback && (
         <div
@@ -486,7 +499,7 @@ export default function UsersManagementPage() {
       )}
 
       {/* Header Panel with KPI Stats Chips */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card p-6 rounded-2xl border border-border shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between bg-card p-4 rounded-xl border border-border shadow-sm">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
             <Users className="h-6 w-6 text-primary" /> User Directory &amp; Access Control
@@ -514,7 +527,7 @@ export default function UsersManagementPage() {
           </div>
           <button
             type="button"
-            onClick={fetchUsers}
+            onClick={() => fetchUsers(currentPage)}
             disabled={loading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
             title="Refresh user directory"
@@ -526,9 +539,9 @@ export default function UsersManagementPage() {
       </div>
 
       {/* Control Filters */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-card p-4 rounded-xl border border-border">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between bg-card p-3 rounded-xl border border-border">
         {/* Search Input */}
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 md:max-w-md flex gap-2">
+        <form onSubmit={handleSearchSubmit} className="relative flex-1 lg:max-w-md flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
             <input
@@ -536,26 +549,26 @@ export default function UsersManagementPage() {
               placeholder="Search by name, email, phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-secondary hover:bg-secondary/80 border border-border px-4 py-2 text-sm font-semibold text-foreground cursor-pointer transition-colors"
+            className="rounded-lg bg-secondary hover:bg-secondary/80 border border-border px-3 py-1.5 text-xs font-semibold text-foreground cursor-pointer transition-colors"
           >
             Search
           </button>
         </form>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Status Filter */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold text-muted-foreground uppercase">Status:</span>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               <option value="all">All Accounts</option>
               <option value="active">Active Only</option>
@@ -568,8 +581,8 @@ export default function UsersManagementPage() {
             <span className="text-xs font-semibold text-muted-foreground uppercase">Role:</span>
             <select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
+              className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               <option value="all">All Roles</option>
               <option value="super_admin">Super Admin</option>
@@ -580,6 +593,45 @@ export default function UsersManagementPage() {
               <option value="sales_team">Sales Team</option>
             </select>
           </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Verification:</span>
+            <select
+              value={verificationFilter}
+              onChange={(e) => { setVerificationFilter(e.target.value); setCurrentPage(1); }}
+              className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            >
+              <option value="all">All Verification</option>
+              <option value="email_verified">Email Verified</option>
+              <option value="email_unverified">Email Unverified</option>
+              <option value="phone_verified">Phone Verified</option>
+              <option value="phone_unverified">Phone Unverified</option>
+            </select>
+          </div>
+
+          {(searchTerm || roleFilter !== 'all' || statusFilter !== 'all' || verificationFilter !== 'all') && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setRoleFilter('all');
+                setStatusFilter('all');
+                setVerificationFilter('all');
+                setCurrentPage(1);
+                if (
+                  roleFilter === 'all' &&
+                  statusFilter === 'all' &&
+                  verificationFilter === 'all' &&
+                  currentPage === 1
+                ) {
+                  fetchUsers(1, { search: '', role: 'all', status: 'all', verification: 'all' });
+                }
+              }}
+              className="px-2.5 py-1.5 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground cursor-pointer transition-colors"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
@@ -606,12 +658,12 @@ export default function UsersManagementPage() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <th className="px-6 py-4">User Profile &amp; Contact</th>
-                  <th className="px-6 py-4">Tenant / Org</th>
-                  <th className="px-6 py-4">Account Status</th>
-                  <th className="px-6 py-4">Verification</th>
-                  <th className="px-6 py-4">System Role</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-4 py-2.5">User Profile &amp; Contact</th>
+                  <th className="px-4 py-2.5">Tenant / Org</th>
+                  <th className="px-4 py-2.5">Account Status</th>
+                  <th className="px-4 py-2.5">Verification</th>
+                  <th className="px-4 py-2.5">System Role</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -634,10 +686,10 @@ export default function UsersManagementPage() {
                       }`}
                     >
                       {/* User Profile & Contact */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2.5">
                           <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm uppercase shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
+                            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm uppercase shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
                               isSuspended
                                 ? 'bg-rose-100 text-rose-700 border border-rose-200'
                                 : u.role === 'super_admin'
@@ -676,7 +728,7 @@ export default function UsersManagementPage() {
                       </td>
 
                       {/* Tenant Association */}
-                      <td className="px-6 py-4 text-muted-foreground">
+                      <td className="px-4 py-2.5 text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                           <Building className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
                           <span className="font-medium text-foreground truncate max-w-[170px]" title={u.organization?.name || u.company || 'Platform (Root)'}>
@@ -691,7 +743,7 @@ export default function UsersManagementPage() {
                       </td>
 
                       {/* Account Status Badge */}
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-2.5">
                         {isSuspended ? (
                           <div className="inline-flex flex-col">
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-600">
@@ -711,8 +763,8 @@ export default function UsersManagementPage() {
                       </td>
 
                       {/* Verification Status */}
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
+                      <td className="px-4 py-2.5">
+                        <div className="space-y-0.5">
                           {u.isVerified ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
                               <CheckCircle className="h-3 w-3" /> Email
@@ -738,7 +790,7 @@ export default function UsersManagementPage() {
                       </td>
 
                       {/* System Role */}
-                      <td className="px-6 py-4 capitalize font-medium text-foreground">
+                      <td className="px-4 py-2.5 capitalize font-medium text-foreground">
                         <span
                           className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
                             u.role === 'super_admin'
@@ -757,7 +809,7 @@ export default function UsersManagementPage() {
                       </td>
 
                       {/* Actions */}
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-1">
                           {/* Inspect Dossier Action */}
                           <button
@@ -861,6 +913,51 @@ export default function UsersManagementPage() {
           </div>
         )}
       </div>
+
+      {!loading && !error && resultCount > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+          <span>
+            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, resultCount)} of {resultCount} users
+          </span>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              Rows per page
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                className="rounded-md border border-border bg-background px-2 py-1 text-foreground"
+                aria-label="Rows per page"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage <= 1 || loading}
+                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-16 text-center text-foreground">Page {currentPage} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage >= totalPages || loading}
+                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* USER COMPLETE DOSSIER / DETAILS SLIDE-OVER DRAWER                         */}
@@ -1757,7 +1854,8 @@ export default function UsersManagementPage() {
             <button
               type="button"
               onClick={() => setIsEditModalOpen(false)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+              className="absolute right-4 top-4 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+              aria-label="Close edit user modal"
             >
               <X className="h-5 w-5" />
             </button>
@@ -1841,14 +1939,14 @@ export default function UsersManagementPage() {
                   <select
                     value={editForm.role}
                     onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-semibold"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-semibold cursor-pointer"
                   >
-                    <option value="super_admin">Super Admin</option>
-                    <option value="organizer">Organizer</option>
-                    <option value="exhibitor">Exhibitor</option>
-                    <option value="visitor">Visitor</option>
-                    <option value="event_manager">Event Manager</option>
-                    <option value="sales_team">Sales Team</option>
+                    <option className="cursor-pointer" value="super_admin">Super Admin</option>
+                    <option className="cursor-pointer" value="organizer">Organizer</option>
+                    <option className="cursor-pointer" value="exhibitor">Exhibitor</option>
+                    <option className="cursor-pointer" value="visitor">Visitor</option>
+                    <option className="cursor-pointer" value="event_manager">Event Manager</option>
+                    <option className="cursor-pointer" value="sales_team">Sales Team</option>
                   </select>
                 </div>
                 <div>
@@ -1856,10 +1954,10 @@ export default function UsersManagementPage() {
                   <select
                     value={String(editForm.isVerified)}
                     onChange={(e) => setEditForm(prev => ({ ...prev, isVerified: e.target.value === 'true' }))}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium cursor-pointer"
                   >
-                    <option value="true">Verified Account</option>
-                    <option value="false">Pending Verification</option>
+                    <option className="cursor-pointer" value="true">Verified Account</option>
+                    <option className="cursor-pointer" value="false">Pending Verification</option>
                   </select>
                 </div>
               </div>
@@ -1869,10 +1967,10 @@ export default function UsersManagementPage() {
                 <select
                   value={String(editForm.isPhoneVerified)}
                   onChange={(e) => setEditForm(prev => ({ ...prev, isPhoneVerified: e.target.value === 'true' }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium cursor-pointer"
                 >
-                  <option value="true">Verified via SMS OTP</option>
-                  <option value="false">Unverified / Pending</option>
+                  <option className="cursor-pointer" value="true">Verified via SMS OTP</option>
+                  <option className="cursor-pointer" value="false">Unverified / Pending</option>
                 </select>
               </div>
 
@@ -1888,14 +1986,14 @@ export default function UsersManagementPage() {
                   <select
                     value={String(editForm.isSuspended)}
                     onChange={(e) => setEditForm(prev => ({ ...prev, isSuspended: e.target.value === 'true' }))}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-bold focus:outline-none ${
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-bold focus:outline-none cursor-pointer ${
                       editForm.isSuspended
                         ? 'border-rose-500/30 bg-rose-500/10 text-rose-600'
                         : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'
                     }`}
                   >
-                    <option value="false">Active Account</option>
-                    <option value="true">Suspended</option>
+                    <option className="cursor-pointer" value="false">Active Account</option>
+                    <option className="cursor-pointer" value="true">Suspended</option>
                   </select>
                 </div>
 

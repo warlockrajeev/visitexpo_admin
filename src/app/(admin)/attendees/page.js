@@ -7,7 +7,7 @@
  * platform and WordPress exhibitions, with filtering, search, CSV export, and attendee profiling.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
@@ -91,8 +91,13 @@ export default function AttendeesAndFollowersPage() {
   const [deleteAlsoUser, setDeleteAlsoUser] = useState(false);
   const [deletingAttendee, setDeletingAttendee] = useState(false);
 
+  const showToast = useCallback((msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  }, []);
+
   // Load Attendees & Events
-  const fetchData = async (isRefresh = false) => {
+  const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
@@ -129,25 +134,15 @@ export default function AttendeesAndFollowersPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [selectedEventSlug, activeTab, page, searchQuery, showToast]);
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedEventSlug, activeTab, page]);
-
-  // Handle Search submit / debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      setPage(1);
       fetchData();
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    }, searchQuery.trim() ? 300 : 0);
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+    return () => clearTimeout(timer);
+  }, [fetchData, searchQuery]);
 
   // Delete Attendee Handlers
   const openDeleteAttendeeModal = (att, e) => {
@@ -199,6 +194,13 @@ export default function AttendeesAndFollowersPage() {
     }
   };
 
+
+  const getEventDetailsUrl = (event) => {
+    if (!event) return '#';
+    const slug = event.slug || event.id || event._id || event.eventId;
+    if (!slug) return '#';
+    return `${getClientUrl()}/expo/${slug}`;
+  };
 
   // Filtered Attendees in Memory for Instant Type / Verification toggles
   const filteredAttendees = useMemo(() => {
@@ -574,7 +576,10 @@ export default function AttendeesAndFollowersPage() {
               type="text"
               placeholder="Search by attendee name, company, designation, city, email..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setPage(1);
+                setSearchQuery(e.target.value);
+              }}
               className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -630,6 +635,7 @@ export default function AttendeesAndFollowersPage() {
             <button
               type="button"
               onClick={() => {
+                setPage(1);
                 setSearchQuery('');
                 setTypeFilter('all');
                 setVerifiedOnly(false);
@@ -696,7 +702,20 @@ export default function AttendeesAndFollowersPage() {
 
                     {/* Event Associated */}
                     <td className="py-3.5 px-4">
-                      <div className="font-bold text-foreground truncate max-w-xs">{att.event?.title || 'Exhibition'}</div>
+                      {att.event ? (
+                        <a
+                          href={getEventDetailsUrl(att.event)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex max-w-xs items-center gap-1.5 font-bold text-primary hover:text-primary/80 hover:underline transition-colors"
+                          title="Open event details page"
+                        >
+                          <span className="truncate">{att.event.title}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                      ) : (
+                        <div className="font-bold text-foreground truncate max-w-xs">Exhibition</div>
+                      )}
                       <div className="text-[11px] text-muted-foreground">{att.event?.dates || '2026'} • {att.event?.city}</div>
                     </td>
 
@@ -825,7 +844,20 @@ export default function AttendeesAndFollowersPage() {
 
                   <div className="space-y-1 text-xs pt-1 border-t border-border">
                     <div className="text-[11px] text-muted-foreground truncate">
-                      Event: <strong className="text-foreground">{att.event?.title}</strong>
+                      Event:{' '}
+                      {att.event ? (
+                        <a
+                          href={getEventDetailsUrl(att.event)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-primary hover:text-primary/80 hover:underline"
+                          title="Open event details page"
+                        >
+                          {att.event.title}
+                        </a>
+                      ) : (
+                        <strong className="text-foreground">Exhibition</strong>
+                      )}
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                       <span>{att.city}, {att.country}</span>
@@ -926,9 +958,22 @@ export default function AttendeesAndFollowersPage() {
                 <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   Associated Event Engagement
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h4 className="font-extrabold text-sm text-foreground">{selectedAttendee.event?.title}</h4>
+                    {selectedAttendee.event ? (
+                      <a
+                        href={getEventDetailsUrl(selectedAttendee.event)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-extrabold text-sm text-primary hover:text-primary/80 hover:underline inline-flex items-center gap-1.5"
+                        title="Open event details page"
+                      >
+                        <span>{selectedAttendee.event.title}</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <h4 className="font-extrabold text-sm text-foreground">Exhibition</h4>
+                    )}
                     <p className="text-muted-foreground">{selectedAttendee.event?.dates} • {selectedAttendee.event?.venue || selectedAttendee.event?.city}</p>
                   </div>
                   <div className="flex items-center gap-1.5">

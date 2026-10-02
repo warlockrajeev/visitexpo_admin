@@ -136,7 +136,7 @@ export default function AdminExhibitorsPage() {
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
       const params = {
-        limit: 200,
+        limit: 80,
         page: 1
       };
       if (selectedEventId !== 'all') params.eventId = selectedEventId;

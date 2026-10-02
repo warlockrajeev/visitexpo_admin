@@ -101,7 +101,7 @@ export default function AdminVisitorsPage() {
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
       const params = {
-        limit: 300,
+        limit: 80,
         page: 1
       };
       if (selectedEventId !== 'all') params.eventId = selectedEventId;
@@ -320,7 +320,7 @@ export default function AdminVisitorsPage() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={handleExportCSV}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary hover:bg-secondary/80 border border-border text-foreground transition-all"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary hover:bg-secondary/80 border border-border text-foreground transition-all cursor-pointer"
           >
             <Download className="h-3.5 w-3.5" />
             Export CSV
@@ -332,7 +332,7 @@ export default function AdminVisitorsPage() {
               fetchAuxiliaryData();
             }}
             disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary hover:bg-secondary/80 border border-border text-foreground transition-all"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-secondary hover:bg-secondary/80 border border-border text-foreground transition-all cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -414,7 +414,7 @@ export default function AdminVisitorsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === tab.id
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -444,7 +444,7 @@ export default function AdminVisitorsPage() {
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -454,7 +454,7 @@ export default function AdminVisitorsPage() {
             <select
               value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)}
-              className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[200px]"
+              className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[200px] cursor-pointer"
             >
               <option value="all">All Events ({events.length})</option>
               {events.map(ev => (
@@ -586,7 +586,7 @@ export default function AdminVisitorsPage() {
                         <button
                           onClick={() => handleToggleCheckin(vis._id, vis.checkInStatus)}
                           disabled={actionLoadingId === vis._id}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer ${
                             vis.checkInStatus === 'checked_in'
                               ? 'bg-secondary text-foreground hover:bg-secondary/80 border border-border'
                               : 'bg-emerald-500 hover:bg-emerald-600 text-white'
@@ -604,7 +604,7 @@ export default function AdminVisitorsPage() {
 
                         <button
                           onClick={() => setSelectedVisitor(vis)}
-                          className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors"
+                          className="p-1 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors cursor-pointer"
                           title="View Digital Pass Badge"
                         >
                           <Ticket className="h-4 w-4" />
@@ -612,7 +612,7 @@ export default function AdminVisitorsPage() {
 
                         <button
                           onClick={() => handleDeleteVisitor(vis._id, vis.name)}
-                          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                           title="Remove Registration"
                         >
                           <Trash2 className="h-4 w-4" />

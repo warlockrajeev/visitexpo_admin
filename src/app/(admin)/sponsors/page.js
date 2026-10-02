@@ -35,7 +35,10 @@ import {
   Loader2,
   Store,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -178,6 +181,9 @@ export default function SponsorsPage() {
   const [selectedTier, setSelectedTier] = useState('all');
   const [selectedType, setSelectedType] = useState('all'); // all, exhibitor, sponsor
   const [viewMode, setViewMode] = useState('grid'); // grid, table
+  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
 
   // Add Sponsor Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -242,6 +248,40 @@ export default function SponsorsPage() {
       return matchesSearch && matchesTier && matchesType;
     });
   }, [sponsors, searchQuery, selectedTier, selectedType]);
+
+  const sortedSponsors = useMemo(() => {
+    const getSortValue = (sponsor, key) => {
+      switch (key) {
+        case 'tier': return sponsor.tier;
+        case 'event': return sponsor.eventTitle || sponsor.event?.title;
+        case 'booth': return sponsor.boothDetails?.boothNumber;
+        case 'representative': return sponsor.contactPerson?.name;
+        default: return sponsor.name;
+      }
+    };
+
+    return [...filteredSponsors].sort((first, second) => {
+      const firstValue = String(getSortValue(first, sortConfig.key) || '').toLowerCase();
+      const secondValue = String(getSortValue(second, sortConfig.key) || '').toLowerCase();
+      const comparison = firstValue.localeCompare(secondValue, undefined, { numeric: true });
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+  }, [filteredSponsors, sortConfig]);
+
+  const pageCount = Math.max(1, Math.ceil(sortedSponsors.length / pageSize));
+  const activePage = Math.min(currentPage, pageCount);
+  const paginatedSponsors = useMemo(() => {
+    const startIndex = (activePage - 1) * pageSize;
+    return sortedSponsors.slice(startIndex, startIndex + pageSize);
+  }, [sortedSponsors, activePage, pageSize]);
+
+  const handleSort = (key) => {
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+    setCurrentPage(1);
+  };
 
   // Tier counts
   const tierCounts = useMemo(() => {
@@ -402,7 +442,7 @@ export default function SponsorsPage() {
           </Link>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm shadow-sm transition-all active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm shadow-sm transition-all active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add New Sponsor</span>
@@ -498,8 +538,8 @@ export default function SponsorsPage() {
         {/* Tier Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
           <button
-            onClick={() => setSelectedTier('all')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+            onClick={() => { setSelectedTier('all'); setCurrentPage(1); }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               selectedTier === 'all'
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border'
@@ -508,8 +548,8 @@ export default function SponsorsPage() {
             All Tiers ({tierCounts.all})
           </button>
           <button
-            onClick={() => setSelectedTier('platinum')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+            onClick={() => { setSelectedTier('platinum'); setCurrentPage(1); }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               selectedTier === 'platinum'
                 ? 'bg-purple-600 text-white shadow-sm'
                 : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border'
@@ -518,8 +558,8 @@ export default function SponsorsPage() {
             Platinum ({tierCounts.platinum})
           </button>
           <button
-            onClick={() => setSelectedTier('gold')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+            onClick={() => { setSelectedTier('gold'); setCurrentPage(1); }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               selectedTier === 'gold'
                 ? 'bg-amber-500 text-black font-extrabold shadow-sm'
                 : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border'
@@ -528,8 +568,8 @@ export default function SponsorsPage() {
             Gold ({tierCounts.gold})
           </button>
           <button
-            onClick={() => setSelectedTier('silver')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+            onClick={() => { setSelectedTier('silver'); setCurrentPage(1); }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               selectedTier === 'silver'
                 ? 'bg-slate-700 text-white shadow-sm'
                 : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border'
@@ -538,8 +578,8 @@ export default function SponsorsPage() {
             Silver ({tierCounts.silver})
           </button>
           <button
-            onClick={() => setSelectedTier('bronze')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+            onClick={() => { setSelectedTier('bronze'); setCurrentPage(1); }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               selectedTier === 'bronze'
                 ? 'bg-orange-600 text-white shadow-sm'
                 : 'bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 border border-border'
@@ -557,14 +597,14 @@ export default function SponsorsPage() {
               type="text"
               placeholder="Search sponsor, event, booth..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full pl-9 pr-4 py-1.5 text-xs bg-background border border-input rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
             />
           </div>
 
           <select
             value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
+            onChange={(e) => { setSelectedType(e.target.value); setCurrentPage(1); }}
             className="px-3 py-1.5 text-xs bg-background border border-input rounded-lg text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 font-medium"
           >
             <option value="all">All Types</option>
@@ -575,7 +615,7 @@ export default function SponsorsPage() {
           <div className="flex items-center border border-border rounded-lg overflow-hidden bg-secondary">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 transition-colors ${
+              className={`p-1.5 transition-colors cursor-pointer ${
                 viewMode === 'grid'
                   ? 'bg-primary text-primary-foreground font-bold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -586,7 +626,7 @@ export default function SponsorsPage() {
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 transition-colors ${
+              className={`p-1.5 transition-colors cursor-pointer ${
                 viewMode === 'table'
                   ? 'bg-primary text-primary-foreground font-bold shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
@@ -618,7 +658,7 @@ export default function SponsorsPage() {
               setSelectedType('all');
               setSearchQuery('');
             }}
-            className="mt-4 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-xs font-bold text-foreground transition-colors border border-border"
+            className="mt-4 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-xs font-bold text-foreground transition-colors border border-border cursor-pointer"
           >
             Reset Filters
           </button>
@@ -626,7 +666,7 @@ export default function SponsorsPage() {
       ) : viewMode === 'grid' ? (
         /* Grid Cards View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredSponsors.map((sponsor) => {
+          {paginatedSponsors.map((sponsor) => {
             const tierInfo = TIER_STYLES[sponsor.tier] || TIER_STYLES.silver;
             return (
               <div
@@ -639,13 +679,13 @@ export default function SponsorsPage() {
                 <div className="p-5 flex-1 flex flex-col">
                   {/* Header Row: Logo, Name & Tier Badge */}
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-secondary/80 border border-border overflow-hidden flex items-center justify-center p-1 flex-shrink-0 group-hover:border-primary/40 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-14 h-14 rounded-2xl bg-secondary/80 border border-border/80 shadow-inner overflow-hidden flex items-center justify-center p-1.5 flex-shrink-0 group-hover:border-primary/40 transition-colors">
                         {sponsor.logo ? (
                           <img
                             src={sponsor.logo}
                             alt={sponsor.name}
-                            className="w-full h-full object-contain rounded-lg"
+                            className="w-full h-full object-contain rounded-xl bg-white/5"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
                             }}
@@ -654,17 +694,19 @@ export default function SponsorsPage() {
                           <Building2 className="w-6 h-6 text-muted-foreground" />
                         )}
                       </div>
-                      <div>
-                        <h3 className="font-bold text-foreground text-base leading-snug group-hover:text-primary transition-colors flex items-center gap-1.5">
-                          <span>{sponsor.name}</span>
-                          <CheckCircle2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                        </h3>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <h3 className="font-bold text-foreground text-base leading-snug group-hover:text-primary transition-colors truncate">
+                            {sponsor.name}
+                          </h3>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        </div>
                         {sponsor.website && (
                           <a
                             href={sponsor.website}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mt-0.5 transition-colors"
+                            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary mt-0.5 transition-colors max-w-full"
                           >
                             <Globe className="w-3 h-3 text-muted-foreground/80" />
                             <span className="truncate max-w-[180px]">
@@ -677,7 +719,7 @@ export default function SponsorsPage() {
                     </div>
 
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${tierInfo.badge}`}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider self-start ${tierInfo.badge}`}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${tierInfo.dot}`} />
                       {sponsor.tier}
@@ -766,7 +808,7 @@ export default function SponsorsPage() {
                     )}
                     <button
                       onClick={() => handleDeleteSponsor(sponsor._id, sponsor.name)}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                       title="Remove sponsor"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -784,16 +826,36 @@ export default function SponsorsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-muted/40 border-b border-border text-muted-foreground font-bold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3.5 px-4">Company &amp; Brand</th>
-                  <th className="py-3.5 px-4">Tier</th>
-                  <th className="py-3.5 px-4">Sponsored Expo</th>
-                  <th className="py-3.5 px-4">Booth Details</th>
-                  <th className="py-3.5 px-4">Representative</th>
+                  <th className="py-3.5 px-4">
+                    <button onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 cursor-pointer hover:text-foreground" aria-label="Sort by company name">
+                      Company &amp; Brand {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : <ArrowUpDown className="w-3 h-3 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="py-3.5 px-4">
+                    <button onClick={() => handleSort('tier')} className="inline-flex items-center gap-1.5 cursor-pointer hover:text-foreground" aria-label="Sort by tier">
+                      Tier {sortConfig.key === 'tier' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : <ArrowUpDown className="w-3 h-3 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="py-3.5 px-4">
+                    <button onClick={() => handleSort('event')} className="inline-flex items-center gap-1.5 cursor-pointer hover:text-foreground" aria-label="Sort by sponsored expo">
+                      Sponsored Expo {sortConfig.key === 'event' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : <ArrowUpDown className="w-3 h-3 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="py-3.5 px-4">
+                    <button onClick={() => handleSort('booth')} className="inline-flex items-center gap-1.5 cursor-pointer hover:text-foreground" aria-label="Sort by booth details">
+                      Booth Details {sortConfig.key === 'booth' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : <ArrowUpDown className="w-3 h-3 opacity-60" />}
+                    </button>
+                  </th>
+                  <th className="py-3.5 px-4">
+                    <button onClick={() => handleSort('representative')} className="inline-flex items-center gap-1.5 cursor-pointer hover:text-foreground" aria-label="Sort by representative">
+                      Representative {sortConfig.key === 'representative' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : <ArrowUpDown className="w-3 h-3 opacity-60" />}
+                    </button>
+                  </th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredSponsors.map((sponsor) => {
+                {paginatedSponsors.map((sponsor) => {
                   const tierInfo = TIER_STYLES[sponsor.tier] || TIER_STYLES.silver;
                   return (
                     <tr key={sponsor._id || sponsor.name} className="hover:bg-secondary/40 transition-colors">
@@ -817,7 +879,7 @@ export default function SponsorsPage() {
                                 href={sponsor.website}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-muted-foreground hover:text-primary text-[11px] flex items-center gap-1"
+                                className="text-muted-foreground hover:text-primary text-[11px] flex items-center gap-1 cursor-pointer"
                               >
                                 <span>{sponsor.website.replace(/^https?:\/\//, '')}</span>
                                 <ExternalLink className="w-2.5 h-2.5" />
@@ -872,7 +934,7 @@ export default function SponsorsPage() {
                       <td className="py-3.5 px-4 text-right">
                         <button
                           onClick={() => handleDeleteSponsor(sponsor._id, sponsor.name)}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                           title="Remove sponsor"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -883,6 +945,49 @@ export default function SponsorsPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {!loading && filteredSponsors.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 py-2 text-xs text-muted-foreground">
+          <span>
+            Showing {(activePage - 1) * pageSize + 1}-{Math.min(activePage * pageSize, sortedSponsors.length)} of {sortedSponsors.length} sponsors
+          </span>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              Rows per page
+              <select
+                value={pageSize}
+                onChange={(event) => { setPageSize(Number(event.target.value)); setCurrentPage(1); }}
+                className="px-2 py-1 rounded-md border border-input bg-background text-foreground"
+                aria-label="Rows per page"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={activePage === 1}
+                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="min-w-16 text-center text-foreground">Page {activePage} of {pageCount}</span>
+              <button
+                onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))}
+                disabled={activePage === pageCount}
+                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -903,7 +1008,7 @@ export default function SponsorsPage() {
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1085,14 +1190,14 @@ export default function SponsorsPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary font-semibold transition-colors"
+                  className="px-4 py-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-sm transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {submitting ? (
                     <>

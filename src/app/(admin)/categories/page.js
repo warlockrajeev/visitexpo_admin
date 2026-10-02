@@ -391,7 +391,7 @@ export default function EventCategoriesPage() {
     try {
       // 1. Direct fetch from Express admin/categories endpoint (includes all custom categories)
       try {
-        const expCatRes = await axios.get(`${API_URL}/admin/categories?refresh=true`, {
+        const expCatRes = await axios.get(`${API_URL}/admin/categories`, {
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
         });
         if (expCatRes.data?.success && Array.isArray(expCatRes.data?.data?.categories)) {
@@ -403,8 +403,8 @@ export default function EventCategoriesPage() {
         console.warn('[CategoriesPage] Express direct categories fetch warning:', expCatErr.message);
       }
 
-      // 2. Fallback to Next.js API route on port 3001
-      const res = await axios.get(`/api/categories?t=${Date.now()}&refresh=true`);
+      // 2. Fallback to Next.js API route without forcing a full refresh every time
+      const res = await axios.get('/api/categories');
       if (res.data?.success && res.data?.data) {
         setCategoriesData(res.data.data);
         setLoading(false);
@@ -413,7 +413,7 @@ export default function EventCategoriesPage() {
 
       // 3. Fallback to organizers-directory
       if (accessToken) {
-        const expRes = await axios.get(`${API_URL}/admin/organizers-directory?refresh=true`, {
+        const expRes = await axios.get(`${API_URL}/admin/organizers-directory`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         if (expRes.data?.success && Array.isArray(expRes.data?.data?.organizers)) {
