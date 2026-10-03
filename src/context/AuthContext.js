@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
+import { showSweetConfirm } from '../utils/sweetalert.js';
 
 // Set axios default withCredentials at module level
 axios.defaults.withCredentials = true;
@@ -116,6 +117,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    const confirmed = await showSweetConfirm({
+      title: 'Log out?',
+      text: 'Are you sure you want to log out?',
+      confirmButtonText: 'Log out',
+      cancelButtonText: 'Stay signed in',
+      isDanger: false
+    });
+    if (!confirmed) return;
+
     setLoading(true);
     try {
       if (accessToken) {

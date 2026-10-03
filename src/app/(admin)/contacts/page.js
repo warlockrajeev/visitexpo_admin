@@ -777,7 +777,7 @@ export default function ContactInquiriesPage() {
 
               <button
                 onClick={() => setSelectedInquiry(null)}
-                className="rounded-xl bg-secondary hover:bg-secondary/80 border border-border px-4 py-1.5 text-xs font-semibold text-foreground cursor-pointer"
+                className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 px-4 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 cursor-pointer"
               >
                 Close
               </button>

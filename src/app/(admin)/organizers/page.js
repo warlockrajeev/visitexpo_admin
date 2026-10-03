@@ -1444,7 +1444,7 @@ export default function OrganizersPage() {
               <button
                 type="button"
                 onClick={() => setSelectedOrganizer(null)}
-                className="px-4 py-2 rounded-xl bg-secondary text-foreground text-xs font-bold hover:bg-secondary/80 transition-colors border border-border"
+                className="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-xs font-bold transition-colors"
               >
                 Close Portfolio
               </button>

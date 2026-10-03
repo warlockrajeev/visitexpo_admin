@@ -1186,7 +1186,7 @@ export default function ChatOrganizersPage() {
             <div className="p-4 border-t border-border bg-muted/40 flex justify-end">
               <button
                 onClick={() => setInspectionOrganizer(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground transition"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 dark:text-rose-400 transition"
               >
                 Close Drawer
               </button>

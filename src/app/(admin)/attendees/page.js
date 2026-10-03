@@ -1047,7 +1047,7 @@ export default function AttendeesAndFollowersPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedAttendee(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-muted-foreground hover:bg-secondary cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 dark:text-rose-400 cursor-pointer"
                 >
                   Close
                 </button>

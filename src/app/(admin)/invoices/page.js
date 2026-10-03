@@ -22,7 +22,9 @@ import {
   Building,
   CreditCard,
   User,
-  Mail
+  Mail,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { printInvoiceDocument } from '../../../utils/printInvoice.js';
 
@@ -36,6 +38,8 @@ export default function InvoicesPage() {
   
   // Search & Modal State
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   useEffect(() => {
@@ -63,6 +67,8 @@ export default function InvoicesPage() {
     const number = inv.invoiceNumber?.toLowerCase() || '';
     return orgName.includes(searchTerm.toLowerCase()) || number.includes(searchTerm.toLowerCase());
   });
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / pageSize));
+  const paginatedInvoices = filteredInvoices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6">
@@ -84,7 +90,10 @@ export default function InvoicesPage() {
             type="text"
             placeholder="Search invoice number or organization..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
@@ -122,7 +131,7 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredInvoices.map((inv) => (
+                {paginatedInvoices.map((inv) => (
                   <tr 
                     key={inv._id} 
                     onClick={() => setSelectedInvoice(inv)}
@@ -174,6 +183,54 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+
+      {!loading && !error && filteredInvoices.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
+          <span>
+            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredInvoices.length)} of {filteredInvoices.length} invoices
+          </span>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2">
+              Rows per page
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="rounded-md border border-border bg-background px-2 py-1 text-foreground"
+                aria-label="Rows per page"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage <= 1 || loading}
+                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-16 text-center text-foreground">Page {currentPage} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage >= totalPages || loading}
+                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invoice / Order Details Popup Modal */}
       {selectedInvoice && (
@@ -278,7 +335,7 @@ export default function InvoicesPage() {
               <button
                 type="button"
                 onClick={() => setSelectedInvoice(null)}
-                className="text-xs font-semibold text-white bg-primary hover:bg-primary/90 px-4.5 py-2 rounded-xl transition-colors cursor-pointer shadow-sm"
+                className="text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 border border-rose-500/30 px-4.5 py-2 rounded-xl transition-colors cursor-pointer shadow-sm"
               >
                 Close
               </button>

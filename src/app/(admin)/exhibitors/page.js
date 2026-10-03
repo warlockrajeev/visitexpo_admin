@@ -924,7 +924,7 @@ export default function AdminExhibitorsPage() {
                   </button>
                   <button
                     onClick={() => setSelectedExhibitor(null)}
-                    className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 font-bold transition-all text-center"
+                    className="flex-1 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 dark:text-rose-400 font-bold transition-all text-center"
                   >
                     Close Drawer
                   </button>
@@ -939,7 +939,7 @@ export default function AdminExhibitorsPage() {
                   </button>
                   <button
                     onClick={() => setSelectedExhibitor(null)}
-                    className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 font-bold transition-all text-center"
+                    className="flex-1 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 dark:text-rose-400 font-bold transition-all text-center"
                   >
                     Close
                   </button>

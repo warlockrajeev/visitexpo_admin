@@ -37,10 +37,13 @@ import {
   FileText,
   Layers,
   Sparkles,
-  Award
+  Award,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const EVENTS_PER_PAGE = 8;
 
 export default function ModerationDetailPage() {
   const params = useParams();
@@ -53,6 +56,7 @@ export default function ModerationDetailPage() {
   // Data States
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [eventsPage, setEventsPage] = useState(1);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
@@ -81,6 +85,7 @@ export default function ModerationDetailPage() {
       const res = await axios.get(`${API_URL}/admin/moderation/${type}/${id}`, { headers });
       if (res.data?.success) {
         setData(res.data.data);
+        setEventsPage(1);
         if (res.data.data?.boothNumber) {
           setBoothInput(res.data.data.boothNumber);
         }
@@ -243,6 +248,12 @@ export default function ModerationDetailPage() {
         ? 'approved'
         : 'pending'
       : data.status || 'pending';
+  const organizerEvents = type === 'organizers' ? data.events || [] : [];
+  const eventsTotalPages = Math.max(1, Math.ceil(organizerEvents.length / EVENTS_PER_PAGE));
+  const paginatedOrganizerEvents = organizerEvents.slice(
+    (eventsPage - 1) * EVENTS_PER_PAGE,
+    eventsPage * EVENTS_PER_PAGE
+  );
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-16">
@@ -528,19 +539,50 @@ export default function ModerationDetailPage() {
                 <Calendar className="h-4 w-4 text-primary" /> Associated Exhibitions & Expos ({data.events?.length || 0})
               </h3>
               {data.events && data.events.length > 0 ? (
-                <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
-                  {data.events.map((ev) => (
-                    <div key={ev._id} className="p-3 flex items-center justify-between text-xs bg-card hover:bg-muted/10">
-                      <div>
-                        <p className="font-bold text-foreground">{ev.title}</p>
-                        <p className="text-[11px] text-muted-foreground">{ev.city} • {ev.venue}</p>
+                <>
+                  <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+                    {paginatedOrganizerEvents.map((ev) => (
+                      <div key={ev._id} className="p-3 flex items-center justify-between text-xs bg-card hover:bg-muted/10">
+                        <div>
+                          <p className="font-bold text-foreground">{ev.title}</p>
+                          <p className="text-[11px] text-muted-foreground">{ev.city} • {ev.venue}</p>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase">
+                          {ev.status}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase">
-                        {ev.status}
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span>
+                      Showing {(eventsPage - 1) * EVENTS_PER_PAGE + 1}-
+                      {Math.min(eventsPage * EVENTS_PER_PAGE, organizerEvents.length)} of {organizerEvents.length}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEventsPage((page) => Math.max(1, page - 1))}
+                        disabled={eventsPage <= 1}
+                        className="rounded-lg border border-border p-1.5 hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Previous events page"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-16 text-center text-foreground">
+                        Page {eventsPage} of {eventsTotalPages}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setEventsPage((page) => Math.min(eventsTotalPages, page + 1))}
+                        disabled={eventsPage >= eventsTotalPages}
+                        className="rounded-lg border border-border p-1.5 hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label="Next events page"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                </>
               ) : (
                 <p className="text-xs text-muted-foreground italic">No events currently mapped to this organizer.</p>
               )}

@@ -79,6 +79,20 @@
   box-sizing: border-box;
 }
 
+button:not(:disabled):not([aria-disabled="true"]),
+[role="button"]:not([aria-disabled="true"]),
+[role="tab"]:not(:disabled):not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+button[aria-disabled="true"],
+[role="button"][aria-disabled="true"],
+[role="tab"]:disabled,
+[role="tab"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
@@ -293,4 +307,3 @@ html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
     transform: scale(0.92) translateY(8px);
   }
 }
-

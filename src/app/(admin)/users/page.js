@@ -658,12 +658,12 @@ export default function UsersManagementPage() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="px-4 py-2.5">Actions</th>
                   <th className="px-4 py-2.5">User Profile &amp; Contact</th>
                   <th className="px-4 py-2.5">Tenant / Org</th>
                   <th className="px-4 py-2.5">Account Status</th>
                   <th className="px-4 py-2.5">Verification</th>
                   <th className="px-4 py-2.5">System Role</th>
-                  <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -685,132 +685,9 @@ export default function UsersManagementPage() {
                           : 'hover:bg-primary/[0.04] hover:border-l-4 hover:border-l-primary'
                       }`}
                     >
-                      {/* User Profile & Contact */}
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm uppercase shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
-                              isSuspended
-                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                                : u.role === 'super_admin'
-                                ? 'bg-red-100 text-red-700 border border-red-200'
-                                : u.role === 'organizer'
-                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                : u.role === 'exhibitor'
-                                ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                                : 'bg-primary/10 text-primary border border-primary/20'
-                            }`}
-                          >
-                            {(u.name || u.email || 'U').charAt(0)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
-                                {u.name || 'Unnamed User'}
-                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                              </p>
-                              {selfUser && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-sm bg-blue-100 text-blue-700">
-                                  You
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                              <span>{u.email}</span>
-                              {u.phone && (
-                                <span className="text-[11px] text-zinc-500 flex items-center gap-1">
-                                  • <Phone className="h-2.5 w-2.5" /> {u.phone}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Tenant Association */}
-                      <td className="px-4 py-2.5 text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Building className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                          <span className="font-medium text-foreground truncate max-w-[170px]" title={u.organization?.name || u.company || 'Platform (Root)'}>
-                            {u.organization?.name || u.company || 'Platform Root'}
-                          </span>
-                        </div>
-                        {u.designation && (
-                          <span className="text-[11px] text-muted-foreground block truncate max-w-[170px]">
-                            {u.designation}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Account Status Badge */}
-                      <td className="px-4 py-2.5">
-                        {isSuspended ? (
-                          <div className="inline-flex flex-col">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-600">
-                              <Ban className="h-3 w-3" /> Suspended
-                            </span>
-                            {u.suspendReason && (
-                              <span className="text-[10px] text-muted-foreground mt-0.5 max-w-[150px] truncate" title={u.suspendReason}>
-                                {u.suspendReason}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">
-                            <CheckCircle className="h-3 w-3" /> Active
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Verification Status */}
-                      <td className="px-4 py-2.5">
-                        <div className="space-y-0.5">
-                          {u.isVerified ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
-                              <CheckCircle className="h-3 w-3" /> Email
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
-                              <Clock className="h-3 w-3" /> Email Unverified
-                            </span>
-                          )}
-
-                          <div>
-                            {u.isPhoneVerified ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
-                                <Smartphone className="h-3 w-3" /> Phone Verified
-                              </span>
-                            ) : u.phone ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600">
-                                <Smartphone className="h-3 w-3" /> Phone Unverified
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* System Role */}
-                      <td className="px-4 py-2.5 capitalize font-medium text-foreground">
-                        <span
-                          className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
-                            u.role === 'super_admin'
-                              ? 'bg-red-500/10 text-red-600 border border-red-500/20'
-                              : u.role === 'organizer'
-                              ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                              : u.role === 'exhibitor'
-                              ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
-                              : u.role === 'visitor'
-                              ? 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
-                              : 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
-                          }`}
-                        >
-                          {u.role?.replace('_', ' ')}
-                        </span>
-                      </td>
-
                       {/* Actions */}
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-1">
                           {/* Inspect Dossier Action */}
                           <button
                             type="button"
@@ -905,6 +782,130 @@ export default function UsersManagementPage() {
                           </button>
                         </div>
                       </td>
+
+                      {/* User Profile & Contact */}
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm uppercase shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
+                              isSuspended
+                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                : u.role === 'super_admin'
+                                ? 'bg-red-100 text-red-700 border border-red-200'
+                                : u.role === 'organizer'
+                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                : u.role === 'exhibitor'
+                                ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                : 'bg-primary/10 text-primary border border-primary/20'
+                            }`}
+                          >
+                            {(u.name || u.email || 'U').charAt(0)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                {u.name || 'Unnamed User'}
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                              </p>
+                              {selfUser && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-sm bg-blue-100 text-blue-700">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                              <span>{u.email}</span>
+                              {u.phone && (
+                                <span className="text-[11px] text-zinc-500 flex items-center gap-1">
+                                  • <Phone className="h-2.5 w-2.5" /> {u.phone}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Tenant Association */}
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <Building className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                          <span className="font-medium text-foreground truncate max-w-[170px]" title={u.organization?.name || u.company || 'Platform (Root)'}>
+                            {u.organization?.name || u.company || 'Platform Root'}
+                          </span>
+                        </div>
+                        {u.designation && (
+                          <span className="text-[11px] text-muted-foreground block truncate max-w-[170px]">
+                            {u.designation}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Account Status Badge */}
+                      <td className="px-4 py-2.5">
+                        {isSuspended ? (
+                          <div className="inline-flex flex-col">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-600">
+                              <Ban className="h-3 w-3" /> Suspended
+                            </span>
+                            {u.suspendReason && (
+                              <span className="text-[10px] text-muted-foreground mt-0.5 max-w-[150px] truncate" title={u.suspendReason}>
+                                {u.suspendReason}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">
+                            <CheckCircle className="h-3 w-3" /> Active
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Verification Status */}
+                      <td className="px-4 py-2.5">
+                        <div className="space-y-0.5">
+                          {u.isVerified ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
+                              <CheckCircle className="h-3 w-3" /> Email
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
+                              <Clock className="h-3 w-3" /> Email Unverified
+                            </span>
+                          )}
+
+                          <div>
+                            {u.isPhoneVerified ? (
+                              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
+                                <Smartphone className="h-3 w-3" /> Phone Verified
+                              </span>
+                            ) : u.phone ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600">
+                                <Smartphone className="h-3 w-3" /> Phone Unverified
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* System Role */}
+                      <td className="px-4 py-2.5 capitalize font-medium text-foreground">
+                        <span
+                          className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
+                            u.role === 'super_admin'
+                              ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                              : u.role === 'organizer'
+                              ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                              : u.role === 'exhibitor'
+                              ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
+                              : u.role === 'visitor'
+                              ? 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
+                              : 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
+                          }`}
+                        >
+                          {u.role?.replace('_', ' ')}
+                        </span>
+                      </td>
+
                     </tr>
                   );
                 })}
@@ -1660,7 +1661,7 @@ export default function UsersManagementPage() {
                 <button
                   type="button"
                   onClick={() => setIsDetailOpen(false)}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold border border-border bg-background hover:bg-secondary text-foreground transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 transition-colors cursor-pointer"
                 >
                   Close Dossier
                 </button>

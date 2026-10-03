@@ -10,6 +10,7 @@ import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
 import Pagination from '../../../components/Pagination.js';
+import { showSweetConfirm } from '../../../utils/sweetalert.js';
 import {
   CheckCircle2,
   XCircle,
@@ -81,6 +82,18 @@ export default function ModerationPage() {
     message: ''
   });
   const [sendingNotification, setSendingNotification] = useState(false);
+
+  const confirmModerationAction = (action, subject, count = 1) => {
+    const actionLabel = action === 'approve' ? 'Approve' : 'Reject';
+    const itemLabel = count === 1 ? `this ${subject}` : `${count} ${subject}s`;
+    return showSweetConfirm({
+      title: `${actionLabel} ${count === 1 ? subject : `${count} ${subject}s`}?`,
+      text: `Are you sure you want to ${action} ${itemLabel}?`,
+      confirmButtonText: `${actionLabel}${count > 1 ? ` ${count}` : ''}`,
+      cancelButtonText: 'Cancel',
+      isDanger: action === 'reject'
+    });
+  };
 
   const handleOpenNotification = (email, name, defaultSubject = '', defaultMsg = '') => {
     setNotificationModal({
@@ -178,6 +191,9 @@ export default function ModerationPage() {
 
   // Handle Organizer Action (Approve / Reject)
   const handleOrganizerAction = async (userId, action) => {
+    const confirmed = await confirmModerationAction(action, 'organizer account');
+    if (!confirmed) return false;
+
     setActionLoadingId(userId);
     setMessage({ type: '', text: '' });
     try {
@@ -189,6 +205,7 @@ export default function ModerationPage() {
       if (res.data && res.data.success) {
         setMessage({ type: 'success', text: `Organizer ${action}d successfully!` });
         await fetchModerationData();
+        return true;
       }
     } catch (err) {
       console.error('Organizer action error', err);
@@ -196,10 +213,15 @@ export default function ModerationPage() {
     } finally {
       setActionLoadingId('');
     }
+    return false;
   };
 
   // Handle Exhibitor Action (Approve / Reject)
   const handleExhibitorAction = async (exhibitorId, status) => {
+    const action = status === 'approved' ? 'approve' : 'reject';
+    const confirmed = await confirmModerationAction(action, 'exhibitor application');
+    if (!confirmed) return false;
+
     setActionLoadingId(exhibitorId);
     setMessage({ type: '', text: '' });
     try {
@@ -211,6 +233,7 @@ export default function ModerationPage() {
       if (res.data && res.data.success) {
         setMessage({ type: 'success', text: `Exhibitor request set to ${status}!` });
         await fetchModerationData();
+        return true;
       }
     } catch (err) {
       console.error('Exhibitor action error', err);
@@ -218,9 +241,13 @@ export default function ModerationPage() {
     } finally {
       setActionLoadingId('');
     }
+    return false;
   };
 
   const handleClaimStatusChange = async (claimId, action) => {
+    const confirmed = await confirmModerationAction(action, 'claim');
+    if (!confirmed) return false;
+
     setActionLoadingId(claimId);
     try {
       const res = await axios.put(
@@ -231,6 +258,7 @@ export default function ModerationPage() {
       if (res.data && res.data.success) {
         setMessage({ type: 'success', text: res.data.message });
         await fetchModerationData();
+        return true;
       }
     } catch (err) {
       console.error('Failed to update claim status', err);
@@ -238,13 +266,19 @@ export default function ModerationPage() {
     } finally {
       setActionLoadingId('');
     }
+    return false;
   };
 
-  const handleEventAction = async (eventId, action, rejectionReason = '') => {
+  const handleEventAction = async (eventId, action, rejectionReason = '', skipConfirmation = false) => {
+    if (!skipConfirmation) {
+      const confirmed = await confirmModerationAction(action, 'event');
+      if (!confirmed) return false;
+    }
+
     if (action === 'reject' && !rejectionReason.trim()) {
       setEventRejectionRequest({ eventIds: [eventId], isBulk: false });
       setEventRejectionReason('');
-      return;
+      return true;
     }
 
     setActionLoadingId(eventId);
@@ -258,6 +292,7 @@ export default function ModerationPage() {
       if (res.data && res.data.success) {
         setMessage({ type: 'success', text: `Event onboarding request set to ${action}d successfully!` });
         await fetchModerationData();
+        return true;
       }
     } catch (err) {
       console.error('Event action error', err);
@@ -265,6 +300,7 @@ export default function ModerationPage() {
     } finally {
       setActionLoadingId('');
     }
+    return false;
   };
 
   const handleToggleSelectAllEvents = () => {
@@ -281,17 +317,22 @@ export default function ModerationPage() {
     );
   };
 
-  const handleBulkEventAction = async (actionToRun, idsOverride = null, rejectionReason = '') => {
+  const handleBulkEventAction = async (actionToRun, idsOverride = null, rejectionReason = '', skipConfirmation = false) => {
     const action = actionToRun || bulkSelectAction || 'approve';
     const ids = idsOverride || selectedEventIds;
     if (!ids || ids.length === 0) {
       setMessage({ type: 'error', text: 'Please select at least one event first.' });
       return;
     }
+    if (!skipConfirmation) {
+      const confirmed = await confirmModerationAction(action, 'event', ids.length);
+      if (!confirmed) return false;
+    }
+
     if (action === 'reject' && !rejectionReason.trim()) {
       setEventRejectionRequest({ eventIds: ids, isBulk: true });
       setEventRejectionReason('');
-      return;
+      return true;
     }
 
     setBulkActionLoading(true);
@@ -309,6 +350,7 @@ export default function ModerationPage() {
         });
         setSelectedEventIds([]);
         await fetchModerationData();
+        return true;
       }
     } catch (err) {
       console.warn('Bulk endpoint failed, running fallback individual updates:', err);
@@ -328,6 +370,7 @@ export default function ModerationPage() {
         });
         setSelectedEventIds([]);
         await fetchModerationData();
+        return true;
       } catch (fallbackErr) {
         setMessage({
           type: 'error',
@@ -337,6 +380,7 @@ export default function ModerationPage() {
     } finally {
       setBulkActionLoading(false);
     }
+    return false;
   };
 
   const handleConfirmEventRejection = async (e) => {
@@ -347,9 +391,9 @@ export default function ModerationPage() {
     const request = eventRejectionRequest;
     setEventRejectionRequest(null);
     if (request.isBulk) {
-      await handleBulkEventAction('reject', request.eventIds, reason);
+      await handleBulkEventAction('reject', request.eventIds, reason, true);
     } else {
-      await handleEventAction(request.eventIds[0], 'reject', reason);
+      await handleEventAction(request.eventIds[0], 'reject', reason, true);
     }
   };
 
@@ -639,28 +683,28 @@ export default function ModerationPage() {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
-                      <th className="px-6 py-4">Organizer Name</th>
-                      <th className="px-6 py-4">Email Credentials</th>
-                      <th className="px-6 py-4">Organization Name</th>
-                      <th className="px-6 py-4">Request Date</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4 text-right">Approval Actions</th>
+                      <th className="px-6 py-3">Organizer Name</th>
+                      <th className="px-6 py-3">Email Credentials</th>
+                      <th className="px-6 py-3">Organization Name</th>
+                      <th className="px-6 py-3">Request Date</th>
+                      <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3 text-right">Approval Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filteredOrganizers.map((user) => (
                       <tr key={user._id} className="hover:bg-secondary/40 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-2.5">
                           <p className="font-bold text-foreground">{user.name}</p>
                           <span className="text-[10px] text-muted-foreground">Role: {user.role}</span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-2.5">
                           <p className="font-semibold text-primary">{user.email}</p>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-2.5">
                           <p className="font-bold text-foreground">{user.organization?.name || 'New Organization'}</p>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-2.5">
                           <p className="font-semibold text-foreground">
                             {user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
                           </p>
@@ -668,13 +712,13 @@ export default function ModerationPage() {
                             {user.createdAt ? new Date(user.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                        <td className="px-6 py-2.5">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
                             <Clock className="h-3 w-3" /> Pending Approval
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-6 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                             <button
                               onClick={() => handleOpenNotification(
                                 user.email,
@@ -745,33 +789,33 @@ export default function ModerationPage() {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
-                      <th className="px-6 py-4">Organizer Name</th>
-                      <th className="px-6 py-4">Email Credentials</th>
-                      <th className="px-6 py-4">Organization Name</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4 text-right">Approval Actions</th>
+                      <th className="px-6 py-3">Organizer Name</th>
+                      <th className="px-6 py-3">Email Credentials</th>
+                      <th className="px-6 py-3">Organization Name</th>
+                      <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3 text-right">Approval Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {paginatedOrganizerHistory.map((user) => (
                       <tr key={user._id} className="hover:bg-secondary/40 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-2.5">
                           <p className="font-bold text-foreground">{user.name}</p>
                           <span className="text-[10px] text-muted-foreground">Role: {user.role}</span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-2.5">
                           <p className="font-semibold text-primary">{user.email}</p>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-2.5">
                           <p className="font-bold text-foreground">{user.organization?.name || 'Verified Organization'}</p>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 text-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase border border-emerald-500/20">
+                        <td className="px-6 py-2.5">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-emerald-500/10 text-emerald-500 px-2.5 py-1 text-[10px] font-bold uppercase border border-emerald-500/20">
                             <CheckCircle2 className="h-3 w-3" /> Verified & Active
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-6 py-2.5 text-right">
+                          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                             <button
                               onClick={() => handleOpenNotification(
                                 user.email,
@@ -1755,7 +1799,7 @@ export default function ModerationPage() {
                 </button>
                 <button
                   onClick={() => setSelectedEvent(null)}
-                  className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 font-bold text-foreground transition-all text-xs cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 font-bold text-rose-700 dark:text-rose-400 transition-all text-xs cursor-pointer"
                 >
                   Close Details
                 </button>
@@ -1915,18 +1959,18 @@ export default function ModerationPage() {
                 {!selectedOrganizer.isVerified && (
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => {
-                        handleOrganizerAction(selectedOrganizer._id, 'reject');
-                        setSelectedOrganizer(null);
+                      onClick={async () => {
+                        const completed = await handleOrganizerAction(selectedOrganizer._id, 'reject');
+                        if (completed) setSelectedOrganizer(null);
                       }}
                       className="inline-flex items-center gap-1 bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
                     >
                       <X className="h-3.5 w-3.5" /> Reject Account
                     </button>
                     <button
-                      onClick={() => {
-                        handleOrganizerAction(selectedOrganizer._id, 'approve');
-                        setSelectedOrganizer(null);
+                      onClick={async () => {
+                        const completed = await handleOrganizerAction(selectedOrganizer._id, 'approve');
+                        if (completed) setSelectedOrganizer(null);
                       }}
                       className="inline-flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 px-4 py-1.5 rounded-xl text-xs font-bold shadow transition-all"
                     >
@@ -1937,7 +1981,7 @@ export default function ModerationPage() {
               </div>
               <button
                 onClick={() => setSelectedOrganizer(null)}
-                className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 font-bold text-foreground transition-all text-xs"
+                className="px-4 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 font-bold text-rose-700 dark:text-rose-400 transition-all text-xs"
               >
                 Close Profile
               </button>
@@ -2080,4 +2124,3 @@ export default function ModerationPage() {
     </div>
   );
 }
-
