@@ -242,7 +242,7 @@ export default function AdminLayout({ children }) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="fixed inset-0 flex h-dvh w-full overflow-hidden bg-background">
       {/* Mobile Backdrop */}
       {sidebarOpen && (
         <div
@@ -253,7 +253,7 @@ export default function AdminLayout({ children }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex min-h-0 w-64 flex-col border-r border-border bg-card transition-transform duration-300 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex min-h-0 w-64 shrink-0 flex-col border-r border-border bg-card transition-transform duration-300 md:static md:h-full md:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -346,7 +346,7 @@ export default function AdminLayout({ children }) {
 
       {/* Main Panel Content */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card/50 backdrop-blur-md px-6">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card/50 backdrop-blur-md px-6">
           <div className="flex items-center gap-4">
             <button
               type="button"

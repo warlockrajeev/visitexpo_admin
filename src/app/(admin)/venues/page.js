@@ -33,6 +33,7 @@ import {
   List,
   AlertCircle,
   X,
+  ChevronDown,
   Loader2,
   Image as ImageIcon,
   Camera,
@@ -53,6 +54,126 @@ import {
 import { getClientUrl } from '../../../utils/clientUrl.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+function VenueFilterAutocomplete({ id, label, icon: Icon, value, options, onChange, ariaLabel }) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const filteredOptions = options.filter((option) =>
+    option.label.toLowerCase().includes(query.trim().toLowerCase())
+  );
+  const selectedOption = options.find((option) => option.value === value) || options[0];
+
+  const selectOption = (option) => {
+    onChange(option.value);
+    setQuery('');
+    setIsOpen(false);
+    setIsFocused(false);
+  };
+
+  return (
+    <div
+      className="relative flex min-w-55 flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsOpen(false);
+          setIsFocused(false);
+          setQuery('');
+        }
+      }}
+    >
+      <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+      <span className="shrink-0 text-[10px] font-bold uppercase text-muted-foreground">{label}</span>
+      <div className="relative min-w-0 flex-1">
+        <input
+          type="text"
+          role="combobox"
+          aria-label={ariaLabel}
+          aria-autocomplete="list"
+          aria-expanded={isOpen}
+          aria-controls={`${id}-options`}
+          aria-activedescendant={isOpen && filteredOptions[activeIndex]
+            ? `${id}-option-${activeIndex}`
+            : undefined}
+          value={isFocused ? query : selectedOption?.label || ''}
+          onFocus={() => {
+            setIsFocused(true);
+            setQuery('');
+            setActiveIndex(0);
+            setIsOpen(true);
+          }}
+          onClick={() => {
+            if (!isOpen) {
+              setIsFocused(true);
+              setQuery('');
+              setActiveIndex(0);
+              setIsOpen(true);
+            }
+          }}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActiveIndex(0);
+            setIsOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault();
+              setIsOpen(true);
+              if (filteredOptions.length) {
+                setActiveIndex((index) => Math.min(index + 1, filteredOptions.length - 1));
+              }
+            } else if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              setActiveIndex((index) => Math.max(index - 1, 0));
+            } else if (event.key === 'Enter' && isOpen && filteredOptions[activeIndex]) {
+              event.preventDefault();
+              selectOption(filteredOptions[activeIndex]);
+            } else if (event.key === 'Escape') {
+              setIsOpen(false);
+              setIsFocused(false);
+              setQuery('');
+            }
+          }}
+          placeholder={`Search ${label.toLowerCase()}...`}
+          className="w-full min-w-0 bg-transparent text-xs font-semibold text-foreground outline-none placeholder:text-muted-foreground"
+        />
+        <ChevronDown
+          className={`pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
+        {isOpen && (
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+            <div id={`${id}-options`} role="listbox" aria-label={`${label} options`} className="max-h-64 overflow-y-auto p-1">
+              {filteredOptions.length ? filteredOptions.map((option, index) => (
+                <button
+                  key={option.value}
+                  id={`${id}-option-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={value === option.value}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => selectOption(option)}
+                  className={`w-full truncate rounded-lg px-3 py-2 text-left text-xs transition-colors ${
+                    activeIndex === index
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-foreground hover:bg-muted'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              )) : (
+                <p className="px-3 py-2 text-xs text-muted-foreground">No matching options</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminVenuesPage() {
   const { accessToken } = useAuth();
@@ -662,40 +783,34 @@ export default function AdminVenuesPage() {
 
         {/* Location Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
-            <Globe className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-            <span className="text-[10px] font-bold uppercase text-muted-foreground">Country</span>
-            <select
-              value={selectedCountry}
-              onChange={(e) => {
-                setSelectedCountry(e.target.value);
-                setSelectedCity('All');
-              }}
-              aria-label="Filter venues by country"
-              className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none"
-            >
-              <option value="All">All Countries</option>
-              {countries.filter((country) => country !== 'All').map((country) => (
-                <option key={country} value={country}>{country}</option>
-              ))}
-            </select>
-          </label>
+          <VenueFilterAutocomplete
+            id="venue-country"
+            label="Country"
+            icon={Globe}
+            value={selectedCountry}
+            onChange={(country) => {
+              setSelectedCountry(country);
+              setSelectedCity('All');
+            }}
+            ariaLabel="Search and filter venues by country"
+            options={[
+              { value: 'All', label: 'All Countries' },
+              ...countries.filter((country) => country !== 'All').map((country) => ({ value: country, label: country }))
+            ]}
+          />
 
-          <label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
-            <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-            <span className="text-[10px] font-bold uppercase text-muted-foreground">City</span>
-            <select
-              value={selectedCity}
-              onChange={(e) => setSelectedCity(e.target.value)}
-              aria-label="Filter venues by city"
-              className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs font-semibold text-foreground outline-none"
-            >
-              <option value="All">All Cities</option>
-              {cities.filter((city) => city !== 'All').map((city) => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
-          </label>
+          <VenueFilterAutocomplete
+            id="venue-city"
+            label="City"
+            icon={MapPin}
+            value={selectedCity}
+            onChange={setSelectedCity}
+            ariaLabel="Search and filter venues by city"
+            options={[
+              { value: 'All', label: 'All Cities' },
+              ...cities.filter((city) => city !== 'All').map((city) => ({ value: city, label: city }))
+            ]}
+          />
 
           <button
             type="button"

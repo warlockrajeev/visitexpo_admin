@@ -85,6 +85,10 @@ export default function OrganizersPage() {
   const [cityAutocompleteValue, setCityAutocompleteValue] = useState('');
   const [cityAutocompleteFocused, setCityAutocompleteFocused] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [categoryAutocompleteValue, setCategoryAutocompleteValue] = useState('');
+  const [categoryAutocompleteFocused, setCategoryAutocompleteFocused] = useState(false);
+  const [categoryAutocompleteOpen, setCategoryAutocompleteOpen] = useState(false);
+  const [categoryActiveIndex, setCategoryActiveIndex] = useState(0);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
   const [sortBy, setSortBy] = useState('events_desc'); // 'events_desc' | 'name_asc' | 'events_asc'
 
@@ -295,6 +299,16 @@ export default function OrganizersPage() {
     return Array.from(set).sort();
   }, [data]);
 
+  const filteredCategoryOptions = useMemo(() => {
+    const options = ['all', ...availableCategories];
+    const query = categoryAutocompleteValue.trim().toLowerCase();
+    return options.filter((category) =>
+      category === 'all'
+        ? !query || 'all categories'.includes(query)
+        : category.toLowerCase().includes(query)
+    );
+  }, [availableCategories, categoryAutocompleteValue]);
+
   // Toggle inline card expansion
   const toggleOrgExpansion = (orgId) => {
     setExpandedOrgIds((prev) => {
@@ -381,6 +395,9 @@ export default function OrganizersPage() {
     setCityAutocompleteValue('');
     setCityAutocompleteFocused(false);
     setCategoryFilter('all');
+    setCategoryAutocompleteValue('');
+    setCategoryAutocompleteFocused(false);
+    setCategoryAutocompleteOpen(false);
     setSortBy('events_desc');
     setPage(1);
   };
@@ -749,22 +766,104 @@ export default function OrganizersPage() {
               </datalist>
             </div>
 
-            {/* Category Dropdown */}
-            <select
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setPage(1);
+            {/* Category Autocomplete */}
+            <div
+              className="relative w-full sm:w-57.5"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setCategoryAutocompleteOpen(false);
+                  setCategoryAutocompleteFocused(false);
+                  setCategoryAutocompleteValue('');
+                }
               }}
-              className="px-3 py-2 rounded-xl border border-border bg-background text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
-              <option value="all">All Categories</option>
-              {availableCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+              <Tag className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                role="combobox"
+                aria-label="Search and filter by category"
+                aria-autocomplete="list"
+                aria-expanded={categoryAutocompleteOpen}
+                aria-controls="organizer-category-options"
+                aria-activedescendant={categoryAutocompleteOpen && filteredCategoryOptions[categoryActiveIndex]
+                  ? `organizer-category-option-${categoryActiveIndex}`
+                  : undefined}
+                value={categoryAutocompleteFocused
+                  ? categoryAutocompleteValue
+                  : categoryFilter === 'all' ? 'All Categories' : categoryFilter}
+                onFocus={() => {
+                  setCategoryAutocompleteFocused(true);
+                  setCategoryAutocompleteOpen(true);
+                  setCategoryAutocompleteValue('');
+                  setCategoryActiveIndex(0);
+                }}
+                onChange={(event) => {
+                  setCategoryAutocompleteValue(event.target.value);
+                  setCategoryAutocompleteOpen(true);
+                  setCategoryActiveIndex(0);
+                  setPage(1);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    setCategoryAutocompleteOpen(true);
+                    if (filteredCategoryOptions.length) {
+                      setCategoryActiveIndex((index) => Math.min(index + 1, filteredCategoryOptions.length - 1));
+                    }
+                  } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setCategoryActiveIndex((index) => Math.max(index - 1, 0));
+                  } else if (event.key === 'Enter' && categoryAutocompleteOpen && filteredCategoryOptions[categoryActiveIndex]) {
+                    event.preventDefault();
+                    const selected = filteredCategoryOptions[categoryActiveIndex];
+                    setCategoryFilter(selected);
+                    setCategoryAutocompleteValue('');
+                    setCategoryAutocompleteOpen(false);
+                    setCategoryAutocompleteFocused(false);
+                    setPage(1);
+                  } else if (event.key === 'Escape') {
+                    setCategoryAutocompleteOpen(false);
+                    setCategoryAutocompleteFocused(false);
+                    setCategoryAutocompleteValue('');
+                  }
+                }}
+                placeholder="Search categories..."
+                className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              {categoryAutocompleteOpen && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+                  <div id="organizer-category-options" role="listbox" aria-label="Categories" className="max-h-64 overflow-y-auto p-1">
+                    {filteredCategoryOptions.length ? filteredCategoryOptions.map((category, index) => (
+                      <button
+                        key={category}
+                        id={`organizer-category-option-${index}`}
+                        type="button"
+                        role="option"
+                        aria-selected={categoryFilter === category}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onMouseEnter={() => setCategoryActiveIndex(index)}
+                        onClick={() => {
+                          setCategoryFilter(category);
+                          setCategoryAutocompleteValue('');
+                          setCategoryAutocompleteOpen(false);
+                          setCategoryAutocompleteFocused(false);
+                          setPage(1);
+                        }}
+                        className={`w-full truncate rounded-lg px-3 py-2 text-left text-xs transition-colors ${
+                          categoryActiveIndex === index
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {category === 'all' ? 'All Categories' : category}
+                      </button>
+                    )) : (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">No matching categories</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Sort Dropdown */}
             <select

@@ -288,8 +288,8 @@ export default function AdminVisitorsPage() {
       {toast && (
         <div className={`fixed top-20 right-4 sm:right-6 z-50 flex max-w-[calc(100vw-2rem)] items-center gap-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold animate-in slide-in-from-top-5 duration-200 ${
           toast.type === 'success'
-            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-            : 'bg-destructive/10 border-destructive/30 text-destructive'
+            ? 'bg-emerald-50 dark:bg-emerald-950 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+            : 'bg-red-50 dark:bg-red-950 border-red-500/30 text-red-700 dark:text-red-300'
         }`}>
           {toast.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
           <span>{toast.message}</span>

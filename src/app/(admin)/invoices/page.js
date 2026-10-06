@@ -8,6 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
+import Pagination from '../../../components/Pagination.js';
 import {
   FileText,
   Search,
@@ -23,8 +24,6 @@ import {
   CreditCard,
   User,
   Mail,
-  ChevronLeft,
-  ChevronRight
 } from 'lucide-react';
 import { printInvoiceDocument } from '../../../utils/printInvoice.js';
 
@@ -68,7 +67,8 @@ export default function InvoicesPage() {
     return orgName.includes(searchTerm.toLowerCase()) || number.includes(searchTerm.toLowerCase());
   });
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / pageSize));
-  const paginatedInvoices = filteredInvoices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedInvoices = filteredInvoices.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize);
 
   return (
     <div className="space-y-6">
@@ -185,51 +185,20 @@ export default function InvoicesPage() {
       </div>
 
       {!loading && !error && filteredInvoices.length > 0 && (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
-          <span>
-            Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredInvoices.length)} of {filteredInvoices.length} invoices
-          </span>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2">
-              Rows per page
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="rounded-md border border-border bg-background px-2 py-1 text-foreground"
-                aria-label="Rows per page"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-            </label>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                disabled={currentPage <= 1 || loading}
-                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="min-w-16 text-center text-foreground">Page {currentPage} of {totalPages}</span>
-              <button
-                type="button"
-                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                disabled={currentPage >= totalPages || loading}
-                className="p-1.5 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
+        <Pagination
+          currentPage={safeCurrentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={filteredInvoices.length}
+          itemsPerPage={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          itemLabel="invoices"
+          pageSizeLabel="Rows per page"
+        />
       )}
 
       {/* Invoice / Order Details Popup Modal */}
