@@ -81,8 +81,8 @@ export default function AdminFaqsPage() {
   }, [accessToken]);
 
   // Fetch all FAQs
-  const fetchFaqs = useCallback(async () => {
-    setLoading(true);
+  const fetchFaqs = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchQuery) params.set('search', searchQuery);
@@ -91,10 +91,22 @@ export default function AdminFaqsPage() {
 
       const res = await axios.get(`${API_URL}/faqs/admin/all?${params.toString()}`, { headers });
       if (res.data?.success) {
-        setFaqs(res.data.data || []);
+        const dataList = res.data.data || [];
+        setFaqs(dataList);
         if (res.data.stats) setStats(res.data.stats);
         if (Array.isArray(res.data.categories) && res.data.categories.length > 0) {
           setCategories(res.data.categories);
+        }
+        if (!searchQuery && selectedCategory === 'All' && selectedStatus === 'all') {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_faqs_cache', JSON.stringify({
+                faqs: dataList,
+                stats: res.data.stats || { total: 0, active: 0, hidden: 0 },
+                categories: res.data.categories || []
+              }));
+            }
+          } catch (e) {}
         }
       }
     } catch (err) {
@@ -105,8 +117,24 @@ export default function AdminFaqsPage() {
   }, [headers, searchQuery, selectedCategory, selectedStatus]);
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && !searchQuery && selectedCategory === 'All' && selectedStatus === 'all') {
+        const cached = sessionStorage.getItem('visitexpo_admin_faqs_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.faqs) && parsed.faqs.length > 0) {
+            setFaqs(parsed.faqs);
+            if (parsed.stats) setStats(parsed.stats);
+            if (Array.isArray(parsed.categories) && parsed.categories.length > 0) setCategories(parsed.categories);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating FAQs cache:', e);
+    }
     if (accessToken) {
-      fetchFaqs();
+      fetchFaqs(true);
     }
   }, [accessToken, fetchFaqs]);
 

@@ -191,26 +191,36 @@ export async function GET(request) {
     return NextResponse.json({ success: true, data: cachedData });
   }
 
+  // 0. Primary: Direct fetch from fast Express admin/categories endpoint
+  try {
+    const adminRes = await fetch('http://localhost:5000/api/admin/categories', {
+      cache: 'no-store'
+    });
+    if (adminRes.ok) {
+      const adminJson = await adminRes.json();
+      if (adminJson.success && adminJson.data?.categories) {
+        cachedData = adminJson.data;
+        cacheTime = now;
+        return NextResponse.json({ success: true, data: cachedData });
+      }
+    }
+  } catch (err) {
+    // Fallback to local aggregation below
+  }
+
   let events = [];
 
   // 1. Fetch from unified events directory endpoint on Express port 5000
   try {
-    const dirRes = await fetch('http://localhost:5000/api/events/directory?refresh=true', {
+    const dirRes = await fetch('http://localhost:5000/api/events/all-directory', {
       cache: 'no-store'
     });
     if (dirRes.ok) {
       const dirJson = await dirRes.json();
-      const orgs = dirJson.data?.organizers || [];
-      const allEvts = [];
-      orgs.forEach((o) => {
-        (o.events || []).forEach((e) => allEvts.push(e));
-      });
-      if (allEvts.length > 0) {
-        events = allEvts;
-      }
+      events = dirJson.data?.events || [];
     }
   } catch (dirErr) {
-    console.warn('[client-admin/api/categories] Fetch from /api/events/directory failed:', dirErr.message);
+    console.warn('[client-admin/api/categories] Fetch from /api/events/all-directory failed:', dirErr.message);
   }
 
   // 2. Fallback to client-dashboard if needed
@@ -229,55 +239,6 @@ export async function GET(request) {
     } catch (err) {
       console.warn('[client-admin/api/categories] Fetch from client portal failed:', err.message);
     }
-  }
-
-  // 3. Fallback to direct WordPress inspect-event-meta endpoint if both above fail
-  if (events.length === 0) {
-    try {
-      const wpUrl = process.env.WORDPRESS_URL || 'https://visitexpo.in';
-      const wpKey = process.env.WORDPRESS_API_KEY || 'visitexpo_custom_secret_key_12345';
-      const wpRes = await fetch(`${wpUrl}/wp-json/visitexpo/v1/inspect-event-meta`, {
-        headers: { 'X-VisitExpo-Key': wpKey },
-        signal: AbortSignal.timeout(8000)
-      });
-      if (wpRes.ok) {
-        const wpData = await wpRes.json();
-        const docs = wpData.data?.docs || [];
-        events = docs.map((d, i) => {
-          const raw = d.raw || {};
-          const title = raw.post_title || d.title || `Expo Edition ${i + 1}`;
-          const content = raw.post_content || '';
-          return {
-            id: String(d.ID || i + 1),
-            title,
-            category: inferCategory(title, content),
-            city: raw.city || d.city || 'India',
-            venue: raw.venue || 'Exhibition Ground',
-            dates: raw.event_date || 'Upcoming 2026',
-            wpUrl: d.link || `https://visitexpo.in/?p=${d.ID || i + 1}`
-          };
-        });
-      }
-    } catch (wpErr) {
-      console.warn('[client-admin/api/categories] WordPress direct fetch note:', wpErr.message);
-    }
-  }
-
-  // 0. Primary: Direct fetch from Express admin/categories endpoint
-  try {
-    const adminRes = await fetch('http://localhost:5000/api/admin/categories', {
-      cache: 'no-store'
-    });
-    if (adminRes.ok) {
-      const adminJson = await adminRes.json();
-      if (adminJson.success && adminJson.data?.categories) {
-        cachedData = adminJson.data;
-        cacheTime = now;
-        return NextResponse.json({ success: true, data: cachedData });
-      }
-    }
-  } catch (err) {
-    // Fallback to local aggregation below
   }
 
   // Group events by category

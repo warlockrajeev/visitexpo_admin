@@ -39,6 +39,21 @@ export default function OrganizerSupportPage() {
     let mounted = true;
     const headers = { Authorization: `Bearer ${accessToken}` };
 
+    // Hydrate immediately from cache
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_org_support_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setConversations(parsed);
+            setActiveConversationId(parsed[0]?._id || '');
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {}
+
     const loadInbox = async (silent = false) => {
       if (!silent && mounted) setLoading(true);
       if (silent && mounted) setRefreshing(true);
@@ -51,6 +66,11 @@ export default function OrganizerSupportPage() {
           current && items.some((item) => item._id === current) ? current : items[0]?._id || ''
         ));
         setError('');
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_org_support_cache', JSON.stringify(items));
+          }
+        } catch (e) {}
       } catch (requestError) {
         if (mounted) setError(requestError.response?.data?.error || 'Could not load organizer conversations.');
       } finally {
@@ -61,7 +81,7 @@ export default function OrganizerSupportPage() {
       }
     };
 
-    loadInbox();
+    loadInbox(true);
     const timer = window.setInterval(() => loadInbox(true), 10000);
     return () => {
       mounted = false;

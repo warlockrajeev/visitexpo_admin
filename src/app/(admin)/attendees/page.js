@@ -126,6 +126,21 @@ export default function AttendeesAndFollowersPage() {
         }
         setSelectedEvent(res.data.selectedEvent || null);
         setTotalPages(res.data.totalPages || 1);
+
+        if (selectedEventSlug === 'all' && activeTab === 'all' && !searchQuery.trim() && page === 1) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_attendees_cache', JSON.stringify({
+                attendees: res.data.attendees || [],
+                eventsList: res.data.eventsList || [],
+                kpis: res.data.kpis || null,
+                totalPages: res.data.totalPages || 1
+              }));
+            }
+          } catch (e) {
+            console.warn('Could not cache attendees:', e);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load attendees:', error);
@@ -137,6 +152,24 @@ export default function AttendeesAndFollowersPage() {
   }, [selectedEventSlug, activeTab, page, searchQuery, showToast]);
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && selectedEventSlug === 'all' && activeTab === 'all' && !searchQuery.trim() && page === 1) {
+        const cached = sessionStorage.getItem('visitexpo_admin_attendees_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed?.attendees) && parsed.attendees.length > 0) {
+            setAttendees(parsed.attendees);
+            if (parsed.eventsList?.length) setEventsList(parsed.eventsList);
+            if (parsed.kpis) setKpis(parsed.kpis);
+            if (parsed.totalPages) setTotalPages(parsed.totalPages);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read attendees cache:', e);
+    }
+
     const timer = setTimeout(() => {
       fetchData();
     }, searchQuery.trim() ? 300 : 0);

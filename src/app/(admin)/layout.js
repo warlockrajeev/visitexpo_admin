@@ -70,6 +70,21 @@ export default function AdminLayout({ children }) {
   }, [user, loading, router]);
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_counters_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.unreadInquiries !== undefined) setUnreadInquiries(parsed.unreadInquiries);
+          if (parsed?.pendingCounts) setPendingCounts(parsed.pendingCounts);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin counters cache:', e);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!accessToken) return;
     const fetchCounters = async () => {
       try {
@@ -82,11 +97,27 @@ export default function AdminLayout({ children }) {
           }).catch(() => null)
         ]);
 
+        let newUnread = unreadInquiries;
+        let newSummary = pendingCounts;
+
         if (contactRes?.data?.stats?.new !== undefined) {
-          setUnreadInquiries(contactRes.data.stats.new);
+          newUnread = contactRes.data.stats.new;
+          setUnreadInquiries(newUnread);
         }
         if (summaryRes?.data?.success && summaryRes.data?.data) {
-          setPendingCounts(summaryRes.data.data);
+          newSummary = summaryRes.data.data;
+          setPendingCounts(newSummary);
+        }
+
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_counters_cache', JSON.stringify({
+              unreadInquiries: newUnread,
+              pendingCounts: newSummary
+            }));
+          }
+        } catch (e) {
+          console.warn('Could not cache admin counters:', e);
         }
       } catch (e) {
         // silent

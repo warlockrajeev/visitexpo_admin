@@ -466,6 +466,21 @@ export default function EventCategoriesPage() {
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_categories_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+            setCategoriesData(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin categories cache:', e);
+    }
+
     fetchCategories();
   }, [accessToken]);
 

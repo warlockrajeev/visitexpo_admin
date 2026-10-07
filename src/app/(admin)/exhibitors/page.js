@@ -106,7 +106,7 @@ export default function AdminExhibitorsPage() {
   const [editingBooth, setEditingBooth] = useState(false);
   const [boothInput, setBoothInput] = useState('');
 
-  // 1. Fetch Stats & Events List
+  // 1. Fetch Stats & Events List with instant sessionStorage caching
   const fetchAuxiliaryData = async () => {
     if (!accessToken) return;
     try {
@@ -120,18 +120,29 @@ export default function AdminExhibitorsPage() {
         setStats(statsRes.data.data);
       }
       if (eventsRes.data?.success) {
-        setEvents(eventsRes.data.data?.docs || []);
+        const evDocs = eventsRes.data.data?.docs || [];
+        setEvents(evDocs);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_exhibitors_meta', JSON.stringify({
+              stats: statsRes.data?.data,
+              events: evDocs
+            }));
+          }
+        } catch (e) {
+          console.warn('Could not cache exhibitors meta:', e);
+        }
       }
     } catch (err) {
       console.error('[AdminExhibitors] Failed to load stats/events', err);
     }
   };
 
-  // 2. Fetch Exhibitors
+  // 2. Fetch Exhibitors with instant sessionStorage caching
   const fetchExhibitors = async (isRefresh = false) => {
     if (!accessToken) return;
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    else if (exhibitors.length === 0) setLoading(true);
 
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
@@ -145,11 +156,23 @@ export default function AdminExhibitorsPage() {
 
       const res = await axios.get(`${API_URL}/exhibitors`, { headers, params });
       if (res.data?.success) {
-        setExhibitors(res.data.data?.docs || []);
+        const freshDocs = res.data.data?.docs || [];
+        setExhibitors(freshDocs);
+        if (selectedEventId === 'all' && activeTab === 'all' && !searchQuery.trim()) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_exhibitors_list', JSON.stringify(freshDocs));
+            }
+          } catch (e) {
+            console.warn('Could not cache exhibitors list:', e);
+          }
+        }
       }
     } catch (err) {
       console.error('[AdminExhibitors] Failed to load exhibitors', err);
-      setToast({ type: 'error', message: 'Failed to fetch exhibitors list' });
+      if (exhibitors.length === 0) {
+        setToast({ type: 'error', message: 'Failed to fetch exhibitors list' });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -157,6 +180,27 @@ export default function AdminExhibitorsPage() {
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cachedMeta = sessionStorage.getItem('visitexpo_admin_exhibitors_meta');
+        if (cachedMeta) {
+          const parsed = JSON.parse(cachedMeta);
+          if (parsed?.stats) setStats(parsed.stats);
+          if (Array.isArray(parsed?.events)) setEvents(parsed.events);
+        }
+        const cachedList = sessionStorage.getItem('visitexpo_admin_exhibitors_list');
+        if (cachedList) {
+          const parsedList = JSON.parse(cachedList);
+          if (Array.isArray(parsedList) && parsedList.length > 0) {
+            setExhibitors(parsedList);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read exhibitors cache:', e);
+    }
+
     fetchAuxiliaryData();
   }, [accessToken]);
 

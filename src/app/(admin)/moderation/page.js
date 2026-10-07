@@ -130,10 +130,10 @@ export default function ModerationPage() {
   // Filter Search
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch pending organizers, exhibitors, and event claims on load
-  const fetchModerationData = async () => {
+  // Fetch pending organizers, exhibitors, and event claims on load with instant sessionStorage caching
+  const fetchModerationData = async (silent = false) => {
     if (!accessToken) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
       const [orgRes, exRes, claimRes, historyRes, orgHistRes, exHistRes, eventRes, eventHistRes] = await Promise.all([
@@ -147,29 +147,32 @@ export default function ModerationPage() {
         axios.get(`${API_URL}/admin/event-history`, { headers })
       ]);
 
-      if (orgRes.data && orgRes.data.success) {
-        setPendingOrganizers(orgRes.data.data || []);
-      }
-      if (exRes.data && exRes.data.success) {
-        setPendingExhibitors(exRes.data.data || []);
-      }
-      if (claimRes.data && claimRes.data.success) {
-        setPendingClaims(claimRes.data.data || []);
-      }
-      if (historyRes.data && historyRes.data.success) {
-        setClaimHistory(historyRes.data.data || []);
-      }
-      if (orgHistRes.data && orgHistRes.data.success) {
-        setOrganizerHistory(orgHistRes.data.data || []);
-      }
-      if (exHistRes.data && exHistRes.data.success) {
-        setExhibitorHistory(exHistRes.data.data || []);
-      }
-      if (eventRes.data && eventRes.data.success) {
-        setPendingEvents(eventRes.data.data || []);
-      }
-      if (eventHistRes.data && eventHistRes.data.success) {
-        setEventHistory(eventHistRes.data.data || []);
+      const freshData = {
+        pendingOrganizers: orgRes.data?.data || [],
+        pendingExhibitors: exRes.data?.data || [],
+        pendingClaims: claimRes.data?.data || [],
+        claimHistory: historyRes.data?.data || [],
+        organizerHistory: orgHistRes.data?.data || [],
+        exhibitorHistory: exHistRes.data?.data || [],
+        pendingEvents: eventRes.data?.data || [],
+        eventHistory: eventHistRes.data?.data || []
+      };
+
+      if (orgRes.data && orgRes.data.success) setPendingOrganizers(freshData.pendingOrganizers);
+      if (exRes.data && exRes.data.success) setPendingExhibitors(freshData.pendingExhibitors);
+      if (claimRes.data && claimRes.data.success) setPendingClaims(freshData.pendingClaims);
+      if (historyRes.data && historyRes.data.success) setClaimHistory(freshData.claimHistory);
+      if (orgHistRes.data && orgHistRes.data.success) setOrganizerHistory(freshData.organizerHistory);
+      if (exHistRes.data && exHistRes.data.success) setExhibitorHistory(freshData.exhibitorHistory);
+      if (eventRes.data && eventRes.data.success) setPendingEvents(freshData.pendingEvents);
+      if (eventHistRes.data && eventHistRes.data.success) setEventHistory(freshData.eventHistory);
+
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('visitexpo_admin_moderation_cache', JSON.stringify(freshData));
+        }
+      } catch (e) {
+        console.warn('Could not cache moderation queue:', e);
       }
     } catch (err) {
       console.error('Failed to load moderation queue', err);
@@ -179,7 +182,31 @@ export default function ModerationPage() {
   };
 
   useEffect(() => {
-    fetchModerationData();
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_moderation_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed) {
+            if (Array.isArray(parsed.pendingOrganizers)) setPendingOrganizers(parsed.pendingOrganizers);
+            if (Array.isArray(parsed.pendingExhibitors)) setPendingExhibitors(parsed.pendingExhibitors);
+            if (Array.isArray(parsed.pendingClaims)) setPendingClaims(parsed.pendingClaims);
+            if (Array.isArray(parsed.claimHistory)) setClaimHistory(parsed.claimHistory);
+            if (Array.isArray(parsed.organizerHistory)) setOrganizerHistory(parsed.organizerHistory);
+            if (Array.isArray(parsed.exhibitorHistory)) setExhibitorHistory(parsed.exhibitorHistory);
+            if (Array.isArray(parsed.pendingEvents)) setPendingEvents(parsed.pendingEvents);
+            if (Array.isArray(parsed.eventHistory)) setEventHistory(parsed.eventHistory);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read moderation cache:', e);
+    }
+
+    if (accessToken) {
+      fetchModerationData(true);
+    }
   }, [accessToken]);
 
   useEffect(() => {

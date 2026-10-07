@@ -28,6 +28,21 @@ export default function SubscriptionsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_subs_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSubs(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating subscriptions cache:', e);
+    }
+
     const fetchSubs = async () => {
       if (!accessToken) return;
       try {
@@ -35,7 +50,13 @@ export default function SubscriptionsPage() {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         if (res.data && res.data.success) {
-          setSubs(res.data.data || []);
+          const subsList = res.data.data || [];
+          setSubs(subsList);
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_subs_cache', JSON.stringify(subsList));
+            }
+          } catch (e) {}
         }
       } catch (err) {
         console.error('Fetch subscriptions failed', err);

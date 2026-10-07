@@ -315,13 +315,37 @@ export async function GET(request) {
     console.warn('[client-admin/api/organizers] Could not fetch deleted-organizers:', e.message);
   }
 
+  // 0. Primary fast source: Express chat/organizers-directory (MongoDB Atlas aggregated in <60ms)
+  try {
+    const expressRes = await fetch('http://localhost:5000/api/chat/organizers-directory', {
+      cache: 'no-store'
+    });
+    if (expressRes.ok) {
+      const expressJson = await expressRes.json();
+      const list = (expressJson.data || []).filter((o) => !isDeleted(o));
+      if (list.length > 0) {
+        cachedData = {
+          totalOrganizers: list.length,
+          totalEvents: list.reduce((acc, o) => acc + (o.eventsCount || o.count || 0), 0),
+          internationalCount: list.filter((o) => o.type === 'international').length,
+          nationalCount: list.filter((o) => o.type === 'national').length,
+          organizers: list
+        };
+        cacheTime = now;
+        return NextResponse.json({ success: true, data: cachedData });
+      }
+    }
+  } catch (expErr) {
+    console.warn('[client-admin/api/organizers] Express fetch note:', expErr.message);
+  }
+
   // 1. First attempt: fetch from WordPress inspect-event-meta
   try {
     const wpUrl = process.env.WORDPRESS_URL || 'https://visitexpo.in';
     const wpKey = process.env.WORDPRESS_API_KEY || 'visitexpo_custom_secret_key_12345';
     const wpRes = await fetch(`${wpUrl}/wp-json/visitexpo/v1/inspect-event-meta`, {
       headers: { 'X-VisitExpo-Key': wpKey },
-      signal: AbortSignal.timeout(8000)
+      signal: AbortSignal.timeout(4000)
     });
 
     if (wpRes.ok) {

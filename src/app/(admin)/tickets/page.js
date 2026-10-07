@@ -56,35 +56,77 @@ export default function SupportTicketsPage() {
   const [loadingEventTickets, setLoadingEventTickets] = useState(false);
 
   // 1. Fetch live support tickets from API
-  const fetchSupportTickets = async () => {
-    setLoadingSupport(true);
+  const fetchSupportTickets = async (silent = false) => {
+    if (!silent) setLoadingSupport(true);
     try {
       const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
       const res = await axios.get(`${API_URL}/support-tickets`, { headers });
       if (res.data?.success) {
-        setSupportTickets(res.data.data || []);
+        const ticketList = res.data.data || [];
+        setSupportTickets(ticketList);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_support_tickets_cache', JSON.stringify(ticketList));
+          }
+        } catch (e) {
+          console.warn('Could not cache support tickets:', e);
+        }
       }
     } catch (err) {
       console.error('Failed to load support tickets for admin view:', err);
-    } fontally: {
+    } finally {
       setLoadingSupport(false);
     }
   };
 
   useEffect(() => {
-    fetchSupportTickets();
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_support_tickets_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSupportTickets(parsed);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating support tickets cache:', e);
+    }
+    fetchSupportTickets(true);
   }, [accessToken]);
 
   // 2. Fetch events list on mount
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cachedEvts = sessionStorage.getItem('visitexpo_admin_events_simple_cache');
+        if (cachedEvts) {
+          const parsed = JSON.parse(cachedEvts);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEvents(parsed);
+            setSelectedEventId(parsed[0]._id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating simple events cache:', e);
+    }
+
     const fetchEvents = async () => {
       try {
-        const res = await axios.get(`${API_URL}/events?limit=1000&all=true`);
-        if (res.data?.success && res.data.data?.docs) {
-          setEvents(res.data.data.docs);
-          if (res.data.data.docs.length > 0) {
-            setSelectedEventId(res.data.data.docs[0]._id);
-          }
+        const res = await axios.get(`${API_URL}/events/all-directory`).catch(async () => {
+          return await axios.get(`${API_URL}/events?limit=200`);
+        });
+        const docs = res.data?.data?.events || res.data?.data?.docs || res.data?.data || [];
+        if (Array.isArray(docs) && docs.length > 0) {
+          setEvents(docs);
+          setSelectedEventId(prev => prev || docs[0]._id);
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_events_simple_cache', JSON.stringify(docs));
+            }
+          } catch (e) {}
         }
       } catch (err) {
         console.error('Failed to load events for admin ticket view:', err);

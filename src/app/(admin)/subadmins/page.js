@@ -115,6 +115,17 @@ export default function SubadminsManagementPage() {
         setModules(schemaRes.data.modules || []);
         setPresets(schemaRes.data.presets || []);
       }
+
+      try {
+        if (typeof window !== 'undefined' && subadminsRes.data?.success) {
+          sessionStorage.setItem('visitexpo_admin_subadmins_cache', JSON.stringify({
+            subadmins: subadminsRes.data.subadmins || [],
+            counts: subadminsRes.data.counts || { total: 0, active: 0, suspended: 0, superAdmins: 0 },
+            modules: schemaRes.data?.modules || [],
+            presets: schemaRes.data?.presets || []
+          }));
+        }
+      } catch (e) {}
     } catch (err) {
       console.error('Error loading subadmin system:', err);
       showFeedback('error', err.response?.data?.error || 'Failed to fetch subadmins directory.');
@@ -125,8 +136,25 @@ export default function SubadminsManagementPage() {
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_subadmins_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.subadmins) && parsed.subadmins.length > 0) {
+            setSubadmins(parsed.subadmins);
+            if (parsed.counts) setCounts(parsed.counts);
+            if (Array.isArray(parsed.modules)) setModules(parsed.modules);
+            if (Array.isArray(parsed.presets)) setPresets(parsed.presets);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating subadmins cache:', e);
+    }
     if (accessToken) {
-      fetchSubadminsData();
+      fetchSubadminsData(true);
     }
   }, [accessToken]);
 

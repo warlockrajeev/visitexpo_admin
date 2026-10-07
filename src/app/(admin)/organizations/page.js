@@ -65,7 +65,7 @@ export default function OrganizationsPage() {
 
   const fetchOrgs = async () => {
     if (!accessToken) return;
-    setLoading(true);
+    if (orgs.length === 0) setLoading(true);
     setError('');
     try {
       const res = await axios.get(`${API_URL}/admin/organizations`, {
@@ -73,17 +73,44 @@ export default function OrganizationsPage() {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data && res.data.success) {
-        setOrgs(res.data.data.docs || []);
+        const freshDocs = res.data.data.docs || [];
+        setOrgs(freshDocs);
+        if (!searchTerm) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_orgs_cache', JSON.stringify(freshDocs));
+            }
+          } catch (e) {
+            console.warn('Could not cache admin orgs:', e);
+          }
+        }
       }
     } catch (err) {
       console.error('Fetch orgs failed', err);
-      setError('Could not retrieve organizations. Check database seeded records.');
+      if (orgs.length === 0) {
+        setError('Could not retrieve organizations. Check database seeded records.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && !searchTerm) {
+        const cached = sessionStorage.getItem('visitexpo_admin_orgs_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setOrgs(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin orgs cache:', e);
+    }
+
     fetchOrgs();
   }, [accessToken]);
 

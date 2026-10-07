@@ -60,10 +60,10 @@ export default function ContactInquiriesPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [notesSavedSuccess, setNotesSavedSuccess] = useState(false);
 
-  // Fetch inquiries from API
+  // Fetch inquiries from API with instant sessionStorage caching
   const fetchInquiries = async () => {
     if (!accessToken) return;
-    setLoading(true);
+    if (inquiries.length === 0) setLoading(true);
     setError('');
     try {
       const res = await axios.get(`${API_URL}/contact`, {
@@ -78,20 +78,51 @@ export default function ContactInquiriesPage() {
       });
 
       if (res.data?.success) {
-        setInquiries(res.data.data || []);
+        const freshDocs = res.data.data || [];
+        setInquiries(freshDocs);
         if (res.data.stats) {
           setStats(res.data.stats);
+        }
+        if (!searchTerm && statusFilter === 'all' && roleFilter === 'all' && sourceFilter === 'all') {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_contacts_cache', JSON.stringify({
+                inquiries: freshDocs,
+                stats: res.data.stats
+              }));
+            }
+          } catch (e) {
+            console.warn('Could not cache admin contacts:', e);
+          }
         }
       }
     } catch (err) {
       console.error('Failed to load contact inquiries:', err);
-      setError('Could not retrieve contact inquiries. Ensure backend server is running and accessible.');
+      if (inquiries.length === 0) {
+        setError('Could not retrieve contact inquiries. Ensure backend server is running and accessible.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && !searchTerm && statusFilter === 'all' && roleFilter === 'all' && sourceFilter === 'all') {
+        const cached = sessionStorage.getItem('visitexpo_admin_contacts_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed?.inquiries) && parsed.inquiries.length > 0) {
+            setInquiries(parsed.inquiries);
+            if (parsed.stats) setStats(parsed.stats);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin contacts cache:', e);
+    }
+
     fetchInquiries();
   }, [accessToken, statusFilter, roleFilter, sourceFilter]);
 

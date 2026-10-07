@@ -23,6 +23,19 @@ async function fetchAllEvents() {
 
   let events = [];
 
+  // 0. High-speed database-backed all-directory endpoint from Express (MongoDB Atlas)
+  try {
+    const allRes = await fetch(`${SERVER_API_URL}/events/all-directory`, { cache: 'no-store' });
+    if (allRes.ok) {
+      const allJson = await allRes.json();
+      if (Array.isArray(allJson.events) && allJson.events.length > 0) {
+        cachedEvents = allJson.events;
+        cachedEventsTimestamp = Date.now();
+        return cachedEvents;
+      }
+    }
+  } catch {}
+
   // 1. Try local Express directory endpoint
   try {
     const res = await fetch(`${SERVER_API_URL}/events/directory`, { cache: 'no-store' });

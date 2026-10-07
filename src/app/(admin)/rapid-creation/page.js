@@ -180,18 +180,29 @@ export default function RapidCreationPage() {
   };
 
   // Fetch Users for Rapid Table
-  const fetchRapidUsers = async () => {
+  const fetchRapidUsers = async (silent = false) => {
     if (!accessToken) return;
-    setLoadingUsers(true);
+    if (!silent) setLoadingUsers(true);
     try {
       const res = await axios.get(`${API_URL}/admin/rapid-users`, {
         params: { role: filterRole },
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data && res.data.success) {
-        setUsers(res.data.users || []);
+        const uList = res.data.users || [];
+        setUsers(uList);
         if (res.data.counts) {
           setCounts(res.data.counts);
+        }
+        if (filterRole === 'all') {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_rapid_users_cache', JSON.stringify({
+                users: uList,
+                counts: res.data.counts || { organizers: 0, exhibitors: 0, visitors: 0, dummyUsers: 0 }
+              }));
+            }
+          } catch (e) {}
         }
       }
     } catch (err) {
@@ -202,7 +213,22 @@ export default function RapidCreationPage() {
   };
 
   useEffect(() => {
-    fetchRapidUsers();
+    try {
+      if (typeof window !== 'undefined' && filterRole === 'all') {
+        const cached = sessionStorage.getItem('visitexpo_admin_rapid_users_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+            setUsers(parsed.users);
+            if (parsed.counts) setCounts(parsed.counts);
+            setLoadingUsers(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating rapid users cache:', e);
+    }
+    fetchRapidUsers(true);
   }, [accessToken, filterRole]);
 
   // Create Single User

@@ -53,8 +53,8 @@ export default function AdminReviewsPage() {
 
   const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
-  const fetchReviews = useCallback(async () => {
-    setLoading(true);
+  const fetchReviews = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
@@ -65,10 +65,23 @@ export default function AdminReviewsPage() {
 
       const res = await axios.get(`${API_URL}/reviews/admin/all?${params.toString()}`, { headers });
       if (res.data?.success) {
-        setReviews(res.data.data || []);
+        const revList = res.data.data || [];
+        setReviews(revList);
         setTotal(res.data.total || 0);
         setTotalPages(res.data.totalPages || 1);
         if (res.data.stats) setStats(res.data.stats);
+        if (statusFilter === 'all' && !searchQuery && !ratingFilter && page === 1) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_reviews_cache', JSON.stringify({
+                reviews: revList,
+                total: res.data.total || 0,
+                totalPages: res.data.totalPages || 1,
+                stats: res.data.stats || { pending: 0, approved: 0, rejected: 0, featured: 0, featuredOnLanding: 0, total: 0 }
+              }));
+            }
+          } catch (e) {}
+        }
       }
     } catch (err) {
       console.error('Error fetching reviews:', err);
@@ -78,7 +91,24 @@ export default function AdminReviewsPage() {
   }, [accessToken, statusFilter, searchQuery, ratingFilter, page]);
 
   useEffect(() => {
-    if (accessToken) fetchReviews();
+    try {
+      if (typeof window !== 'undefined' && statusFilter === 'all' && !searchQuery && !ratingFilter && page === 1) {
+        const cached = sessionStorage.getItem('visitexpo_admin_reviews_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.reviews) && parsed.reviews.length > 0) {
+            setReviews(parsed.reviews);
+            setTotal(parsed.total || 0);
+            setTotalPages(parsed.totalPages || 1);
+            if (parsed.stats) setStats(parsed.stats);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating reviews cache:', e);
+    }
+    if (accessToken) fetchReviews(true);
   }, [accessToken, fetchReviews]);
 
   const handleStatusChange = async (reviewId, newStatus) => {

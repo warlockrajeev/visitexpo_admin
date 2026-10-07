@@ -205,7 +205,7 @@ export default function OrganizersPage() {
 
   const fetchOrganizers = async (isManual = false) => {
     if (isManual) setRefreshing(true);
-    else setLoading(true);
+    else if (data.organizers.length === 0) setLoading(true);
 
     try {
       // Fetch pending organizers for approval banner
@@ -224,7 +224,15 @@ export default function OrganizersPage() {
             headers: { Authorization: `Bearer ${accessToken}` }
           });
           if (expressRes.data?.success && expressRes.data?.data) {
-            setData(expressRes.data.data);
+            const freshData = expressRes.data.data;
+            setData(freshData);
+            try {
+              if (typeof window !== 'undefined') {
+                sessionStorage.setItem('visitexpo_admin_organizers_cache', JSON.stringify(freshData));
+              }
+            } catch (e) {
+              console.warn('Could not cache admin organizers:', e);
+            }
             return;
           }
         } catch (errExp) {
@@ -235,7 +243,15 @@ export default function OrganizersPage() {
       // 2. Fallback to Next.js API route without forcing a full refresh every time
       const res = await axios.get('/api/organizers');
       if (res.data?.success && res.data?.data) {
-        setData(res.data.data);
+        const freshData = res.data.data;
+        setData(freshData);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_organizers_cache', JSON.stringify(freshData));
+          }
+        } catch (e) {
+          console.warn('Could not cache admin organizers:', e);
+        }
         return;
       }
     } catch (err) {
@@ -274,6 +290,21 @@ export default function OrganizersPage() {
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_organizers_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.organizers) && parsed.organizers.length > 0) {
+            setData(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin organizers cache:', e);
+    }
+
     fetchOrganizers();
   }, [accessToken]);
 

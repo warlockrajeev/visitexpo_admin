@@ -239,18 +239,27 @@ export default function AdminVenuesPage() {
   });
   const [creatingVenue, setCreatingVenue] = useState(false);
 
-  // Fetch venues from backend
+  // Fetch venues from backend with instant sessionStorage caching
   const fetchVenues = async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent && venues.length === 0) setLoading(true);
     setRefreshing(true);
     try {
       const res = await axios.get(`${API_URL}/venues`);
       if (res.data?.success && Array.isArray(res.data.data)) {
         setVenues(res.data.data);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_venues_cache', JSON.stringify(res.data.data));
+          }
+        } catch (e) {
+          console.warn('Could not cache venues:', e);
+        }
       }
     } catch (err) {
       console.warn('Failed to fetch venues from backend API:', err);
-      showSweetError('Could not connect to the venues backend. Please ensure server is running.');
+      if (venues.length === 0) {
+        showSweetError('Could not connect to the venues backend. Please ensure server is running.');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -258,7 +267,22 @@ export default function AdminVenuesPage() {
   };
 
   useEffect(() => {
-    fetchVenues();
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_venues_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setVenues(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read venues cache:', e);
+    }
+
+    fetchVenues(true);
   }, []);
 
   // Filter venues

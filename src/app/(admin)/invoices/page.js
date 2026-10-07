@@ -42,6 +42,21 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_invoices_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setInvoices(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating invoices cache:', e);
+    }
+
     const fetchInvoices = async () => {
       if (!accessToken) return;
       try {
@@ -49,7 +64,13 @@ export default function InvoicesPage() {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         if (res.data && res.data.success) {
-          setInvoices(res.data.data || []);
+          const invList = res.data.data || [];
+          setInvoices(invList);
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_invoices_cache', JSON.stringify(invList));
+            }
+          } catch (e) {}
         }
       } catch (err) {
         console.error('Fetch invoices failed', err);

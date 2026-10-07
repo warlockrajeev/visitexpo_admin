@@ -208,13 +208,21 @@ export default function SponsorsPage() {
   // Action status notification
   const [feedback, setFeedback] = useState(null);
 
-  const fetchSponsors = async () => {
+  const fetchSponsors = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/admin/sponsors`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data?.success && Array.isArray(res.data?.data) && res.data.data.length > 0) {
         setSponsors(res.data.data);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_sponsors_cache', JSON.stringify(res.data.data));
+          }
+        } catch (e) {
+          console.warn('Could not cache sponsors:', e);
+        }
       }
     } catch (err) {
       console.warn('Using fallback sponsors list:', err.message);
@@ -224,7 +232,21 @@ export default function SponsorsPage() {
   };
 
   useEffect(() => {
-    fetchSponsors();
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_sponsors_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSponsors(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error hydrating sponsors cache:', e);
+    }
+    fetchSponsors(true);
   }, [accessToken]);
 
   // Filtered sponsors

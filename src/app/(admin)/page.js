@@ -77,6 +77,21 @@ export default function AdminOverview() {
   }, []);
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_overview_metrics');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.kpis) {
+            setMetrics(parsed);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin overview cache:', e);
+    }
+
     const fetchDashboardData = async () => {
       if (!accessToken) return;
       try {
@@ -84,7 +99,15 @@ export default function AdminOverview() {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         if (res.data && res.data.success) {
-          setMetrics(res.data.analytics);
+          const freshMetrics = res.data.analytics;
+          setMetrics(freshMetrics);
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_overview_metrics', JSON.stringify(freshMetrics));
+            }
+          } catch (e) {
+            console.warn('Could not cache admin overview:', e);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);

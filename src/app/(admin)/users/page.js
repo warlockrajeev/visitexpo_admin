@@ -179,7 +179,7 @@ export default function UsersManagementPage() {
 
   const fetchUsers = async (requestedPage = currentPage, filterOverrides = {}) => {
     if (!accessToken) return;
-    setLoading(true);
+    if (users.length === 0) setLoading(true);
     setError('');
     try {
       const res = await axios.get(`${API_URL}/admin/users`, {
@@ -200,21 +200,57 @@ export default function UsersManagementPage() {
         const fetchedPages = Math.max(1, res.data.data.pages || 1);
         setTotalPages(fetchedPages);
         if (requestedPage > fetchedPages) setCurrentPage(fetchedPages);
-        setStats({
+        const newStats = {
           total: res.data.data.total ?? fetchedDocs.length,
           active: res.data.data.totalActive ?? fetchedDocs.filter(u => !u.isSuspended && u.status !== 'suspended').length,
           suspended: res.data.data.totalSuspended ?? fetchedDocs.filter(u => u.isSuspended || u.status === 'suspended').length
-        });
+        };
+        setStats(newStats);
+
+        if (!searchTerm && roleFilter === 'all' && statusFilter === 'all' && verificationFilter === 'all' && requestedPage === 1) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_users_cache', JSON.stringify({
+                docs: fetchedDocs,
+                total: res.data.data.total ?? fetchedDocs.length,
+                pages: fetchedPages,
+                stats: newStats
+              }));
+            }
+          } catch (e) {
+            console.warn('Could not cache admin users:', e);
+          }
+        }
       }
     } catch (err) {
       console.error('Fetch users failed', err);
-      setError('Could not retrieve user database. Ensure super admin credentials are valid.');
+      if (users.length === 0) {
+        setError('Could not retrieve user database. Ensure super admin credentials are valid.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && !searchTerm && roleFilter === 'all' && statusFilter === 'all' && verificationFilter === 'all' && currentPage === 1) {
+        const cached = sessionStorage.getItem('visitexpo_admin_users_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed?.docs) && parsed.docs.length > 0) {
+            setUsers(parsed.docs);
+            setResultCount(parsed.total ?? parsed.docs.length);
+            if (parsed.pages) setTotalPages(parsed.pages);
+            if (parsed.stats) setStats(parsed.stats);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin users cache:', e);
+    }
+
     fetchUsers();
   }, [accessToken, roleFilter, statusFilter, verificationFilter, currentPage, pageSize]);
 

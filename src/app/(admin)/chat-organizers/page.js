@@ -97,7 +97,7 @@ export default function ChatOrganizersPage() {
   // Load Organizers Data
   const fetchData = async (isSilent = false) => {
     if (!accessToken) return;
-    if (!isSilent) setLoading(true);
+    if (!isSilent && organizers.length === 0) setLoading(true);
     else setRefreshing(true);
 
     try {
@@ -106,14 +106,25 @@ export default function ChatOrganizersPage() {
       });
 
       if (res.data?.success) {
-        setOrganizers(res.data.organizers || []);
+        const freshOrgs = res.data.organizers || [];
+        setOrganizers(freshOrgs);
         if (res.data.stats) {
           setStats(res.data.stats);
+        }
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_chat_orgs_cache', JSON.stringify({
+              organizers: freshOrgs,
+              stats: res.data.stats
+            }));
+          }
+        } catch (e) {
+          console.warn('Could not cache admin chat organizers:', e);
         }
       }
     } catch (err) {
       console.error('Failed to load chat organizers:', err);
-      if (!isSilent) {
+      if (!isSilent && organizers.length === 0) {
         showSweetError(err.response?.data?.message || 'Failed to load organizers chat data');
       }
     } finally {
@@ -123,7 +134,23 @@ export default function ChatOrganizersPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_chat_orgs_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed?.organizers) && parsed.organizers.length > 0) {
+            setOrganizers(parsed.organizers);
+            if (parsed.stats) setStats(parsed.stats);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read chat organizers cache:', e);
+    }
+
+    fetchData(true);
   }, [accessToken]);
 
   // Handle Instant Toggle

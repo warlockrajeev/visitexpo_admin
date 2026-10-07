@@ -254,26 +254,39 @@ export default function AdminEventsPage() {
   // Delete Modal state
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, event: null, isDeleting: false });
 
-  // Fetch events list
+  // Fetch events list with instant sessionStorage caching
   const fetchEvents = async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent && events.length === 0) setLoading(true);
     setRefreshing(true);
     try {
       const res = await axios.get(`${API_URL}/admin/events?limit=200`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data?.success && res.data?.data) {
-        setEvents(res.data.data.events || []);
+        const freshEvents = res.data.data.events || [];
+        setEvents(freshEvents);
         if (res.data.data.stats) {
           setStats(res.data.data.stats);
+        }
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_events_cache', JSON.stringify({
+              events: freshEvents,
+              stats: res.data.data.stats
+            }));
+          }
+        } catch (e) {
+          console.warn('Could not cache admin events:', e);
         }
       }
     } catch (err) {
       console.error('Error fetching admin events:', err);
-      setFeedback({
-        type: 'error',
-        message: err.response?.data?.error || 'Failed to load events from server.'
-      });
+      if (events.length === 0) {
+        setFeedback({
+          type: 'error',
+          message: err.response?.data?.error || 'Failed to load events from server.'
+        });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -281,8 +294,24 @@ export default function AdminEventsPage() {
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_events_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed?.events) && parsed.events.length > 0) {
+            setEvents(parsed.events);
+            if (parsed.stats) setStats(parsed.stats);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read admin events cache:', e);
+    }
+
     if (accessToken) {
-      fetchEvents();
+      fetchEvents(true);
     }
   }, [accessToken]);
 

@@ -71,7 +71,7 @@ export default function AdminVisitorsPage() {
   // Selected Visitor for Digital Pass Modal
   const [selectedVisitor, setSelectedVisitor] = useState(null);
 
-  // 1. Fetch Stats & Events List
+  // 1. Fetch Stats & Events List with instant sessionStorage caching
   const fetchAuxiliaryData = async () => {
     if (!accessToken) return;
     try {
@@ -85,18 +85,29 @@ export default function AdminVisitorsPage() {
         setStats(statsRes.data.data);
       }
       if (eventsRes.data?.success) {
-        setEvents(eventsRes.data.data?.docs || []);
+        const evDocs = eventsRes.data.data?.docs || [];
+        setEvents(evDocs);
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('visitexpo_admin_visitors_meta', JSON.stringify({
+              stats: statsRes.data?.data,
+              events: evDocs
+            }));
+          }
+        } catch (e) {
+          console.warn('Could not cache visitors meta:', e);
+        }
       }
     } catch (err) {
       console.error('[AdminVisitors] Failed to load auxiliary data', err);
     }
   };
 
-  // 2. Fetch Visitors
+  // 2. Fetch Visitors with instant sessionStorage caching
   const fetchVisitors = async (isRefresh = false) => {
     if (!accessToken) return;
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    else if (visitors.length === 0) setLoading(true);
 
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
@@ -109,11 +120,23 @@ export default function AdminVisitorsPage() {
 
       const res = await axios.get(`${API_URL}/visitors`, { headers, params });
       if (res.data?.success) {
-        setVisitors(res.data.data?.docs || []);
+        const freshDocs = res.data.data?.docs || [];
+        setVisitors(freshDocs);
+        if (selectedEventId === 'all' && !searchQuery.trim()) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_visitors_list', JSON.stringify(freshDocs));
+            }
+          } catch (e) {
+            console.warn('Could not cache visitors list:', e);
+          }
+        }
       }
     } catch (err) {
       console.error('[AdminVisitors] Failed to load visitors', err);
-      setToast({ type: 'error', message: 'Failed to fetch visitors list' });
+      if (visitors.length === 0) {
+        setToast({ type: 'error', message: 'Failed to fetch visitors list' });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,6 +144,27 @@ export default function AdminVisitorsPage() {
   };
 
   useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const cachedMeta = sessionStorage.getItem('visitexpo_admin_visitors_meta');
+        if (cachedMeta) {
+          const parsed = JSON.parse(cachedMeta);
+          if (parsed?.stats) setStats(parsed.stats);
+          if (Array.isArray(parsed?.events)) setEvents(parsed.events);
+        }
+        const cachedList = sessionStorage.getItem('visitexpo_admin_visitors_list');
+        if (cachedList) {
+          const parsedList = JSON.parse(cachedList);
+          if (Array.isArray(parsedList) && parsedList.length > 0) {
+            setVisitors(parsedList);
+            setLoading(false);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read visitors cache:', e);
+    }
+
     fetchAuxiliaryData();
   }, [accessToken]);
 
