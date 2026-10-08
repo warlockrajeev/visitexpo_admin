@@ -71,28 +71,38 @@ export default function SubscriptionsPage() {
   // Compute stats
   const activeCount = subs.filter(s => s.status === 'active').length;
   const freePlanCount = subs.filter(s => s.plan === 'free').length;
-  const growthPlanCount = subs.filter(s => s.plan === 'growth').length;
+  const starterPlanCount = subs.filter(s => s.plan === 'starter').length;
   const enterpriseCount = subs.filter(s => s.plan === 'enterprise').length;
 
   return (
     <div className="space-y-6">
       {/* Header banner */}
-      <div className="bg-card p-6 rounded-2xl border border-border shadow-sm">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <CreditCard className="h-6 w-6 text-primary" /> Platform Subscriptions
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review subscription package activations, plans, and recurring MRR base.
-        </p>
+      <div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <CreditCard className="h-6 w-6 text-primary" /> Platform Subscriptions
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review active tenant subscriptions, ledger records, and organizer tiers.
+          </p>
+        </div>
+
+        <a
+          href="/plans"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-black font-bold text-xs hover:bg-primary/90 transition-all shadow-sm"
+        >
+          <span>Manage Pricing Plans &amp; Features</span>
+          <span className="text-base leading-none">&rarr;</span>
+        </a>
       </div>
 
       {/* Plans Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { title: 'Active Plans', value: activeCount, desc: 'Currently active organizer accounts', color: 'text-emerald-500' },
-          { title: 'Free Tier Accounts', value: freePlanCount, desc: 'Basic plan users limit', color: 'text-zinc-500' },
-          { title: 'Growth Tier Accounts', value: growthPlanCount, desc: 'Mid-market organizers plan', color: 'text-primary' },
-          { title: 'Enterprise VIP Accounts', value: enterpriseCount, desc: 'Enterprise corporations', color: 'text-violet-500' }
+          { title: 'Active Subscriptions', value: activeCount, desc: 'Currently active organizer accounts', color: 'text-emerald-500' },
+          { title: 'Free Tier Accounts', value: freePlanCount, desc: 'Free corporate / general ₹1,499', color: 'text-zinc-500' },
+          { title: 'Starter Subscriptions', value: starterPlanCount, desc: '₹14,999/Qtr or ₹49,999/Yr', color: 'text-primary' },
+          { title: 'Enterprise Accounts', value: enterpriseCount, desc: '₹89,999/Qtr or ₹2,99,999/Yr', color: 'text-indigo-400' }
         ].map((kpi, idx) => (
           <div key={idx} className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{kpi.title}</span>
@@ -105,43 +115,76 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* Plans Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         {[
           {
-            name: 'Free Basic Tier',
-            price: '₹0',
-            duration: 'Forever Free',
-            features: ['1 Live Event Schedule Limit', 'Max 100 Registrants Limit', 'Basic Leads CRM Tracker', 'Community Email Support'],
+            name: 'Free Organizer',
+            price: '₹0 / ₹1,499',
+            duration: 'Corporate Free · Gen ₹1499',
+            features: [
+              'Free corporate email registration',
+              'Any number of expos (limit 3/day)',
+              '1/10 nominal token demand test',
+              'Masked leads with volume counts',
+              '₹4,999 proposed event research'
+            ],
             color: 'border-zinc-800'
           },
           {
-            name: 'Growth Plan',
+            name: 'Organizer Starter',
             price: '₹14,999',
-            duration: '/ month',
-            features: ['Unlimited Live Events Scheduled', 'Max 2500 Registrants Limit', 'Full CRM pipeline, scores, followups', 'WhatsApp & Email Campaigns support', 'Dedicated Account Manager'],
+            duration: '/ Quarter (₹49,999/Yr)',
+            features: [
+              'Everything in Free included',
+              'Full unlocked lead access',
+              'Basic operational lead CRM',
+              'Paid ticket selling & gateway',
+              'Basic ticket sales analytics',
+              'Proposed expo validation allowance'
+            ],
             color: 'border-primary ring-2 ring-primary/20'
           },
           {
-            name: 'Enterprise VIP',
-            price: '₹49,999',
-            duration: '/ month',
-            features: ['Everything in Growth plan', 'Unlimited Registrants capacity', 'Custom branding portal configs', 'API Access Keys for plugins integration', '24/7 SLA Hotline Priority Support'],
-            color: 'border-violet-500'
+            name: 'Organizer Enterprise',
+            price: '₹89,999',
+            duration: '/ Quarter (₹2,99,999/Yr)',
+            features: [
+              'Everything in Starter & Free',
+              'Full + advanced CRM + API keys',
+              'Unlimited CSV/Excel lead export',
+              'Private payment gateway',
+              'Partner & vendor search database',
+              'Priority search & featured placement'
+            ],
+            color: 'border-indigo-500'
+          },
+          {
+            name: 'Organizer Growth',
+            price: 'From ₹1,000',
+            duration: 'Point-wise price uses',
+            features: [
+              'Top-up plan start 1k to unlimited',
+              '13 promotion channels',
+              'WhatsApp, SMS, AI, IVR broadcasts',
+              'Top Expo display & search ads',
+              'Member + external audience reach'
+            ],
+            color: 'border-emerald-500'
           }
         ].map((plan, idx) => (
-          <div key={idx} className={`rounded-2xl border bg-card p-6 shadow-sm flex flex-col justify-between space-y-6 ${plan.color}`}>
-            <div className="space-y-4">
+          <div key={idx} className={`rounded-2xl border bg-card p-5 shadow-sm flex flex-col justify-between space-y-4 ${plan.color}`}>
+            <div className="space-y-3">
               <div>
-                <h4 className="font-bold text-lg text-foreground">{plan.name}</h4>
-                <div className="mt-2 flex items-baseline gap-1 text-foreground">
-                  <span className="text-3xl font-extrabold tracking-tight font-mono">{plan.price}</span>
-                  <span className="text-xs text-muted-foreground">{plan.duration}</span>
+                <h4 className="font-bold text-base text-foreground">{plan.name}</h4>
+                <div className="mt-1.5 flex items-baseline gap-1 text-foreground">
+                  <span className="text-xl font-extrabold tracking-tight font-mono">{plan.price}</span>
+                  <span className="text-[10px] text-muted-foreground">{plan.duration}</span>
                 </div>
               </div>
-              <ul className="space-y-2.5 text-xs text-muted-foreground border-t border-border pt-4">
+              <ul className="space-y-2 text-[11px] text-muted-foreground border-t border-border pt-3">
                 {plan.features.map((feat, fidx) => (
-                  <li key={fidx} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                  <li key={fidx} className="flex items-start gap-1.5">
+                    <Check className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
                     <span>{feat}</span>
                   </li>
                 ))}

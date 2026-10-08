@@ -219,6 +219,14 @@ export default function AdminLayout({ children }) {
       permission: 'subadmins.manage'
     },
     { name: 'Organizations', href: '/organizations', icon: Building2, permission: 'organizations.view' },
+    {
+      name: 'Plans Management',
+      href: '/plans',
+      icon: Layers,
+      badge: 'Pricing',
+      badgeColor: 'bg-primary text-black font-bold',
+      permission: 'subscriptions.view'
+    },
     { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard, permission: 'subscriptions.view' },
     { name: 'Invoices & Sales', href: '/invoices', icon: FileText, permission: 'invoices.view' },
     { name: 'Support Tickets', href: '/tickets', icon: LifeBuoy, permission: 'tickets.manage' },
@@ -268,6 +276,8 @@ export default function AdminLayout({ children }) {
     if (path === '/faqs') return 'FAQ Management & Landing Showcase';
     if (path === '/rapid-creation') return 'Rapid Dummy User Creation & Impersonation';
     if (path === '/subadmins') return 'Subadmins & Role-Based Access Control (RBAC)';
+    if (path === '/plans') return 'Organizer Plans & Pricing Management';
+    if (path === '/subscriptions') return 'Platform Subscriptions & MRR Base';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);
   };
