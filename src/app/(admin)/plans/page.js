@@ -6,7 +6,7 @@
  * Manage official Organizer Pricing Tiers, Feature Limits, Growth Top-ups, and Organizer Upgrade Inquiries.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
 import {
@@ -24,7 +24,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Sparkles,
   Zap,
   TrendingUp,
   Shield,
@@ -50,8 +49,13 @@ import {
   Radio,
   FileSpreadsheet,
   Compass,
-  ArrowUpRight
+  ArrowUpRight,
+  UserCheck,
+  UserPlus,
+  Gift,
+  ShieldCheck
 } from 'lucide-react';
+import { isCorporateEmail } from '../../../utils/emailValidator.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -93,8 +97,31 @@ export default function PlansManagementPage() {
   // Search Filter
   const [searchQuery, setSearchQuery] = useState('');
 
+  // User Plan Assignment State
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [userSearchResults, setUserSearchResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  const [assignFormData, setAssignFormData] = useState({
+    planId: 'free',
+    billingCycle: 'lifetime',
+    noChargeForGeneralMail: true,
+    price: 0,
+    isVerified: true,
+    upgradeRoleToOrganizer: true,
+    adminNotes: 'Super Admin complimentary plan assignment (No charge for general mail)',
+    durationDays: ''
+  });
+  const [assigningPlan, setAssigningPlan] = useState(false);
+
+  // Assigned Subscriptions State
+  const [assignedSubs, setAssignedSubs] = useState([]);
+  const [loadingSubs, setLoadingSubs] = useState(false);
+  const [subFilter, setSubFilter] = useState('all');
+
   // Fetch all plans and admin stats
-  const fetchPlans = async () => {
+  const fetchPlans = useCallback(async () => {
     if (!accessToken) return;
     try {
       setLoading(true);
@@ -111,10 +138,10 @@ export default function PlansManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken]);
 
   // Fetch Inquiries
-  const fetchInquiries = async () => {
+  const fetchInquiries = useCallback(async () => {
     if (!accessToken) return;
     try {
       setInquiriesLoading(true);
@@ -129,17 +156,141 @@ export default function PlansManagementPage() {
     } finally {
       setInquiriesLoading(false);
     }
-  };
+  }, [accessToken, inquiryFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPlans();
-  }, [accessToken]);
+  }, [fetchPlans]);
 
   useEffect(() => {
     if (activeTab === 'inquiries') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchInquiries();
     }
-  }, [activeTab, inquiryFilter, accessToken]);
+  }, [activeTab, fetchInquiries]);
+
+  // Search users for assignment
+  const handleSearchUsers = useCallback(async (query, role) => {
+    if (!accessToken) return;
+    try {
+      const res = await axios.get(`${API_URL}/plans/admin/users?q=${encodeURIComponent(query || '')}&role=${role || 'all'}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (res.data?.success) {
+        setUserSearchResults(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to search users:', err);
+    }
+  }, [accessToken]);
+
+  // Fetch assigned subscriptions
+  const fetchAssignedSubscriptions = useCallback(async () => {
+    if (!accessToken) return;
+    setLoadingSubs(true);
+    try {
+      const res = await axios.get(`${API_URL}/plans/admin/assigned-subscriptions?plan=${subFilter}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (res.data?.success) {
+        setAssignedSubs(res.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch assigned subscriptions:', err);
+    } finally {
+      setLoadingSubs(false);
+    }
+  }, [accessToken, subFilter]);
+
+  useEffect(() => {
+    if (activeTab === 'assign') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleSearchUsers('', 'all');
+      fetchAssignedSubscriptions();
+    }
+  }, [activeTab, handleSearchUsers, fetchAssignedSubscriptions]);
+
+  // Submit Plan Assignment
+  const handleAssignPlan = async (e) => {
+    e.preventDefault();
+    if (!selectedUser) {
+      showSweetError('Please select a user to assign a plan to.');
+      return;
+    }
+
+    setAssigningPlan(true);
+    try {
+      const payload = {
+        userId: selectedUser._id,
+        planId: assignFormData.planId,
+        billingCycle: assignFormData.billingCycle,
+        noChargeForGeneralMail: assignFormData.noChargeForGeneralMail,
+        price: assignFormData.noChargeForGeneralMail && assignFormData.planId === 'free' ? 0 : Number(assignFormData.price || 0),
+        isVerified: assignFormData.isVerified,
+        upgradeRoleToOrganizer: assignFormData.upgradeRoleToOrganizer,
+        adminNotes: assignFormData.adminNotes,
+        durationDays: assignFormData.durationDays ? Number(assignFormData.durationDays) : undefined
+      };
+
+      const res = await axios.post(`${API_URL}/plans/admin/assign-plan`, payload, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      if (res.data?.success) {
+        showSweetSuccess(res.data.message || 'Plan assigned successfully!');
+        setSelectedUser((prev) => ({
+          ...prev,
+          plan: assignFormData.planId,
+          planStatus: 'active',
+          isPlanActive: true,
+          isVerified: assignFormData.isVerified ? true : prev?.isVerified,
+          role: assignFormData.upgradeRoleToOrganizer ? 'organizer' : prev?.role,
+          planPaidAmount: payload.price
+        }));
+        fetchAssignedSubscriptions();
+        fetchPlans();
+      }
+    } catch (err) {
+      showSweetError(err.response?.data?.message || 'Failed to assign plan.');
+    } finally {
+      setAssigningPlan(false);
+    }
+  };
+
+  // Toggle Global General Email Fee
+  const handleToggleGeneralMailCharge = async (currentPrice) => {
+    const isCurrentlyFree = currentPrice === 0;
+    const newNoCharge = !isCurrentlyFree;
+
+    const confirmed = await showSweetConfirm({
+      title: newNoCharge ? 'Enable No Charge for General Mail?' : 'Restore ₹1,499 General Mail Fee?',
+      text: newNoCharge
+        ? 'Personal email domains (@gmail, @yahoo, etc) will be allowed to activate the Free Organizer Plan for 100% FREE (₹0).'
+        : 'Personal email domains (@gmail, @yahoo, etc) will be required to pay the standard ₹1,499 one-time registration verification fee.',
+      confirmButtonText: newNoCharge ? 'Make General Mail Free (₹0)' : 'Set Fee to ₹1,499',
+      isDanger: false
+    });
+
+    if (!confirmed) return;
+
+    try {
+      setActionLoading(true);
+      const res = await axios.post(
+        `${API_URL}/plans/admin/toggle-general-mail-charge`,
+        { noCharge: newNoCharge },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (res.data?.success) {
+        showSweetSuccess(res.data.message);
+        fetchPlans();
+      }
+    } catch (err) {
+      showSweetError(err.response?.data?.message || 'Failed to update general email fee.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Restore Official Pricing Defaults
   const handleRestoreDefaults = async () => {
@@ -300,7 +451,25 @@ export default function PlansManagementPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => handleToggleGeneralMailCharge(growthPlan ? plans.find((p) => p.planId === 'free')?.pricing?.generalEmailPrice ?? 1499 : 1499)}
+            disabled={actionLoading}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+              plans.find((p) => p.planId === 'free')?.pricing?.generalEmailPrice === 0
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                : 'border-border bg-secondary hover:bg-secondary/80 text-foreground'
+            }`}
+            title="Toggle whether personal emails (@gmail, @yahoo) are charged Rs.1499 or free"
+          >
+            <Gift className="h-3.5 w-3.5 text-amber-500" />
+            <span>
+              {plans.find((p) => p.planId === 'free')?.pricing?.generalEmailPrice === 0
+                ? 'General Mail: No Charge (₹0 Free)'
+                : 'General Mail: ₹1,499 (Click to Make Free)'}
+            </span>
+          </button>
+
           <button
             onClick={fetchPlans}
             disabled={loading}
@@ -377,6 +546,7 @@ export default function PlansManagementPage() {
       <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto">
         {[
           { id: 'plans', label: 'Official Pricing Tiers', icon: Layers, count: plans.length },
+          { id: 'assign', label: 'Assign Plans to Users', icon: UserCheck, count: assignedSubs.length || undefined },
           { id: 'growth', label: 'Growth Top-Up Services', icon: Megaphone, count: growthServices.length },
           { id: 'inquiries', label: 'Organizer Upgrade Inquiries', icon: MessageSquare, count: stats.totalInquiries },
           { id: 'matrix', label: 'Feature Comparison Matrix', icon: FileSpreadsheet }
@@ -486,11 +656,29 @@ export default function PlansManagementPage() {
                           </div>
                           <div className="flex items-baseline justify-between text-xs">
                             <span className="text-muted-foreground">General Email:</span>
-                            <span className="font-extrabold text-foreground font-mono">₹1,499</span>
+                            <span className={`font-extrabold font-mono ${plan.pricing?.generalEmailPrice === 0 ? 'text-emerald-500' : 'text-foreground'}`}>
+                              {plan.pricing?.generalEmailPrice === 0 ? '₹0 (No Charge)' : `₹${(plan.pricing?.generalEmailPrice || 1499).toLocaleString('en-IN')}`}
+                            </span>
                           </div>
                           <div className="flex items-baseline justify-between text-xs pt-1 border-t border-border/60">
                             <span className="text-muted-foreground">Proposed Event Research:</span>
                             <span className="font-bold text-amber-500 font-mono">₹4,999</span>
+                          </div>
+                          <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-foreground">
+                              No Charge for General Mail:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleGeneralMailCharge(plan.pricing?.generalEmailPrice ?? 1499)}
+                              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                plan.pricing?.generalEmailPrice === 0
+                                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
+                                  : 'bg-secondary text-muted-foreground border border-border hover:text-foreground'
+                              }`}
+                            >
+                              {plan.pricing?.generalEmailPrice === 0 ? '✓ Active (₹0 Free)' : 'Set No Charge (₹0)'}
+                            </button>
                           </div>
                         </>
                       ) : plan.planId === 'growth' ? (
@@ -557,7 +745,470 @@ export default function PlansManagementPage() {
       )}
 
       {/* ========================================================= */}
-      {/* TAB 2: GROWTH TOP-UP SERVICES */}
+      {/* TAB 2: ASSIGN PLANS TO USERS (WITH NO CHARGE WAIVER)     */}
+      {/* ========================================================= */}
+      {activeTab === 'assign' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header Card */}
+          <div className="bg-card p-6 rounded-2xl border border-border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <UserCheck className="h-5 w-5" />
+                </span>
+                <h3 className="text-xl font-bold tracking-tight text-foreground">
+                  User Plan Assignment &amp; General Mail Waiver
+                </h3>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                Assign and activate any organizer plan (Free, Starter, Enterprise, Growth) for any user in the platform.
+                Optionally apply <strong>&ldquo;No charge for general mail&rdquo;</strong> to waive the standard ₹1,499 personal email verification fee.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 ${
+                plans.find((p) => p.planId === 'free')?.pricing?.generalEmailPrice === 0
+                  ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                  : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+              }`}>
+                <ShieldCheck className="h-4 w-4" />
+                <span>
+                  Global Setting: {plans.find((p) => p.planId === 'free')?.pricing?.generalEmailPrice === 0 ? 'No Charge Active (₹0)' : 'General Email Charged (₹1,499)'}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-12 items-start">
+            {/* Left 5 Cols: Assignment Console */}
+            <div className="lg:col-span-5 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-5">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-primary" />
+                  <h4 className="font-bold text-sm text-foreground">Assign Plan to User</h4>
+                </div>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Admin Grant
+                </span>
+              </div>
+
+              {/* Step 1: Search & Select User */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-foreground">
+                  1. Search &amp; Select Target User *
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search by name, email, or phone..."
+                      value={userSearchQuery}
+                      onChange={(e) => {
+                        setUserSearchQuery(e.target.value);
+                        handleSearchUsers(e.target.value, userRoleFilter);
+                      }}
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-secondary border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <select
+                    value={userRoleFilter}
+                    onChange={(e) => {
+                      setUserRoleFilter(e.target.value);
+                      handleSearchUsers(userSearchQuery, e.target.value);
+                    }}
+                    className="px-2.5 py-2 rounded-xl bg-secondary border border-border text-xs text-foreground focus:outline-none focus:border-primary"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="organizer">Organizers</option>
+                    <option value="exhibitor">Exhibitors</option>
+                    <option value="visitor">Visitors</option>
+                  </select>
+                </div>
+
+                {/* Search Results Dropdown List */}
+                {userSearchResults.length > 0 && !selectedUser && (
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-border bg-secondary/90 divide-y divide-border/60 shadow-lg text-xs">
+                    {userSearchResults.slice(0, 8).map((u) => {
+                      const isCorp = isCorporateEmail(u.email);
+                      return (
+                        <button
+                          key={u._id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedUser(u);
+                            setUserSearchResults([]);
+                          }}
+                          className="w-full p-2.5 text-left hover:bg-primary/10 transition-colors flex items-center justify-between gap-2 cursor-pointer"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-foreground truncate">{u.name}</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold capitalize bg-card border border-border text-muted-foreground">
+                                {u.role}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                              isCorp
+                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                            }`}>
+                              {isCorp ? 'Corporate' : 'Personal'}
+                            </span>
+                            <div className="text-[10px] text-muted-foreground capitalize mt-0.5">
+                              Plan: {u.plan || 'free'} ({u.planStatus || 'pending'})
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Selected User Badge / Card */}
+                {selectedUser ? (
+                  <div className="p-3.5 rounded-xl bg-secondary/80 border border-primary/30 flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-foreground">{selectedUser.name}</span>
+                        <span className="text-[10px] px-2 py-0.2 rounded-full font-bold uppercase bg-primary text-black">
+                          {selectedUser.role}
+                        </span>
+                        <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold border ${
+                          isCorporateEmail(selectedUser.email)
+                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                            : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                        }`}>
+                          {isCorporateEmail(selectedUser.email) ? 'Corporate Email' : 'Personal Email'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                        <span>{selectedUser.email}</span>
+                        {selectedUser.phone && <span>• {selectedUser.phone}</span>}
+                        {selectedUser.organization?.name && <span>• {selectedUser.organization.name}</span>}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Current: <strong className="text-foreground capitalize">{selectedUser.plan || 'Free'}</strong>
+                        {' '}(Status: <span className="capitalize">{selectedUser.planStatus || 'pending'}</span>, Verified: {selectedUser.isVerified ? 'Yes' : 'No'})
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedUser(null)}
+                      className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer shrink-0"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    Type a name or email to search and select a user.
+                  </p>
+                )}
+              </div>
+
+              {/* Assignment Form */}
+              <form onSubmit={handleAssignPlan} className="space-y-4 text-xs pt-1 border-t border-border">
+                {/* Step 2: Choose Plan */}
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    2. Select Plan to Assign *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'free', label: 'Free Organizer', badge: 'Complimentary Tier' },
+                      { id: 'starter', label: 'Organizer Starter', badge: '₹14,999/Qtr' },
+                      { id: 'enterprise', label: 'Organizer Enterprise', badge: '₹89,999/Qtr' },
+                      { id: 'growth', label: 'Organizer Growth', badge: 'Marketing Engine' }
+                    ].map((p) => {
+                      const isSel = assignFormData.planId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setAssignFormData({ ...assignFormData, planId: p.id })}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                            isSel
+                              ? 'border-primary bg-primary/10 text-foreground shadow-2xs'
+                              : 'border-border bg-secondary/40 text-muted-foreground hover:text-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          <div className="font-bold text-foreground text-xs">{p.label}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{p.badge}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Step 3: Billing Cycle & Duration */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">
+                      Billing Cycle / Duration
+                    </label>
+                    <select
+                      value={assignFormData.billingCycle}
+                      onChange={(e) => setAssignFormData({ ...assignFormData, billingCycle: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:border-primary text-xs"
+                    >
+                      <option value="lifetime">Lifetime / Unlimited (No Expiry)</option>
+                      <option value="yearly">Annual (1 Year Validity)</option>
+                      <option value="quarterly">Quarterly (3 Months Validity)</option>
+                      <option value="1_month">1 Month</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-foreground mb-1">
+                      Custom Duration (Days)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 365, 90 (Optional)"
+                      value={assignFormData.durationDays}
+                      onChange={(e) => setAssignFormData({ ...assignFormData, durationDays: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:border-primary text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Step 4: No charge for general mail & Price Options */}
+                <div className="p-3.5 rounded-xl bg-secondary/50 border border-border space-y-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="noChargeCheck"
+                      checked={assignFormData.noChargeForGeneralMail}
+                      onChange={(e) =>
+                        setAssignFormData({
+                          ...assignFormData,
+                          noChargeForGeneralMail: e.target.checked,
+                          price: e.target.checked ? 0 : assignFormData.price
+                        })
+                      }
+                      className="mt-0.5 h-4 w-4 rounded accent-primary cursor-pointer"
+                    />
+                    <label htmlFor="noChargeCheck" className="cursor-pointer">
+                      <span className="font-bold text-foreground block">
+                        No charge for general mail (Waive Fee · ₹0 Free)
+                      </span>
+                      <span className="text-[11px] text-muted-foreground block mt-0.5 leading-relaxed">
+                        Waives the ₹1,499 one-time registration charge for personal email accounts (@gmail, @yahoo, etc). The plan is assigned with <strong>₹0 amount</strong>.
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                    <span className="text-muted-foreground">Amount Charged (₹):</span>
+                    <input
+                      type="number"
+                      disabled={assignFormData.noChargeForGeneralMail && assignFormData.planId === 'free'}
+                      value={assignFormData.noChargeForGeneralMail && assignFormData.planId === 'free' ? 0 : assignFormData.price}
+                      onChange={(e) => setAssignFormData({ ...assignFormData, price: e.target.value })}
+                      className="w-32 px-2.5 py-1.5 rounded-lg bg-background border border-border text-right font-mono text-foreground font-bold disabled:opacity-60"
+                    />
+                  </div>
+                </div>
+
+                {/* Step 5: Account Controls */}
+                <div className="space-y-2 text-[11px]">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="autoVerify"
+                      checked={assignFormData.isVerified}
+                      onChange={(e) => setAssignFormData({ ...assignFormData, isVerified: e.target.checked })}
+                      className="h-3.5 w-3.5 rounded accent-primary cursor-pointer"
+                    />
+                    <label htmlFor="autoVerify" className="text-foreground cursor-pointer font-medium">
+                      Auto-verify account &amp; activate dashboard immediately
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="upgradeRole"
+                      checked={assignFormData.upgradeRoleToOrganizer}
+                      onChange={(e) => setAssignFormData({ ...assignFormData, upgradeRoleToOrganizer: e.target.checked })}
+                      className="h-3.5 w-3.5 rounded accent-primary cursor-pointer"
+                    />
+                    <label htmlFor="upgradeRole" className="text-foreground cursor-pointer font-medium">
+                      Promote user role to &ldquo;Organizer&rdquo; (if visitor or exhibitor)
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-foreground mb-1">
+                    Admin Reason / Audit Note
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Granted by Super Admin / No charge general email waiver"
+                    value={assignFormData.adminNotes}
+                    onChange={(e) => setAssignFormData({ ...assignFormData, adminNotes: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:border-primary text-xs"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={assigningPlan || !selectedUser}
+                  className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-black font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {assigningPlan ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-black" />
+                      <span>Assigning Plan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4 text-black" />
+                      <span>
+                        Assign {assignFormData.planId.toUpperCase()} Plan {selectedUser ? `to ${selectedUser.name}` : ''}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Right 7 Cols: Active Subscriptions & Assigned Plans Directory */}
+            <div className="lg:col-span-7 bg-card border border-border rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+                <div>
+                  <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-primary" />
+                    <span>Active Organizer Subscriptions ({assignedSubs.length})</span>
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    All organizers with assigned plans, payment statuses, and fee waivers.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={subFilter}
+                    onChange={(e) => setSubFilter(e.target.value)}
+                    className="px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                  >
+                    <option value="all">All Plans</option>
+                    <option value="free">Free</option>
+                    <option value="starter">Starter</option>
+                    <option value="enterprise">Enterprise</option>
+                    <option value="growth">Growth</option>
+                  </select>
+
+                  <button
+                    onClick={fetchAssignedSubscriptions}
+                    className="p-1.5 rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Refresh subscriptions"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${loadingSubs ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+
+              {loadingSubs ? (
+                <div className="py-12 flex flex-col items-center justify-center text-muted-foreground gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <span className="text-xs">Loading subscriptions...</span>
+                </div>
+              ) : assignedSubs.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground space-y-1">
+                  <CreditCard className="h-8 w-8 mx-auto text-muted-foreground/40" />
+                  <p className="text-xs font-semibold text-foreground">No Subscriptions Found</p>
+                  <p className="text-[11px]">Use the assignment console on the left to assign a plan to any user.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        <th className="pb-2.5">User</th>
+                        <th className="pb-2.5">Plan / Cycle</th>
+                        <th className="pb-2.5">Fee / Waiver</th>
+                        <th className="pb-2.5">Status</th>
+                        <th className="pb-2.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {assignedSubs.map((sub) => {
+                        const u = sub.user || {};
+                        const isCorp = isCorporateEmail(u.email);
+                        return (
+                          <tr key={sub._id} className="hover:bg-secondary/20 transition-colors">
+                            <td className="py-3 pr-2">
+                              <div className="font-semibold text-foreground">{u.name || 'Organizer'}</div>
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[160px]">{u.email}</div>
+                              <span className={`inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                                isCorp ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                              }`}>
+                                {isCorp ? 'Corporate' : 'Personal'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 pr-2">
+                              <div className="font-bold text-foreground capitalize">{sub.plan || 'Free'}</div>
+                              <span className="text-[10px] text-muted-foreground capitalize">
+                                {sub.paymentCycle || 'Quarterly'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 pr-2 font-mono">
+                              {sub.price === 0 ? (
+                                <span className="text-emerald-500 font-bold">₹0 (Waived)</span>
+                              ) : (
+                                <span className="font-bold text-foreground">₹{sub.price?.toLocaleString('en-IN')}</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 pr-2">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                                sub.status === 'active'
+                                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                  : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                              }`}>
+                                {sub.status || 'Active'}
+                              </span>
+                            </td>
+
+                            <td className="py-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setAssignFormData({
+                                    ...assignFormData,
+                                    planId: sub.plan || 'free',
+                                    billingCycle: sub.paymentCycle || 'yearly'
+                                  });
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-[11px] font-semibold cursor-pointer border border-border"
+                              >
+                                Modify
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 3: GROWTH TOP-UP SERVICES */}
       {/* ========================================================= */}
       {activeTab === 'growth' && (
         <div className="space-y-6">
@@ -914,13 +1565,31 @@ export default function PlansManagementPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-muted-foreground mb-1">General Email Price (₹)</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-muted-foreground">General Email Price (₹)</label>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormData({ ...editFormData, generalEmailPrice: Number(editFormData.generalEmailPrice) === 0 ? 1499 : 0 })}
+                            className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition-all cursor-pointer ${
+                              Number(editFormData.generalEmailPrice) === 0
+                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'
+                            }`}
+                          >
+                            {Number(editFormData.generalEmailPrice) === 0 ? '✓ No Charge (₹0)' : 'Set No Charge (₹0)'}
+                          </button>
+                        </div>
                         <input
                           type="number"
                           value={editFormData.generalEmailPrice}
                           onChange={(e) => setEditFormData({ ...editFormData, generalEmailPrice: e.target.value })}
                           className="w-full px-3 py-2 rounded-xl bg-background border border-border font-mono text-foreground"
                         />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {Number(editFormData.generalEmailPrice) === 0 
+                            ? '✨ No charge: Personal emails register & activate completely Free without paying.' 
+                            : 'Personal emails (@gmail, @yahoo, etc.) are charged this fee.'}
+                        </p>
                       </div>
                     </>
                   ) : (

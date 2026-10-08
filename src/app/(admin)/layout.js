@@ -75,6 +75,7 @@ export default function AdminLayout({ children }) {
         const cached = sessionStorage.getItem('visitexpo_admin_counters_cache');
         if (cached) {
           const parsed = JSON.parse(cached);
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           if (parsed?.unreadInquiries !== undefined) setUnreadInquiries(parsed.unreadInquiries);
           if (parsed?.pendingCounts) setPendingCounts(parsed.pendingCounts);
         }
@@ -245,6 +246,16 @@ export default function AdminLayout({ children }) {
   const checkNavPermission = (item) => {
     if (isSuperAdmin) return true;
     if (!item || !item.permission) return true;
+    if (item.href === '/plans') {
+      return (
+        hasPermission('plans.manage') ||
+        hasPermission('subscriptions.view') ||
+        hasPermission('subscriptions.manage') ||
+        user?.role === 'sub_admin' ||
+        user?.role === 'subadmin' ||
+        user?.role === 'admin'
+      );
+    }
     if (item.href === '/chat-organizers' || item.href === '/organizer-support') {
       return (
         hasPermission('chat_organizers.view') ||
