@@ -34,6 +34,7 @@ import {
   Filter,
   Eye,
   Check,
+  ChevronLeft,
   ChevronRight,
   MessageSquare,
   Phone,
@@ -59,6 +60,38 @@ import { isCorporateEmail } from '../../../utils/emailValidator.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+const MATRIX_ROWS = [
+  { label: 'Detailed Lead Access', free: 'Masked (Counts & volume visible)', starter: 'Full', enterprise: 'Full + advanced' },
+  { label: 'Lead CRM', free: 'Basic operational counters', starter: 'Basic operational CRM', enterprise: 'Advanced CRM + API' },
+  { label: 'Lead Export', free: 'Not Available', starter: 'Not Available', enterprise: 'Unlimited' },
+  { label: 'Lead Search & Filtering', free: 'Basic', starter: 'Ok', enterprise: 'Advanced' },
+  { label: 'Visitor / Exhibitor / Vendor Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
+  { label: 'Venue / Designer / Organizer Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics + Search Database' },
+  { label: 'Ticket Platform / Expo Mgmt Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
+  { label: 'Paid Ticket Selling', free: 'Not included (1/10 demand test)', starter: 'Unlocked', enterprise: 'Advanced / private gateway' },
+  { label: 'Payment Gateway', free: 'Not included', starter: 'Ok', enterprise: 'Ok (Multi-gateway + Custom)' },
+  { label: 'Ticket Sales Analytics', free: 'Demand stats only', starter: 'Basic', enterprise: 'Advanced' },
+  { label: 'Exhibitor Management', free: 'Basic', starter: 'Basic', enterprise: 'Advance' },
+  { label: 'Proposed Expo Validation', free: '4,999 per proposed event', starter: 'Limited allowance', enterprise: 'Multiple Events' },
+  { label: 'Interest Analysis', free: 'Basic volume', starter: 'Basic', enterprise: 'Detailed category-wise' },
+  { label: 'B2B / B2C Demand Analysis', free: 'Basic', starter: 'Basic', enterprise: 'Advance' },
+  { label: 'Active Events', free: 'Unlimited (claimed/created)', starter: 'Unlimited', enterprise: 'Unlimited' },
+  { label: 'Marketing Campaigns', free: 'Growth Plan (Paid separately)', starter: 'Growth Plan', enterprise: 'Growth Plan' },
+  { label: 'Priority Search / Featured Placement', free: 'No (Organic)', starter: 'No', enterprise: 'Available' },
+  { label: 'Support SLA', free: 'Standard Community', starter: 'Priority', enterprise: 'Faster priority (Dedicated Manager)' },
+];
+
+const INITIAL_ASSIGN_FORM_DATA = {
+  planId: 'free',
+  billingCycle: 'lifetime',
+  noChargeForGeneralMail: true,
+  price: 0,
+  isVerified: true,
+  upgradeRoleToOrganizer: true,
+  adminNotes: 'Super Admin complimentary plan assignment (No charge for general mail)',
+  durationDays: ''
+};
+
 export default function PlansManagementPage() {
   const { accessToken } = useAuth();
 
@@ -78,11 +111,18 @@ export default function PlansManagementPage() {
   const [inquiries, setInquiries] = useState([]);
   const [inquiriesLoading, setInquiriesLoading] = useState(false);
   const [inquiryFilter, setInquiryFilter] = useState('all');
+  const [inquiryPage, setInquiryPage] = useState(1);
+  const [inquiryPageSize, setInquiryPageSize] = useState(10);
+
+  // Matrix Pagination State
+  const [matrixPage, setMatrixPage] = useState(1);
+  const [matrixPageSize, setMatrixPageSize] = useState(10);
 
   // Edit Plan Modal State
   const [editingPlan, setEditingPlan] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+  const [editFormErrors, setEditFormErrors] = useState({});
 
   // Growth Service Edit Modal State
   const [editingService, setEditingService] = useState(null);
@@ -101,24 +141,57 @@ export default function PlansManagementPage() {
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [userSearchResults, setUserSearchResults] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUsers, setSelectedUsers] = useState([]);
 
-  const [assignFormData, setAssignFormData] = useState({
-    planId: 'free',
-    billingCycle: 'lifetime',
-    noChargeForGeneralMail: true,
-    price: 0,
-    isVerified: true,
-    upgradeRoleToOrganizer: true,
-    adminNotes: 'Super Admin complimentary plan assignment (No charge for general mail)',
-    durationDays: ''
-  });
-  const [assigningPlan, setAssigningPlan] = useState(false);
+  const selectedUser = selectedUsers.length === 1 ? selectedUsers[0] : null;
+
+  const isUserSelected = useCallback(
+    (u) => {
+      if (!u) return false;
+      const id = u._id || u.id;
+      return selectedUsers.some((su) => (su._id || su.id) === id);
+    },
+    [selectedUsers]
+  );
+
+  const toggleSelectUser = useCallback((u) => {
+    if (!u) return;
+    const id = u._id || u.id;
+    setSelectedUsers((prev) => {
+      const exists = prev.some((su) => (su._id || su.id) === id);
+      if (exists) {
+        return prev.filter((su) => (su._id || su.id) !== id);
+      } else {
+        return [...prev, u];
+      }
+    });
+  }, []);
 
   // Assigned Subscriptions State
   const [assignedSubs, setAssignedSubs] = useState([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [subFilter, setSubFilter] = useState('all');
+  const [subPage, setSubPage] = useState(1);
+  const [subPageSize, setSubPageSize] = useState(10);
+
+  const handleSelectAllSubs = useCallback(() => {
+    if (!assignedSubs || assignedSubs.length === 0) return;
+    const validSubsUsers = assignedSubs.map((s) => s.user).filter(Boolean);
+    const allSelected = validSubsUsers.length > 0 && validSubsUsers.every((u) => isUserSelected(u));
+    if (allSelected) {
+      const subUserIds = new Set(validSubsUsers.map((u) => u._id || u.id));
+      setSelectedUsers((prev) => prev.filter((u) => !subUserIds.has(u._id || u.id)));
+    } else {
+      setSelectedUsers((prev) => {
+        const existingIds = new Set(prev.map((u) => u._id || u.id));
+        const toAdd = validSubsUsers.filter((u) => !existingIds.has(u._id || u.id));
+        return [...prev, ...toAdd];
+      });
+    }
+  }, [assignedSubs, isUserSelected]);
+
+  const [assignFormData, setAssignFormData] = useState(INITIAL_ASSIGN_FORM_DATA);
+  const [assigningPlan, setAssigningPlan] = useState(false);
 
   // Fetch all plans and admin stats
   const fetchPlans = useCallback(async () => {
@@ -214,15 +287,22 @@ export default function PlansManagementPage() {
   // Submit Plan Assignment
   const handleAssignPlan = async (e) => {
     e.preventDefault();
-    if (!selectedUser) {
-      showSweetError('Please select a user to assign a plan to.');
+    if (selectedUsers.length === 0) {
+      showSweetError('Please select at least one user to assign a plan to.');
+      return;
+    }
+
+    if (assignFormData.durationDays !== '' && Number(assignFormData.durationDays) < 0) {
+      showSweetError('Custom Duration (Days) cannot be a negative number.');
       return;
     }
 
     setAssigningPlan(true);
     try {
+      const userIds = selectedUsers.map((u) => u._id || u.id);
       const payload = {
-        userId: selectedUser._id,
+        userIds,
+        userId: userIds[0],
         planId: assignFormData.planId,
         billingCycle: assignFormData.billingCycle,
         noChargeForGeneralMail: assignFormData.noChargeForGeneralMail,
@@ -230,7 +310,7 @@ export default function PlansManagementPage() {
         isVerified: assignFormData.isVerified,
         upgradeRoleToOrganizer: assignFormData.upgradeRoleToOrganizer,
         adminNotes: assignFormData.adminNotes,
-        durationDays: assignFormData.durationDays ? Number(assignFormData.durationDays) : undefined
+        durationDays: assignFormData.durationDays ? Math.max(0, Number(assignFormData.durationDays)) : undefined
       };
 
       const res = await axios.post(`${API_URL}/plans/admin/assign-plan`, payload, {
@@ -239,15 +319,11 @@ export default function PlansManagementPage() {
 
       if (res.data?.success) {
         showSweetSuccess(res.data.message || 'Plan assigned successfully!');
-        setSelectedUser((prev) => ({
-          ...prev,
-          plan: assignFormData.planId,
-          planStatus: 'active',
-          isPlanActive: true,
-          isVerified: assignFormData.isVerified ? true : prev?.isVerified,
-          role: assignFormData.upgradeRoleToOrganizer ? 'organizer' : prev?.role,
-          planPaidAmount: payload.price
-        }));
+        setSelectedUsers([]);
+        setUserSearchQuery('');
+        setUserSearchResults([]);
+        setUserRoleFilter('all');
+        setAssignFormData(INITIAL_ASSIGN_FORM_DATA);
         fetchAssignedSubscriptions();
         fetchPlans();
       }
@@ -339,7 +415,100 @@ export default function PlansManagementPage() {
       billingNote: plan.pricing?.billingNote || '',
       highlights: (plan.highlights || []).join('\n')
     });
+    setEditFormErrors({});
     setShowEditModal(true);
+  };
+
+  // Reset Edit Modal Form to plan's original values
+  const handleResetEditForm = () => {
+    if (!editingPlan) return;
+    setEditFormData({
+      name: editingPlan.name || '',
+      tagline: editingPlan.tagline || '',
+      description: editingPlan.description || '',
+      badge: editingPlan.badge || '',
+      badgeColor: editingPlan.badgeColor || 'bg-primary text-black',
+      isActive: editingPlan.isActive !== false,
+      isPopular: !!editingPlan.isPopular,
+      corporateEmailPrice: editingPlan.pricing?.corporateEmailPrice ?? 0,
+      generalEmailPrice: editingPlan.pricing?.generalEmailPrice ?? 1499,
+      quarterlyPrice: editingPlan.pricing?.quarterlyPrice ?? 0,
+      yearlyPrice: editingPlan.pricing?.yearlyPrice ?? 0,
+      proposedEventResearchPrice: editingPlan.pricing?.proposedEventResearchPrice ?? 4999,
+      billingNote: editingPlan.pricing?.billingNote || '',
+      highlights: (editingPlan.highlights || []).join('\n')
+    });
+    setEditFormErrors({});
+  };
+
+  const handlePriceKeyDown = (e) => {
+    if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+      e.preventDefault();
+    }
+  };
+
+  const sanitizeNumberInput = (val) => {
+    if (val === '' || val === null || val === undefined) return '';
+    const clean = String(val).replace(/[^0-9]/g, '');
+    if (clean === '') return '';
+    return String(Math.max(0, parseInt(clean, 10)));
+  };
+
+  const validateEditPlanForm = () => {
+    const errors = {};
+
+    if (!editFormData.name || !editFormData.name.trim()) {
+      errors.name = 'Plan Name is required and cannot be empty.';
+    } else if (editFormData.name.trim().length < 2) {
+      errors.name = 'Plan Name must be at least 2 characters long.';
+    }
+
+    if (editingPlan?.planId === 'free') {
+      if (editFormData.corporateEmailPrice === '' || editFormData.corporateEmailPrice === null || isNaN(Number(editFormData.corporateEmailPrice))) {
+        errors.corporateEmailPrice = 'Corporate Email Price is required.';
+      } else if (Number(editFormData.corporateEmailPrice) < 0) {
+        errors.corporateEmailPrice = 'Corporate Email Price cannot be negative.';
+      }
+
+      if (editFormData.generalEmailPrice === '' || editFormData.generalEmailPrice === null || isNaN(Number(editFormData.generalEmailPrice))) {
+        errors.generalEmailPrice = 'General Email Price is required.';
+      } else if (Number(editFormData.generalEmailPrice) < 0) {
+        errors.generalEmailPrice = 'General Email Price cannot be negative.';
+      }
+    } else {
+      if (editFormData.quarterlyPrice === '' || editFormData.quarterlyPrice === null || isNaN(Number(editFormData.quarterlyPrice))) {
+        errors.quarterlyPrice = 'Quarterly Price is required.';
+      } else if (Number(editFormData.quarterlyPrice) < 0) {
+        errors.quarterlyPrice = 'Quarterly Price cannot be negative.';
+      }
+
+      if (editFormData.yearlyPrice === '' || editFormData.yearlyPrice === null || isNaN(Number(editFormData.yearlyPrice))) {
+        errors.yearlyPrice = 'Yearly Price is required.';
+      } else if (Number(editFormData.yearlyPrice) < 0) {
+        errors.yearlyPrice = 'Yearly Price cannot be negative.';
+      }
+    }
+
+    if (editFormData.proposedEventResearchPrice === '' || editFormData.proposedEventResearchPrice === null || isNaN(Number(editFormData.proposedEventResearchPrice))) {
+      errors.proposedEventResearchPrice = 'Proposed Event Research Price is required.';
+    } else if (Number(editFormData.proposedEventResearchPrice) < 0) {
+      errors.proposedEventResearchPrice = 'Proposed Event Research Price cannot be negative.';
+    }
+
+    const highlightsList = (editFormData.highlights || '')
+      .split('\n')
+      .map((h) => h.trim())
+      .filter(Boolean);
+
+    if (highlightsList.length === 0) {
+      errors.highlights = 'Please provide at least one bullet point highlight for this plan.';
+    }
+
+    setEditFormErrors(errors);
+    return {
+      isValid: Object.keys(errors).length === 0,
+      firstError: Object.values(errors)[0]
+    };
   };
 
   // Save Plan Updates
@@ -347,24 +516,30 @@ export default function PlansManagementPage() {
     e.preventDefault();
     if (!editingPlan) return;
 
+    const validation = validateEditPlanForm();
+    if (!validation.isValid) {
+      showSweetError(validation.firstError || 'Please fix the errors in the plan configuration form.');
+      return;
+    }
+
     try {
       setActionLoading(true);
       const payload = {
-        name: editFormData.name,
-        tagline: editFormData.tagline,
-        description: editFormData.description,
-        badge: editFormData.badge,
-        badgeColor: editFormData.badgeColor,
+        name: editFormData.name.trim(),
+        tagline: editFormData.tagline?.trim() || '',
+        description: editFormData.description?.trim() || '',
+        badge: editFormData.badge?.trim() || '',
+        badgeColor: editFormData.badgeColor || 'bg-primary text-black',
         isActive: editFormData.isActive,
         isPopular: editFormData.isPopular,
         pricing: {
           ...editingPlan.pricing,
-          corporateEmailPrice: Number(editFormData.corporateEmailPrice),
-          generalEmailPrice: Number(editFormData.generalEmailPrice),
-          quarterlyPrice: Number(editFormData.quarterlyPrice),
-          yearlyPrice: Number(editFormData.yearlyPrice),
-          proposedEventResearchPrice: Number(editFormData.proposedEventResearchPrice),
-          billingNote: editFormData.billingNote
+          corporateEmailPrice: Math.max(0, Number(editFormData.corporateEmailPrice || 0)),
+          generalEmailPrice: Math.max(0, Number(editFormData.generalEmailPrice || 0)),
+          quarterlyPrice: Math.max(0, Number(editFormData.quarterlyPrice || 0)),
+          yearlyPrice: Math.max(0, Number(editFormData.yearlyPrice || 0)),
+          proposedEventResearchPrice: Math.max(0, Number(editFormData.proposedEventResearchPrice || 0)),
+          billingNote: editFormData.billingNote?.trim() || ''
         },
         highlights: editFormData.highlights
           .split('\n')
@@ -377,8 +552,9 @@ export default function PlansManagementPage() {
       });
 
       if (res.data?.success) {
-        showSweetSuccess(`Plan "${editFormData.name}" updated successfully.`);
+        showSweetSuccess(`Plan "${editFormData.name.trim()}" updated successfully.`);
         setShowEditModal(false);
+        setEditFormErrors({});
         fetchPlans();
       }
     } catch (err) {
@@ -594,7 +770,7 @@ export default function PlansManagementPage() {
               {plans.map((plan) => (
                 <div
                   key={plan._id || plan.planId}
-                  className={`rounded-2xl border bg-card p-6 shadow-sm flex flex-col justify-between space-y-6 transition-all ${
+                  className={`rounded-2xl border bg-card p-6 shadow-sm space-y-4 transition-all ${
                     plan.isPopular
                       ? 'border-primary ring-2 ring-primary/20 shadow-primary/5'
                       : plan.planId === 'enterprise'
@@ -727,16 +903,6 @@ export default function PlansManagementPage() {
                       </ul>
                     </div>
                   </div>
-
-                  <div className="pt-3 border-t border-border">
-                    <button
-                      onClick={() => handleOpenEdit(plan)}
-                      className="w-full py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      Configure Pricing &amp; Features
-                    </button>
-                  </div>
                 </div>
               ))}
             </div>
@@ -828,28 +994,36 @@ export default function PlansManagementPage() {
                 </div>
 
                 {/* Search Results Dropdown List */}
-                {userSearchResults.length > 0 && !selectedUser && (
+                {userSearchResults.length > 0 && (
                   <div className="max-h-52 overflow-y-auto rounded-xl border border-border bg-secondary/90 divide-y divide-border/60 shadow-lg text-xs">
                     {userSearchResults.slice(0, 8).map((u) => {
                       const isCorp = isCorporateEmail(u.email);
+                      const isChecked = isUserSelected(u);
                       return (
                         <button
                           key={u._id}
                           type="button"
-                          onClick={() => {
-                            setSelectedUser(u);
-                            setUserSearchResults([]);
-                          }}
-                          className="w-full p-2.5 text-left hover:bg-primary/10 transition-colors flex items-center justify-between gap-2 cursor-pointer"
+                          onClick={() => toggleSelectUser(u)}
+                          className={`w-full p-2.5 text-left transition-colors flex items-center justify-between gap-2.5 cursor-pointer ${
+                            isChecked ? 'bg-primary/15' : 'hover:bg-primary/10'
+                          }`}
                         >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-foreground truncate">{u.name}</span>
-                              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold capitalize bg-card border border-border text-muted-foreground">
-                                {u.role}
-                              </span>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              readOnly
+                              className="h-3.5 w-3.5 rounded accent-primary cursor-pointer pointer-events-none"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-foreground truncate">{u.name}</span>
+                                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold capitalize bg-card border border-border text-muted-foreground">
+                                  {u.role}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
                             </div>
-                            <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
                           </div>
                           <div className="text-right shrink-0">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
@@ -869,8 +1043,8 @@ export default function PlansManagementPage() {
                   </div>
                 )}
 
-                {/* Selected User Badge / Card */}
-                {selectedUser ? (
+                {/* Selected User(s) Badge / Card */}
+                {selectedUsers.length === 1 && selectedUser ? (
                   <div className="p-3.5 rounded-xl bg-secondary/80 border border-primary/30 flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -898,15 +1072,56 @@ export default function PlansManagementPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSelectedUser(null)}
+                      onClick={() => {
+                        setSelectedUsers([]);
+                        setUserSearchQuery('');
+                        setUserSearchResults([]);
+                      }}
                       className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer shrink-0"
                     >
-                      Change
+                      Remove
                     </button>
+                  </div>
+                ) : selectedUsers.length > 1 ? (
+                  <div className="p-3.5 rounded-xl bg-secondary/80 border border-primary/30 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" />
+                        <span className="font-bold text-xs text-foreground">
+                          {selectedUsers.length} Users Selected for Plan Assignment
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedUsers([])}
+                        className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                      {selectedUsers.map((u) => (
+                        <span
+                          key={u._id || u.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-card border border-border text-[11px] text-foreground font-medium shadow-2xs"
+                        >
+                          <span className="font-semibold truncate max-w-[120px]">{u.name}</span>
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[130px]">({u.email})</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectUser(u)}
+                            className="text-muted-foreground hover:text-red-500 cursor-pointer ml-0.5"
+                            title={`Remove ${u.name}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-[11px] text-muted-foreground">
-                    Type a name or email to search and select a user.
+                    Select users via checkboxes in the subscriptions table or search above.
                   </p>
                 )}
               </div>
@@ -969,9 +1184,29 @@ export default function PlansManagementPage() {
                     </label>
                     <input
                       type="number"
+                      min="0"
+                      step="1"
                       placeholder="e.g. 365, 90 (Optional)"
                       value={assignFormData.durationDays}
-                      onChange={(e) => setAssignFormData({ ...assignFormData, durationDays: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setAssignFormData({ ...assignFormData, durationDays: '' });
+                          return;
+                        }
+                        const cleanVal = val.replace(/[^0-9]/g, '');
+                        if (cleanVal === '') {
+                          setAssignFormData({ ...assignFormData, durationDays: '' });
+                        } else {
+                          const num = Math.max(0, parseInt(cleanVal, 10));
+                          setAssignFormData({ ...assignFormData, durationDays: String(num) });
+                        }
+                      }}
                       className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:border-primary text-xs"
                     />
                   </div>
@@ -1007,9 +1242,19 @@ export default function PlansManagementPage() {
                     <span className="text-muted-foreground">Amount Charged (₹):</span>
                     <input
                       type="number"
+                      min="0"
                       disabled={assignFormData.noChargeForGeneralMail && assignFormData.planId === 'free'}
                       value={assignFormData.noChargeForGeneralMail && assignFormData.planId === 'free' ? 0 : assignFormData.price}
-                      onChange={(e) => setAssignFormData({ ...assignFormData, price: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const num = Math.max(0, parseInt(val || '0', 10));
+                        setAssignFormData({ ...assignFormData, price: isNaN(num) ? 0 : num });
+                      }}
                       className="w-32 px-2.5 py-1.5 rounded-lg bg-background border border-border text-right font-mono text-foreground font-bold disabled:opacity-60"
                     />
                   </div>
@@ -1057,25 +1302,45 @@ export default function PlansManagementPage() {
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={assigningPlan || !selectedUser}
-                  className="w-full py-3 rounded-xl bg-primary hover:bg-primary/90 text-black font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {assigningPlan ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin text-black" />
-                      <span>Assigning Plan...</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="h-4 w-4 text-black" />
-                      <span>
-                        Assign {assignFormData.planId.toUpperCase()} Plan {selectedUser ? `to ${selectedUser.name}` : ''}
-                      </span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAssignFormData(INITIAL_ASSIGN_FORM_DATA);
+                      setSelectedUsers([]);
+                      setSearchQuery('');
+                    }}
+                    className="px-4 py-3 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    title="Reset form to default values"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Reset</span>
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={assigningPlan || selectedUsers.length === 0}
+                    className="flex-1 py-3 rounded-xl bg-primary hover:bg-primary/90 text-black font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {assigningPlan ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin text-black" />
+                        <span>Assigning Plan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="h-4 w-4 text-black" />
+                        <span>
+                          {selectedUsers.length === 0
+                            ? 'Select User(s) to Assign Plan'
+                            : selectedUsers.length === 1
+                            ? `Assign ${assignFormData.planId.toUpperCase()} Plan to ${selectedUsers[0].name}`
+                            : `Assign ${assignFormData.planId.toUpperCase()} Plan to ${selectedUsers.length} Users`}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
             </div>
 
@@ -1093,10 +1358,19 @@ export default function PlansManagementPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {selectedUsers.length > 0 && (
+                    <span className="px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-bold flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5" />
+                      <span>{selectedUsers.length} selected</span>
+                    </span>
+                  )}
                   <select
                     value={subFilter}
-                    onChange={(e) => setSubFilter(e.target.value)}
-                    className="px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none"
+                    onChange={(e) => {
+                      setSubFilter(e.target.value);
+                      setSubPage(1);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none cursor-pointer"
                   >
                     <option value="all">All Plans</option>
                     <option value="free">Free</option>
@@ -1126,82 +1400,169 @@ export default function PlansManagementPage() {
                   <p className="text-xs font-semibold text-foreground">No Subscriptions Found</p>
                   <p className="text-[11px]">Use the assignment console on the left to assign a plan to any user.</p>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                        <th className="pb-2.5">User</th>
-                        <th className="pb-2.5">Plan / Cycle</th>
-                        <th className="pb-2.5">Fee / Waiver</th>
-                        <th className="pb-2.5">Status</th>
-                        <th className="pb-2.5 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60">
-                      {assignedSubs.map((sub) => {
-                        const u = sub.user || {};
-                        const isCorp = isCorporateEmail(u.email);
-                        return (
-                          <tr key={sub._id} className="hover:bg-secondary/20 transition-colors">
-                            <td className="py-3 pr-2">
-                              <div className="font-semibold text-foreground">{u.name || 'Organizer'}</div>
-                              <div className="text-[11px] text-muted-foreground truncate max-w-[160px]">{u.email}</div>
-                              <span className={`inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-bold ${
-                                isCorp ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
-                              }`}>
-                                {isCorp ? 'Corporate' : 'Personal'}
-                              </span>
-                            </td>
+              ) : (() => {
+                const totalSubPages = Math.max(1, Math.ceil(assignedSubs.length / subPageSize));
+                const safeSubPage = Math.min(subPage, totalSubPages);
+                const paginatedSubs = assignedSubs.slice((safeSubPage - 1) * subPageSize, safeSubPage * subPageSize);
 
-                            <td className="py-3 pr-2">
-                              <div className="font-bold text-foreground capitalize">{sub.plan || 'Free'}</div>
-                              <span className="text-[10px] text-muted-foreground capitalize">
-                                {sub.paymentCycle || 'Quarterly'}
-                              </span>
-                            </td>
-
-                            <td className="py-3 pr-2 font-mono">
-                              {sub.price === 0 ? (
-                                <span className="text-emerald-500 font-bold">₹0 (Waived)</span>
-                              ) : (
-                                <span className="font-bold text-foreground">₹{sub.price?.toLocaleString('en-IN')}</span>
-                              )}
-                            </td>
-
-                            <td className="py-3 pr-2">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
-                                sub.status === 'active'
-                                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                  : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                              }`}>
-                                {sub.status || 'Active'}
-                              </span>
-                            </td>
-
-                            <td className="py-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedUser(u);
-                                  setAssignFormData({
-                                    ...assignFormData,
-                                    planId: sub.plan || 'free',
-                                    billingCycle: sub.paymentCycle || 'yearly'
-                                  });
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-[11px] font-semibold cursor-pointer border border-border"
-                              >
-                                Modify
-                              </button>
-                            </td>
+                return (
+                  <div className="space-y-3">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                            <th className="pb-2.5 pl-3 pr-2 w-8">
+                              <input
+                                type="checkbox"
+                                aria-label="Select all subscriptions on this page"
+                                checked={
+                                  paginatedSubs.length > 0 &&
+                                  paginatedSubs.every((sub) => sub.user && isUserSelected(sub.user))
+                                }
+                                onChange={handleSelectAllSubs}
+                                className="h-3.5 w-3.5 rounded accent-primary cursor-pointer align-middle"
+                                title="Select / deselect all visible"
+                              />
+                            </th>
+                            <th className="pb-2.5">User</th>
+                            <th className="pb-2.5">Plan / Cycle</th>
+                            <th className="pb-2.5">Fee / Waiver</th>
+                            <th className="pb-2.5">Status</th>
+                            <th className="pb-2.5 text-right">Action</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                        </thead>
+                        <tbody className="divide-y divide-border/60">
+                          {paginatedSubs.map((sub) => {
+                            const u = sub.user || {};
+                            const isCorp = isCorporateEmail(u.email);
+                            const isChecked = isUserSelected(u);
+                            return (
+                              <tr
+                                key={sub._id}
+                                className={`transition-colors ${
+                                  isChecked ? 'bg-primary/10' : 'hover:bg-secondary/20'
+                                }`}
+                              >
+                                <td className="py-3 pl-3 pr-2">
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`Select ${u.name || 'user'}`}
+                                    checked={isChecked}
+                                    onChange={() => toggleSelectUser(u)}
+                                    className="h-3.5 w-3.5 rounded accent-primary cursor-pointer align-middle"
+                                  />
+                                </td>
+                                <td className="py-3 pr-2">
+                                  <div className="font-semibold text-foreground">{u.name || 'Organizer'}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate max-w-[160px]">{u.email}</div>
+                                  <span className={`inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                                    isCorp ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+                                  }`}>
+                                    {isCorp ? 'Corporate' : 'Personal'}
+                                  </span>
+                                </td>
+
+                                <td className="py-3 pr-2">
+                                  <div className="font-bold text-foreground capitalize">{sub.plan || 'Free'}</div>
+                                  <span className="text-[10px] text-muted-foreground capitalize">
+                                    {sub.paymentCycle || 'Quarterly'}
+                                  </span>
+                                </td>
+
+                                <td className="py-3 pr-2 font-mono">
+                                  {sub.price === 0 ? (
+                                    <span className="text-emerald-500 font-bold">₹0 (Waived)</span>
+                                  ) : (
+                                    <span className="font-bold text-foreground">₹{sub.price?.toLocaleString('en-IN')}</span>
+                                  )}
+                                </td>
+
+                                <td className="py-3 pr-2">
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                                    sub.status === 'active'
+                                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                      : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                  }`}>
+                                    {sub.status || 'Active'}
+                                  </span>
+                                </td>
+
+                                <td className="py-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedUsers([u]);
+                                      setAssignFormData({
+                                        ...INITIAL_ASSIGN_FORM_DATA,
+                                        planId: sub.plan || 'free',
+                                        billingCycle: sub.paymentCycle || 'yearly',
+                                        price: sub.price ?? 0
+                                      });
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-[11px] font-semibold cursor-pointer border border-border"
+                                  >
+                                    Modify
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Subscriptions Pagination Controls */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+                      <span>
+                        Showing {(safeSubPage - 1) * subPageSize + 1}-
+                        {Math.min(safeSubPage * subPageSize, assignedSubs.length)} of{' '}
+                        {assignedSubs.length} subscriptions
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2">
+                          <span>Per page</span>
+                          <select
+                            value={subPageSize}
+                            onChange={(e) => {
+                              setSubPageSize(Number(e.target.value));
+                              setSubPage(1);
+                            }}
+                            className="rounded-lg border border-border bg-secondary px-2 py-1 text-foreground focus:outline-none focus:border-primary text-xs cursor-pointer"
+                            aria-label="Subscriptions per page"
+                          >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                          </select>
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSubPage((p) => Math.max(1, p - 1))}
+                            disabled={safeSubPage <= 1}
+                            className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            aria-label="Previous page"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <span className="min-w-16 text-center text-foreground font-semibold">
+                            Page {safeSubPage} of {totalSubPages}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSubPage((p) => Math.min(totalSubPages, p + 1))}
+                            disabled={safeSubPage >= totalSubPages}
+                            className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            aria-label="Next page"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1286,7 +1647,10 @@ export default function PlansManagementPage() {
               {['all', 'new', 'contacted', 'in_discussion', 'converted', 'rejected'].map((st) => (
                 <button
                   key={st}
-                  onClick={() => setInquiryFilter(st)}
+                  onClick={() => {
+                    setInquiryFilter(st);
+                    setInquiryPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
                     inquiryFilter === st
                       ? 'bg-primary text-black'
@@ -1308,108 +1672,179 @@ export default function PlansManagementPage() {
           </div>
 
           {/* Table */}
-          <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-            {inquiriesLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm">Fetching inquiries...</p>
-              </div>
-            ) : inquiries.length === 0 ? (
-              <div className="py-16 text-center text-muted-foreground space-y-2">
-                <HelpCircle className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm font-semibold text-foreground">No inquiries found</p>
-                <p className="text-xs">Organizer inquiries submitted on the website will be displayed here in real time.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      <th className="px-5 py-3.5">Organizer &amp; Company</th>
-                      <th className="px-5 py-3.5">Plan Requested</th>
-                      <th className="px-5 py-3.5">Contact Details</th>
-                      <th className="px-5 py-3.5">Email Type</th>
-                      <th className="px-5 py-3.5">Status</th>
-                      <th className="px-5 py-3.5">Date</th>
-                      <th className="px-5 py-3.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {inquiries.map((inq) => (
-                      <tr key={inq._id} className="hover:bg-secondary/40 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div className="font-bold text-foreground text-sm">{inq.organizerName}</div>
-                          <div className="text-muted-foreground text-[11px] flex items-center gap-1 mt-0.5">
-                            <Building className="h-3 w-3" />
-                            {inq.organizationName || 'Individual'}
-                          </div>
-                        </td>
+          {(() => {
+            const filteredInquiries = inquiries.filter((inq) => {
+              if (inquiryFilter === 'all') return true;
+              return inq.status === inquiryFilter;
+            });
+            const totalInquiryPages = Math.max(1, Math.ceil(filteredInquiries.length / inquiryPageSize));
+            const safeInquiryPage = Math.min(inquiryPage, totalInquiryPages);
+            const paginatedInquiries = filteredInquiries.slice(
+              (safeInquiryPage - 1) * inquiryPageSize,
+              safeInquiryPage * inquiryPageSize
+            );
 
-                        <td className="px-5 py-3.5">
-                          <span className="font-bold text-foreground">{inq.planName}</span>
-                          <div className="text-muted-foreground text-[11px] capitalize">{inq.billingCycle}</div>
-                        </td>
+            return (
+              <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                {inquiriesLoading ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm">Fetching inquiries...</p>
+                  </div>
+                ) : filteredInquiries.length === 0 ? (
+                  <div className="py-16 text-center text-muted-foreground space-y-2">
+                    <HelpCircle className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                    <p className="text-sm font-semibold text-foreground">No inquiries found</p>
+                    <p className="text-xs">
+                      {inquiryFilter === 'all'
+                        ? 'Organizer inquiries submitted on the website will be displayed here in real time.'
+                        : `No inquiries with status "${inquiryFilter.replace('_', ' ')}".`}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            <th className="px-5 py-3.5">Organizer &amp; Company</th>
+                            <th className="px-5 py-3.5">Plan Requested</th>
+                            <th className="px-5 py-3.5">Contact Details</th>
+                            <th className="px-5 py-3.5">Email Type</th>
+                            <th className="px-5 py-3.5">Status</th>
+                            <th className="px-5 py-3.5">Date</th>
+                            <th className="px-5 py-3.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {paginatedInquiries.map((inq) => (
+                            <tr key={inq._id} className="hover:bg-secondary/40 transition-colors">
+                              <td className="px-5 py-3.5">
+                                <div className="font-bold text-foreground text-sm">{inq.organizerName}</div>
+                                <div className="text-muted-foreground text-[11px] flex items-center gap-1 mt-0.5">
+                                  <Building className="h-3 w-3" />
+                                  {inq.organizationName || 'Individual'}
+                                </div>
+                              </td>
 
-                        <td className="px-5 py-3.5 space-y-0.5">
-                          <div className="text-foreground font-mono">{inq.email}</div>
-                          <div className="text-muted-foreground font-mono">{inq.phone}</div>
-                        </td>
+                              <td className="px-5 py-3.5">
+                                <span className="font-bold text-foreground">{inq.planName}</span>
+                                <div className="text-muted-foreground text-[11px] capitalize">{inq.billingCycle}</div>
+                              </td>
 
-                        <td className="px-5 py-3.5">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              inq.emailType === 'corporate'
-                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                            }`}
-                          >
-                            {inq.emailType === 'corporate' ? 'Corporate Domain' : 'General Email'}
-                          </span>
-                        </td>
+                              <td className="px-5 py-3.5 space-y-0.5">
+                                <div className="text-foreground font-mono">{inq.email}</div>
+                                <div className="text-muted-foreground font-mono">{inq.phone}</div>
+                              </td>
 
-                        <td className="px-5 py-3.5">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                              inq.status === 'new'
-                                ? 'bg-amber-500/10 text-amber-500 animate-pulse'
-                                : inq.status === 'converted'
-                                ? 'bg-emerald-500/10 text-emerald-500'
-                                : inq.status === 'in_discussion'
-                                ? 'bg-blue-500/10 text-blue-500'
-                                : inq.status === 'contacted'
-                                ? 'bg-indigo-500/10 text-indigo-500'
-                                : 'bg-zinc-500/10 text-zinc-500'
-                            }`}
-                          >
-                            {inq.status.replace('_', ' ')}
-                          </span>
-                        </td>
+                              <td className="px-5 py-3.5">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    inq.emailType === 'corporate'
+                                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                      : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                  }`}
+                                >
+                                  {inq.emailType === 'corporate' ? 'Corporate Domain' : 'General Email'}
+                                </span>
+                              </td>
 
-                        <td className="px-5 py-3.5 text-muted-foreground">
-                          {new Date(inq.createdAt).toLocaleDateString()}
-                        </td>
+                              <td className="px-5 py-3.5">
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                    inq.status === 'new'
+                                      ? 'bg-amber-500/10 text-amber-500 animate-pulse'
+                                      : inq.status === 'converted'
+                                      ? 'bg-emerald-500/10 text-emerald-500'
+                                      : inq.status === 'in_discussion'
+                                      ? 'bg-blue-500/10 text-blue-500'
+                                      : inq.status === 'contacted'
+                                      ? 'bg-indigo-500/10 text-indigo-500'
+                                      : 'bg-zinc-500/10 text-zinc-500'
+                                  }`}
+                                >
+                                  {inq.status.replace('_', ' ')}
+                                </span>
+                              </td>
 
-                        <td className="px-5 py-3.5 text-right">
-                          <button
-                            onClick={() => {
-                              setActiveInquiry(inq);
-                              setInquiryNotes(inq.adminNotes || '');
-                              setInquiryStatus(inq.status || 'new');
-                              setShowInquiryModal(true);
+                              <td className="px-5 py-3.5 text-muted-foreground">
+                                {new Date(inq.createdAt).toLocaleDateString()}
+                              </td>
+
+                              <td className="px-5 py-3.5 text-right">
+                                <button
+                                  onClick={() => {
+                                    setActiveInquiry(inq);
+                                    setInquiryNotes(inq.adminNotes || '');
+                                    setInquiryStatus(inq.status || 'new');
+                                    setShowInquiryModal(true);
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  <Edit3 className="h-3 w-3" />
+                                  Manage
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Inquiries Pagination Controls */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-t border-border bg-card text-xs text-muted-foreground">
+                      <span>
+                        Showing {(safeInquiryPage - 1) * inquiryPageSize + 1}-
+                        {Math.min(safeInquiryPage * inquiryPageSize, filteredInquiries.length)} of{' '}
+                        {filteredInquiries.length} inquiries
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2">
+                          <span>Per page</span>
+                          <select
+                            value={inquiryPageSize}
+                            onChange={(e) => {
+                              setInquiryPageSize(Number(e.target.value));
+                              setInquiryPage(1);
                             }}
-                            className="px-2.5 py-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                            className="rounded-lg border border-border bg-secondary px-2.5 py-1 text-foreground focus:outline-none focus:border-primary text-xs cursor-pointer"
+                            aria-label="Inquiries per page"
                           >
-                            <Edit3 className="h-3 w-3" />
-                            Manage
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                          </select>
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setInquiryPage((p) => Math.max(1, p - 1))}
+                            disabled={safeInquiryPage <= 1}
+                            className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            aria-label="Previous page"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
                           </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <span className="min-w-16 text-center text-foreground font-semibold">
+                            Page {safeInquiryPage} of {totalInquiryPages}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setInquiryPage((p) => Math.min(totalInquiryPages, p + 1))}
+                            disabled={safeInquiryPage >= totalInquiryPages}
+                            className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                            aria-label="Next page"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1433,58 +1868,112 @@ export default function PlansManagementPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setMatrixPage(1);
+                }}
                 placeholder="Search feature matrix..."
                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-secondary border border-border focus:outline-none focus:border-primary text-foreground"
               />
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="px-6 py-4 font-bold text-foreground w-1/3">Feature / Capability</th>
-                    <th className="px-6 py-4 font-bold text-foreground w-1/5">Free Organizer</th>
-                    <th className="px-6 py-4 font-bold text-primary w-1/5">Starter Plan</th>
-                    <th className="px-6 py-4 font-bold text-indigo-400 w-1/5">Enterprise Plan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[
-                    { label: 'Detailed Lead Access', free: 'Masked (Counts & volume visible)', starter: 'Full', enterprise: 'Full + advanced' },
-                    { label: 'Lead CRM', free: 'Basic operational counters', starter: 'Basic operational CRM', enterprise: 'Advanced CRM + API' },
-                    { label: 'Lead Export', free: 'Not Available', starter: 'Not Available', enterprise: 'Unlimited' },
-                    { label: 'Lead Search & Filtering', free: 'Basic', starter: 'Ok', enterprise: 'Advanced' },
-                    { label: 'Visitor / Exhibitor / Vendor Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
-                    { label: 'Venue / Designer / Organizer Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics + Search Database' },
-                    { label: 'Ticket Platform / Expo Mgmt Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
-                    { label: 'Paid Ticket Selling', free: 'Not included (1/10 demand test)', starter: 'Unlocked', enterprise: 'Advanced / private gateway' },
-                    { label: 'Payment Gateway', free: 'Not included', starter: 'Ok', enterprise: 'Ok (Multi-gateway + Custom)' },
-                    { label: 'Ticket Sales Analytics', free: 'Demand stats only', starter: 'Basic', enterprise: 'Advanced' },
-                    { label: 'Exhibitor Management', free: 'Basic', starter: 'Basic', enterprise: 'Advance' },
-                    { label: 'Proposed Expo Validation', free: '4,999 per proposed event', starter: 'Limited allowance', enterprise: 'Multiple Events' },
-                    { label: 'Interest Analysis', free: 'Basic volume', starter: 'Basic', enterprise: 'Detailed category-wise' },
-                    { label: 'B2B / B2C Demand Analysis', free: 'Basic', starter: 'Basic', enterprise: 'Advance' },
-                    { label: 'Active Events', free: 'Unlimited (claimed/created)', starter: 'Unlimited', enterprise: 'Unlimited' },
-                    { label: 'Marketing Campaigns', free: 'Growth Plan (Paid separately)', starter: 'Growth Plan', enterprise: 'Growth Plan' },
-                    { label: 'Priority Search / Featured Placement', free: 'No (Organic)', starter: 'No', enterprise: 'Available' },
-                    { label: 'Support SLA', free: 'Standard Community', starter: 'Priority', enterprise: 'Faster priority (Dedicated Manager)' },
-                  ]
-                    .filter((r) => !searchQuery || r.label.toLowerCase().includes(searchQuery.toLowerCase()))
-                    .map((row, rIdx) => (
-                      <tr key={rIdx} className="hover:bg-secondary/30 transition-colors">
-                        <td className="px-6 py-3.5 font-semibold text-foreground">{row.label}</td>
-                        <td className="px-6 py-3.5 text-muted-foreground">{row.free}</td>
-                        <td className="px-6 py-3.5 font-medium text-foreground">{row.starter}</td>
-                        <td className="px-6 py-3.5 font-semibold text-indigo-400">{row.enterprise}</td>
+          {(() => {
+            const filteredMatrixRows = MATRIX_ROWS.filter(
+              (r) => !searchQuery || r.label.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+            const totalMatrixPages = Math.max(1, Math.ceil(filteredMatrixRows.length / matrixPageSize));
+            const safeMatrixPage = Math.min(matrixPage, totalMatrixPages);
+            const paginatedMatrixRows = filteredMatrixRows.slice(
+              (safeMatrixPage - 1) * matrixPageSize,
+              safeMatrixPage * matrixPageSize
+            );
+
+            return (
+              <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="px-6 py-4 font-bold text-foreground w-1/3">Feature / Capability</th>
+                        <th className="px-6 py-4 font-bold text-foreground w-1/5">Free Organizer</th>
+                        <th className="px-6 py-4 font-bold text-primary w-1/5">Starter Plan</th>
+                        <th className="px-6 py-4 font-bold text-indigo-400 w-1/5">Enterprise Plan</th>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {paginatedMatrixRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground">
+                            No features match your search term &ldquo;{searchQuery}&rdquo;.
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedMatrixRows.map((row, rIdx) => (
+                          <tr key={rIdx} className="hover:bg-secondary/30 transition-colors">
+                            <td className="px-6 py-3.5 font-semibold text-foreground">{row.label}</td>
+                            <td className="px-6 py-3.5 text-muted-foreground">{row.free}</td>
+                            <td className="px-6 py-3.5 font-medium text-foreground">{row.starter}</td>
+                            <td className="px-6 py-3.5 font-semibold text-indigo-400">{row.enterprise}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-t border-border bg-card text-xs text-muted-foreground">
+                  <span>
+                    Showing {filteredMatrixRows.length === 0 ? 0 : (safeMatrixPage - 1) * matrixPageSize + 1}-
+                    {Math.min(safeMatrixPage * matrixPageSize, filteredMatrixRows.length)} of{' '}
+                    {filteredMatrixRows.length} features
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2">
+                      <span>Rows per page</span>
+                      <select
+                        value={matrixPageSize}
+                        onChange={(e) => {
+                          setMatrixPageSize(Number(e.target.value));
+                          setMatrixPage(1);
+                        }}
+                        className="rounded-lg border border-border bg-secondary px-2.5 py-1 text-foreground focus:outline-none focus:border-primary text-xs cursor-pointer"
+                        aria-label="Rows per page"
+                      >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                      </select>
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setMatrixPage((p) => Math.max(1, p - 1))}
+                        disabled={safeMatrixPage <= 1}
+                        className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-16 text-center text-foreground font-semibold">
+                        Page {safeMatrixPage} of {totalMatrixPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setMatrixPage((p) => Math.min(totalMatrixPages, p + 1))}
+                        disabled={safeMatrixPage >= totalMatrixPages}
+                        className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1492,11 +1981,11 @@ export default function PlansManagementPage() {
       {/* EDIT PLAN MODAL */}
       {/* ========================================================= */}
       {showEditModal && editingPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
-          <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="relative w-full max-w-2xl sm:max-w-3xl bg-card border border-border rounded-2xl p-5 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
-                <h3 className="text-lg font-bold text-foreground">
+                <h3 className="text-base sm:text-lg font-bold text-foreground">
                   Edit Plan: {editingPlan.name}
                 </h3>
                 <p className="text-xs text-muted-foreground">
@@ -1504,6 +1993,7 @@ export default function PlansManagementPage() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowEditModal(false)}
                 className="p-1 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
               >
@@ -1511,17 +2001,27 @@ export default function PlansManagementPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
-              <div className="grid gap-4 sm:grid-cols-2">
+            <form onSubmit={handleSavePlan} className="space-y-3.5 text-xs">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block font-semibold text-foreground mb-1">Plan Name</label>
+                  <label className="block font-semibold text-foreground mb-1">
+                    Plan Name <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={editFormData.name}
-                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:outline-none focus:border-primary text-foreground"
+                    onChange={(e) => {
+                      setEditFormData({ ...editFormData, name: e.target.value });
+                      if (editFormErrors.name) setEditFormErrors({ ...editFormErrors, name: '' });
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl bg-secondary border text-foreground focus:outline-none ${
+                      editFormErrors.name ? 'border-red-500 focus:border-red-500' : 'border-border focus:border-primary'
+                    }`}
                   />
+                  {editFormErrors.name && (
+                    <p className="text-[11px] text-red-500 mt-1 font-medium">{editFormErrors.name}</p>
+                  )}
                 </div>
 
                 <div>
@@ -1536,104 +2036,178 @@ export default function PlansManagementPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-foreground mb-1">Tagline</label>
-                <input
-                  type="text"
-                  value={editFormData.tagline}
-                  onChange={(e) => setEditFormData({ ...editFormData, tagline: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:outline-none focus:border-primary text-foreground"
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block font-semibold text-foreground mb-1">Tagline</label>
+                  <input
+                    type="text"
+                    value={editFormData.tagline}
+                    onChange={(e) => setEditFormData({ ...editFormData, tagline: e.target.value })}
+                    placeholder="Short description for plan tier"
+                    className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:outline-none focus:border-primary text-foreground"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-foreground mb-1">Billing Footnote</label>
+                  <input
+                    type="text"
+                    value={editFormData.billingNote}
+                    onChange={(e) => setEditFormData({ ...editFormData, billingNote: e.target.value })}
+                    placeholder="e.g. Save 17% on Annual Billing"
+                    className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:outline-none focus:border-primary text-foreground"
+                  />
+                </div>
               </div>
 
               {/* Pricing Grid */}
-              <div className="p-4 rounded-xl bg-secondary/40 border border-border space-y-3">
+              <div className="p-3.5 rounded-xl bg-secondary/40 border border-border space-y-2.5">
                 <span className="font-bold text-foreground uppercase tracking-wider text-[10px]">
                   Pricing Configuration (INR ₹)
                 </span>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-3">
                   {editingPlan.planId === 'free' ? (
                     <>
                       <div>
-                        <label className="block text-muted-foreground mb-1">Corporate Email Price (₹)</label>
+                        <label className="block text-muted-foreground mb-1">
+                          Corporate Price (₹) <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="number"
+                          min="0"
+                          step="1"
                           value={editFormData.corporateEmailPrice}
-                          onChange={(e) => setEditFormData({ ...editFormData, corporateEmailPrice: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-background border border-border font-mono text-foreground"
+                          onKeyDown={handlePriceKeyDown}
+                          onChange={(e) => {
+                            const val = sanitizeNumberInput(e.target.value);
+                            setEditFormData({ ...editFormData, corporateEmailPrice: val });
+                            if (editFormErrors.corporateEmailPrice) setEditFormErrors({ ...editFormErrors, corporateEmailPrice: '' });
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl bg-background border font-mono text-foreground ${
+                            editFormErrors.corporateEmailPrice ? 'border-red-500' : 'border-border'
+                          }`}
                         />
+                        {editFormErrors.corporateEmailPrice && (
+                          <p className="text-[11px] text-red-500 mt-1">{editFormErrors.corporateEmailPrice}</p>
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="text-muted-foreground">General Email Price (₹)</label>
+                          <label className="text-muted-foreground">
+                            General Price (₹) <span className="text-red-500">*</span>
+                          </label>
                           <button
                             type="button"
-                            onClick={() => setEditFormData({ ...editFormData, generalEmailPrice: Number(editFormData.generalEmailPrice) === 0 ? 1499 : 0 })}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border transition-all cursor-pointer ${
+                            onClick={() => {
+                              setEditFormData({
+                                ...editFormData,
+                                generalEmailPrice: Number(editFormData.generalEmailPrice) === 0 ? 1499 : 0
+                              });
+                              if (editFormErrors.generalEmailPrice) setEditFormErrors({ ...editFormErrors, generalEmailPrice: '' });
+                            }}
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border transition-all cursor-pointer ${
                               Number(editFormData.generalEmailPrice) === 0
                                 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                                 : 'bg-primary/10 border-primary/20 text-primary hover:bg-primary/20'
                             }`}
                           >
-                            {Number(editFormData.generalEmailPrice) === 0 ? '✓ No Charge (₹0)' : 'Set No Charge (₹0)'}
+                            {Number(editFormData.generalEmailPrice) === 0 ? '✓ Free' : 'Set Free'}
                           </button>
                         </div>
                         <input
                           type="number"
+                          min="0"
+                          step="1"
                           value={editFormData.generalEmailPrice}
-                          onChange={(e) => setEditFormData({ ...editFormData, generalEmailPrice: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-background border border-border font-mono text-foreground"
+                          onKeyDown={handlePriceKeyDown}
+                          onChange={(e) => {
+                            const val = sanitizeNumberInput(e.target.value);
+                            setEditFormData({ ...editFormData, generalEmailPrice: val });
+                            if (editFormErrors.generalEmailPrice) setEditFormErrors({ ...editFormErrors, generalEmailPrice: '' });
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl bg-background border font-mono text-foreground ${
+                            editFormErrors.generalEmailPrice ? 'border-red-500' : 'border-border'
+                          }`}
                         />
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          {Number(editFormData.generalEmailPrice) === 0 
-                            ? '✨ No charge: Personal emails register & activate completely Free without paying.' 
-                            : 'Personal emails (@gmail, @yahoo, etc.) are charged this fee.'}
-                        </p>
+                        {editFormErrors.generalEmailPrice && (
+                          <p className="text-[11px] text-red-500 mt-1">{editFormErrors.generalEmailPrice}</p>
+                        )}
                       </div>
                     </>
                   ) : (
                     <>
                       <div>
-                        <label className="block text-muted-foreground mb-1">Quarterly Price (₹)</label>
+                        <label className="block text-muted-foreground mb-1">
+                          Quarterly Price (₹) <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="number"
+                          min="0"
+                          step="1"
                           value={editFormData.quarterlyPrice}
-                          onChange={(e) => setEditFormData({ ...editFormData, quarterlyPrice: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-background border border-border font-mono text-foreground"
+                          onKeyDown={handlePriceKeyDown}
+                          onChange={(e) => {
+                            const val = sanitizeNumberInput(e.target.value);
+                            setEditFormData({ ...editFormData, quarterlyPrice: val });
+                            if (editFormErrors.quarterlyPrice) setEditFormErrors({ ...editFormErrors, quarterlyPrice: '' });
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl bg-background border font-mono text-foreground ${
+                            editFormErrors.quarterlyPrice ? 'border-red-500' : 'border-border'
+                          }`}
                         />
+                        {editFormErrors.quarterlyPrice && (
+                          <p className="text-[11px] text-red-500 mt-1">{editFormErrors.quarterlyPrice}</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-muted-foreground mb-1">Yearly Price (₹)</label>
+                        <label className="block text-muted-foreground mb-1">
+                          Yearly Price (₹) <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="number"
+                          min="0"
+                          step="1"
                           value={editFormData.yearlyPrice}
-                          onChange={(e) => setEditFormData({ ...editFormData, yearlyPrice: e.target.value })}
-                          className="w-full px-3 py-2 rounded-xl bg-background border border-border font-mono text-foreground"
+                          onKeyDown={handlePriceKeyDown}
+                          onChange={(e) => {
+                            const val = sanitizeNumberInput(e.target.value);
+                            setEditFormData({ ...editFormData, yearlyPrice: val });
+                            if (editFormErrors.yearlyPrice) setEditFormErrors({ ...editFormErrors, yearlyPrice: '' });
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl bg-background border font-mono text-foreground ${
+                            editFormErrors.yearlyPrice ? 'border-red-500' : 'border-border'
+                          }`}
                         />
+                        {editFormErrors.yearlyPrice && (
+                          <p className="text-[11px] text-red-500 mt-1">{editFormErrors.yearlyPrice}</p>
+                        )}
                       </div>
                     </>
                   )}
 
                   <div>
-                    <label className="block text-muted-foreground mb-1">Proposed Event Research (₹)</label>
+                    <label className="block text-muted-foreground mb-1">
+                      Event Research (₹) <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="number"
+                      min="0"
+                      step="1"
                       value={editFormData.proposedEventResearchPrice}
-                      onChange={(e) => setEditFormData({ ...editFormData, proposedEventResearchPrice: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl bg-background border border-border font-mono text-foreground"
+                      onKeyDown={handlePriceKeyDown}
+                      onChange={(e) => {
+                        const val = sanitizeNumberInput(e.target.value);
+                        setEditFormData({ ...editFormData, proposedEventResearchPrice: val });
+                        if (editFormErrors.proposedEventResearchPrice) setEditFormErrors({ ...editFormErrors, proposedEventResearchPrice: '' });
+                      }}
+                      className={`w-full px-3 py-2 rounded-xl bg-background border font-mono text-foreground ${
+                        editFormErrors.proposedEventResearchPrice ? 'border-red-500' : 'border-border'
+                      }`}
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-muted-foreground mb-1">Billing Footnote</label>
-                    <input
-                      type="text"
-                      value={editFormData.billingNote}
-                      onChange={(e) => setEditFormData({ ...editFormData, billingNote: e.target.value })}
-                      placeholder="e.g. Save 17% on Annual Billing"
-                      className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground"
-                    />
+                    {editFormErrors.proposedEventResearchPrice && (
+                      <p className="text-[11px] text-red-500 mt-1">{editFormErrors.proposedEventResearchPrice}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1641,56 +2215,74 @@ export default function PlansManagementPage() {
               {/* Highlights */}
               <div>
                 <label className="block font-semibold text-foreground mb-1">
-                  Highlights (One bullet point per line)
+                  Highlights (One bullet point per line) <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  rows={5}
+                  rows={3}
                   value={editFormData.highlights}
-                  onChange={(e) => setEditFormData({ ...editFormData, highlights: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-secondary border border-border focus:outline-none focus:border-primary text-foreground font-mono text-[11px]"
+                  onChange={(e) => {
+                    setEditFormData({ ...editFormData, highlights: e.target.value });
+                    if (editFormErrors.highlights) setEditFormErrors({ ...editFormErrors, highlights: '' });
+                  }}
+                  className={`w-full px-3 py-2 rounded-xl bg-secondary border text-foreground font-mono text-[11px] focus:outline-none ${
+                    editFormErrors.highlights ? 'border-red-500 focus:border-red-500' : 'border-border focus:border-primary'
+                  }`}
                 />
+                {editFormErrors.highlights && (
+                  <p className="text-[11px] text-red-500 mt-1 font-medium">{editFormErrors.highlights}</p>
+                )}
               </div>
 
-              {/* Toggles */}
-              <div className="flex items-center gap-6 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editFormData.isActive}
-                    onChange={(e) => setEditFormData({ ...editFormData, isActive: e.target.checked })}
-                    className="rounded border-border text-primary focus:ring-primary"
-                  />
-                  <span className="font-semibold text-foreground">Active Plan</span>
-                </label>
+              {/* Footer: Toggles on Left, Buttons on Right */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border">
+                <div className="flex items-center gap-5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.isActive}
+                      onChange={(e) => setEditFormData({ ...editFormData, isActive: e.target.checked })}
+                      className="rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <span className="font-semibold text-foreground">Active Plan</span>
+                  </label>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editFormData.isPopular}
-                    onChange={(e) => setEditFormData({ ...editFormData, isPopular: e.target.checked })}
-                    className="rounded border-border text-primary focus:ring-primary"
-                  />
-                  <span className="font-semibold text-foreground">Highlighted / Most Popular</span>
-                </label>
-              </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editFormData.isPopular}
+                      onChange={(e) => setEditFormData({ ...editFormData, isPopular: e.target.checked })}
+                      className="rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <span className="font-semibold text-foreground">Highlighted / Most Popular</span>
+                  </label>
+                </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-5 py-2 rounded-xl bg-primary text-black font-bold hover:bg-primary/90 cursor-pointer flex items-center gap-1.5"
-                >
-                  {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                  Save Changes
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetEditForm}
+                    className="px-3.5 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold cursor-pointer flex items-center gap-1.5 transition-all text-xs"
+                    title="Reset form to original plan values"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Reset</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold cursor-pointer text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="px-5 py-2 rounded-xl bg-primary text-black font-bold hover:bg-primary/90 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 text-xs"
+                  >
+                    {actionLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Save Changes
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1701,8 +2293,8 @@ export default function PlansManagementPage() {
       {/* INQUIRY MANAGEMENT MODAL */}
       {/* ========================================================= */}
       {showInquiryModal && activeInquiry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="relative w-full max-w-lg bg-card border border-border rounded-2xl p-6 shadow-2xl space-y-5 no-scrollbar">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="text-base font-bold text-foreground">
@@ -1778,12 +2370,26 @@ export default function PlansManagementPage() {
 
             <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
               <button
+                type="button"
+                onClick={() => {
+                  setInquiryStatus(activeInquiry.status || 'new');
+                  setInquiryNotes(activeInquiry.adminNotes || '');
+                }}
+                className="px-3.5 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-xs cursor-pointer flex items-center gap-1.5 transition-all"
+                title="Reset inquiry status and notes"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Reset</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowInquiryModal(false)}
                 className="px-4 py-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-xs cursor-pointer"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleUpdateInquiry}
                 disabled={actionLoading}
                 className="px-5 py-2 rounded-xl bg-primary text-black font-bold text-xs hover:bg-primary/90 cursor-pointer flex items-center gap-1.5"

@@ -26,6 +26,7 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  RotateCcw,
   X,
   Check,
   SlidersHorizontal,
@@ -257,6 +258,37 @@ export default function SubadminsManagementPage() {
     }
     setForm(prev => ({ ...prev, password: res }));
     setShowPassword(true);
+  };
+
+  // Reset Subadmin Form to initial values
+  const handleResetForm = () => {
+    if (modalMode === 'create') {
+      const defaultPreset = presets.find(p => p.id === 'moderator') || presets[0];
+      setForm({
+        name: '',
+        email: '',
+        password: 'Pass@' + Math.floor(100000 + Math.random() * 900000),
+        adminRole: defaultPreset ? defaultPreset.name : 'Event Operations Lead',
+        status: 'active',
+        phone: '',
+        permissions: defaultPreset ? [...defaultPreset.permissions] : []
+      });
+      setShowPassword(false);
+    } else {
+      const subadmin = subadmins.find(s => s._id === editingSubadminId);
+      if (subadmin) {
+        setForm({
+          name: subadmin.name || '',
+          email: subadmin.email || '',
+          password: '',
+          adminRole: subadmin.adminRole || 'Sub Administrator',
+          status: subadmin.status || (subadmin.isSuspended ? 'suspended' : 'active'),
+          phone: subadmin.phone || '',
+          permissions: Array.isArray(subadmin.permissions) ? [...subadmin.permissions] : []
+        });
+        setShowPassword(false);
+      }
+    }
   };
 
   // Submit Subadmin Form (Create or Edit)
@@ -1075,6 +1107,15 @@ export default function SubadminsManagementPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={handleResetForm}
+                  className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1.5 transition-all"
+                  title="Reset form to initial values"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer"
                 >
@@ -1143,6 +1184,15 @@ export default function SubadminsManagementPage() {
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setPwModal(prev => ({ ...prev, newPassword: 'Pass@' + Math.floor(100000 + Math.random() * 900000) }))}
+                className="px-3.5 py-2 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1.5 transition-all"
+                title="Generate new random password"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Reset</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setPwModal({ isOpen: false, subadmin: null, newPassword: '', loading: false })}

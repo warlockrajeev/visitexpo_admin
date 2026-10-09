@@ -117,6 +117,17 @@ body {
   background: hsl(var(--muted-foreground));
 }
 
+/* Utility to hide scrollbars completely */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
 /* Date & Time Picker Dark Mode Visibility */
 input[type="date"],
 input[type="time"],
