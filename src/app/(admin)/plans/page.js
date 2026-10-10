@@ -413,6 +413,8 @@ export default function PlansManagementPage() {
       yearlyPrice: plan.pricing?.yearlyPrice ?? 0,
       proposedEventResearchPrice: plan.pricing?.proposedEventResearchPrice ?? 4999,
       billingNote: plan.pricing?.billingNote || '',
+      bestFor: (plan.bestFor || []).join('\n'),
+      keyInclusions: (plan.keyInclusions || []).join('\n'),
       highlights: (plan.highlights || []).join('\n')
     });
     setEditFormErrors({});
@@ -436,6 +438,8 @@ export default function PlansManagementPage() {
       yearlyPrice: editingPlan.pricing?.yearlyPrice ?? 0,
       proposedEventResearchPrice: editingPlan.pricing?.proposedEventResearchPrice ?? 4999,
       billingNote: editingPlan.pricing?.billingNote || '',
+      bestFor: (editingPlan.bestFor || []).join('\n'),
+      keyInclusions: (editingPlan.keyInclusions || []).join('\n'),
       highlights: (editingPlan.highlights || []).join('\n')
     });
     setEditFormErrors({});
@@ -542,6 +546,14 @@ export default function PlansManagementPage() {
           billingNote: editFormData.billingNote?.trim() || ''
         },
         highlights: editFormData.highlights
+          .split('\n')
+          .map((h) => h.trim())
+          .filter(Boolean),
+        bestFor: (editFormData.bestFor || '')
+          .split('\n')
+          .map((h) => h.trim())
+          .filter(Boolean),
+        keyInclusions: (editFormData.keyInclusions || '')
           .split('\n')
           .map((h) => h.trim())
           .filter(Boolean)
@@ -888,13 +900,30 @@ export default function PlansManagementPage() {
                       )}
                     </div>
 
-                    {/* Highlights List */}
-                    <div className="space-y-2 border-t border-border pt-3">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                        Key Inclusions &amp; Allowances:
+                    {/* Best for you if */}
+                    {plan.bestFor && plan.bestFor.length > 0 && (
+                      <div className="space-y-1.5 border-t border-border pt-3">
+                        <span className="text-[10px] font-bold text-foreground uppercase tracking-wider">
+                          Best for you if:
+                        </span>
+                        <ul className="space-y-1.5 text-xs text-muted-foreground">
+                          {plan.bestFor.map((item, bIdx) => (
+                            <li key={bIdx} className="flex items-start gap-2">
+                              <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                              <span className="leading-snug">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Key Inclusions */}
+                    <div className="space-y-1.5 border-t border-border pt-3">
+                      <span className="text-[10px] font-bold text-foreground uppercase tracking-wider">
+                        Key Inclusions:
                       </span>
-                      <ul className="space-y-2 text-xs text-muted-foreground">
-                        {(plan.highlights || []).slice(0, 6).map((item, hIdx) => (
+                      <ul className="space-y-1.5 text-xs text-muted-foreground">
+                        {(plan.keyInclusions || plan.highlights || []).slice(0, 6).map((item, hIdx) => (
                           <li key={hIdx} className="flex items-start gap-2">
                             <Check className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
                             <span className="leading-snug">{item}</span>
@@ -2210,6 +2239,34 @@ export default function PlansManagementPage() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Best for you if */}
+              <div>
+                <label className="block font-semibold text-foreground mb-1">
+                  Best for you if (One bullet point per line)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editFormData.bestFor}
+                  onChange={(e) => setEditFormData({ ...editFormData, bestFor: e.target.value })}
+                  placeholder="e.g. You are new to VisitExpo"
+                  className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground font-mono text-[11px] focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* Key Inclusions */}
+              <div>
+                <label className="block font-semibold text-foreground mb-1">
+                  Key Inclusions (One bullet point per line)
+                </label>
+                <textarea
+                  rows={3}
+                  value={editFormData.keyInclusions}
+                  onChange={(e) => setEditFormData({ ...editFormData, keyInclusions: e.target.value })}
+                  placeholder="e.g. Free registration (corporate email)"
+                  className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground font-mono text-[11px] focus:outline-none focus:border-primary"
+                />
               </div>
 
               {/* Highlights */}
