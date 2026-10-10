@@ -71,7 +71,7 @@ const MATRIX_ROWS = [
   { label: 'Paid Ticket Selling', free: 'Not included (1/10 demand test)', starter: 'Unlocked', enterprise: 'Advanced / private gateway' },
   { label: 'Payment Gateway', free: 'Not included', starter: 'Ok', enterprise: 'Ok (Multi-gateway + Custom)' },
   { label: 'Ticket Sales Analytics', free: 'Demand stats only', starter: 'Basic', enterprise: 'Advanced' },
-  { label: 'Exhibitor Management', free: 'Basic', starter: 'Basic', enterprise: 'Advance' },
+  { label: 'Exhibitor Management', free: 'Not Available', starter: 'Normal Level', enterprise: 'Advance Level' },
   { label: 'Proposed Expo Validation', free: '4,999 per proposed event', starter: 'Limited allowance', enterprise: 'Multiple Events' },
   { label: 'Interest Analysis', free: 'Basic volume', starter: 'Basic', enterprise: 'Detailed category-wise' },
   { label: 'B2B / B2C Demand Analysis', free: 'Basic', starter: 'Basic', enterprise: 'Advance' },
