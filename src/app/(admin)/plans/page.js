@@ -64,7 +64,7 @@ const MATRIX_ROWS = [
   { label: 'Detailed Lead Access', free: 'Masked (Counts & volume visible)', starter: 'Full', enterprise: 'Full + advanced' },
   { label: 'Lead CRM', free: 'Basic operational counters', starter: 'Basic operational CRM', enterprise: 'Advanced CRM + API' },
   { label: 'Lead Export', free: 'Not Available', starter: 'Not Available', enterprise: 'Unlimited' },
-  { label: 'Lead Search & Filtering', free: 'Basic', starter: 'Ok', enterprise: 'Advanced' },
+  { label: 'Lead Search & Filtering', free: 'Basic', starter: 'Basic', enterprise: 'Advanced' },
   { label: 'Visitor / Exhibitor / Vendor Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
   { label: 'Venue / Designer / Organizer Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics + Search Database' },
   { label: 'Ticket Platform / Expo Mgmt Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
