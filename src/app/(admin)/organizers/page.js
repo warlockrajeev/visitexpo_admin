@@ -597,6 +597,13 @@ export default function OrganizersPage() {
             <Layers className="h-3.5 w-3.5 text-primary" />
             <span>View Categories</span>
           </Link>
+          <Link
+            href="/featured-organizers"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs font-bold transition-colors shadow-sm"
+          >
+            <Award className="h-3.5 w-3.5 text-amber-500" />
+            <span>Featured Organizers</span>
+          </Link>
           <a
             href="https://visitexpo.in"
             target="_blank"

@@ -172,6 +172,14 @@ export default function AdminLayout({ children }) {
       permission: 'organizers.view'
     },
     {
+      name: 'Featured Organizers',
+      href: '/featured-organizers',
+      icon: Award,
+      badge: pendingCounts.pendingFeatured > 0 ? `${pendingCounts.pendingFeatured} Pending` : 'Enterprise',
+      badgeColor: pendingCounts.pendingFeatured > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-primary text-black font-bold',
+      permission: 'organizers.view'
+    },
+    {
       name: 'Live Chat Organizers',
       href: '/chat-organizers',
       icon: MessageSquare,
