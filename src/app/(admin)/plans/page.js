@@ -76,7 +76,8 @@ const MATRIX_ROWS = [
   { label: 'Interest Analysis', free: 'Basic volume', starter: 'Basic', enterprise: 'Detailed category-wise' },
   { label: 'B2B / B2C Demand Analysis', free: 'Basic', starter: 'Basic', enterprise: 'Advance' },
   { label: 'Active Events', free: 'Unlimited (claimed/created)', starter: 'Unlimited', enterprise: 'Unlimited' },
-  { label: 'Marketing Campaigns', free: 'Growth Plan (Paid separately)', starter: 'Growth Plan', enterprise: 'Growth Plan' },
+  { label: 'Marketing Campaigns (Growth Add-on)', free: 'Not Available (Requires Starter or Enterprise)', starter: 'Growth Plan Add-on', enterprise: 'Growth Plan Add-on' },
+  { label: 'Web Push Notifications', free: 'Not Available', starter: 'Available via Growth Plan', enterprise: 'Available via Growth Plan' },
   { label: 'Priority Search / Featured Placement', free: 'No (Organic)', starter: 'No', enterprise: 'Available' },
   { label: 'Support SLA', free: 'Standard Community', starter: 'Priority', enterprise: 'Faster priority (Dedicated Manager)' },
 ];
@@ -297,6 +298,20 @@ export default function PlansManagementPage() {
       return;
     }
 
+    // Validation: Growth Plan is an add-on and can only be taken by users with Starter or Enterprise plan
+    if (assignFormData.planId === 'growth') {
+      const freeUsers = selectedUsers.filter((u) => {
+        const plan = String(u.plan || 'free').toLowerCase();
+        return plan === 'free' || !['starter', 'enterprise'].includes(plan);
+      });
+      if (freeUsers.length > 0) {
+        showSweetError(
+          `Growth Plan is an exclusive add-on for Starter and Enterprise organizers. The following user(s) currently have the Free plan and cannot take the Growth plan directly: ${freeUsers.map((u) => u.name || u.email).join(', ')}. Please assign a Starter or Enterprise base plan first.`
+        );
+        return;
+      }
+    }
+
     setAssigningPlan(true);
     try {
       const userIds = selectedUsers.map((u) => u._id || u.id);
@@ -331,6 +346,116 @@ export default function PlansManagementPage() {
       showSweetError(err.response?.data?.message || 'Failed to assign plan.');
     } finally {
       setAssigningPlan(false);
+    }
+  };
+
+  // Remove Plan or Growth Add-on from User / Subscription
+  const [revertingPlan, setRevertingPlan] = useState(false);
+
+  const handleRemovePlan = async (options, fallbackUserName) => {
+    let userId = null;
+    let subscriptionId = null;
+    let planType = 'base';
+    let userName = fallbackUserName || 'this user';
+    let planName = 'plan';
+
+    if (options && typeof options === 'object') {
+      if (options.subscriptionId || options.planType) {
+        userId = options.userId;
+        subscriptionId = options.subscriptionId;
+        planType = options.planType || 'base';
+        userName = options.userName || userName;
+        planName = options.planName || (planType === 'growth' ? 'Growth Add-on' : 'plan');
+      } else {
+        userId = options._id || options.id;
+        userName = options.name || userName;
+        planType = 'base';
+        planName = options.plan || 'plan';
+      }
+    } else if (typeof options === 'string') {
+      userId = options;
+    }
+
+    const isGrowth = planType === 'growth';
+    const title = isGrowth
+      ? 'Remove Growth Add-on?'
+      : 'Revert User to Free Plan?';
+    const text = isGrowth
+      ? `Are you sure you want to remove the Growth Add-on from "${userName}"? Their base plan (e.g. Enterprise / Starter) will remain active.`
+      : `Are you sure you want to remove the ${planName ? planName.toUpperCase() : ''} plan from "${userName}"? Their account will be reverted to the active Free Plan immediately.`;
+    const confirmButtonText = isGrowth
+      ? 'Yes, Remove Growth Add-on'
+      : 'Yes, Revert to Free';
+
+    const confirmed = await showSweetConfirm({
+      title,
+      text,
+      confirmButtonText,
+      isDanger: true
+    });
+
+    if (!confirmed) return;
+
+    try {
+      setRevertingPlan(true);
+      const res = await axios.post(
+        `${API_URL}/plans/admin/remove-plan`,
+        {
+          userId,
+          subscriptionId,
+          planType
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (res.data?.success) {
+        showSweetSuccess(res.data.message || 'Plan updated successfully!');
+        if (!isGrowth && userId) {
+          setSelectedUsers((prev) => prev.filter((u) => (u._id || u.id) !== userId));
+        }
+        fetchAssignedSubscriptions();
+        fetchPlans();
+        handleSearchUsers(userSearchQuery, userRoleFilter);
+      }
+    } catch (err) {
+      showSweetError(err.response?.data?.message || 'Failed to update plan.');
+    } finally {
+      setRevertingPlan(false);
+    }
+  };
+
+  const handleBulkRemovePlan = async () => {
+    if (selectedUsers.length === 0) return;
+    const userIds = selectedUsers.map((u) => u._id || u.id).filter(Boolean);
+
+    const confirmed = await showSweetConfirm({
+      title: `Revert ${selectedUsers.length} User(s) to Free Plan?`,
+      text: `Are you sure you want to remove plans from all ${selectedUsers.length} selected user(s) and revert them to the active Free Plan?`,
+      confirmButtonText: `Yes, Revert All (${selectedUsers.length}) to Free`,
+      isDanger: true
+    });
+
+    if (!confirmed) return;
+
+    try {
+      setRevertingPlan(true);
+      const res = await axios.post(
+        `${API_URL}/plans/admin/remove-plan`,
+        { userIds },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (res.data?.success) {
+        showSweetSuccess(res.data.message || 'All selected users reverted to Free plan!');
+        setSelectedUsers([]);
+        fetchAssignedSubscriptions();
+        fetchPlans();
+        handleSearchUsers(userSearchQuery, userRoleFilter);
+      }
+    } catch (err) {
+      showSweetError(err.response?.data?.message || 'Failed to revert plans.');
+    } finally {
+      setRevertingPlan(false);
     }
   };
 
@@ -1094,22 +1219,68 @@ export default function PlansManagementPage() {
                         {selectedUser.phone && <span>• {selectedUser.phone}</span>}
                         {selectedUser.organization?.name && <span>• {selectedUser.organization.name}</span>}
                       </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Current: <strong className="text-foreground capitalize">{selectedUser.plan || 'Free'}</strong>
-                        {' '}(Status: <span className="capitalize">{selectedUser.planStatus || 'pending'}</span>, Verified: {selectedUser.isVerified ? 'Yes' : 'No'})
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                        <span>Current:</span>
+                        <strong className="text-foreground capitalize">{selectedUser.plan || 'Free'}</strong>
+                        {selectedUser.hasGrowthPlan && (
+                          <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            + Growth Add-on
+                          </span>
+                        )}
+                        <span>(Status: <span className="capitalize">{selectedUser.planStatus || 'pending'}</span>, Verified: {selectedUser.isVerified ? 'Yes' : 'No'})</span>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedUsers([]);
-                        setUserSearchQuery('');
-                        setUserSearchResults([]);
-                      }}
-                      className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer shrink-0"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                      {selectedUser.hasGrowthPlan && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRemovePlan({
+                              userId: selectedUser._id || selectedUser.id,
+                              planType: 'growth',
+                              userName: selectedUser.name,
+                              planName: 'Growth Add-on'
+                            })
+                          }
+                          disabled={revertingPlan}
+                          className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 hover:text-amber-400 text-xs font-semibold cursor-pointer border border-amber-500/30 transition-colors inline-flex items-center gap-1 disabled:opacity-50"
+                          title="Remove Growth Add-on only (keeps base plan active)"
+                        >
+                          <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
+                          <span>Remove Add-on</span>
+                        </button>
+                      )}
+                      {selectedUser.plan && selectedUser.plan !== 'free' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleRemovePlan({
+                              userId: selectedUser._id || selectedUser.id,
+                              planType: 'base',
+                              userName: selectedUser.name,
+                              planName: selectedUser.plan
+                            })
+                          }
+                          disabled={revertingPlan}
+                          className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-xs font-semibold cursor-pointer border border-red-500/30 transition-colors inline-flex items-center gap-1 disabled:opacity-50"
+                          title="Revert user back to Free plan"
+                        >
+                          <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
+                          <span>Revert to Free</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedUsers([]);
+                          setUserSearchQuery('');
+                          setUserSearchResults([]);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer px-1 py-1"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ) : selectedUsers.length > 1 ? (
                   <div className="p-3.5 rounded-xl bg-secondary/80 border border-primary/30 space-y-2.5">
@@ -1120,13 +1291,25 @@ export default function PlansManagementPage() {
                           {selectedUsers.length} Users Selected for Plan Assignment
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedUsers([])}
-                        className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
-                      >
-                        Clear All
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleBulkRemovePlan}
+                          disabled={revertingPlan}
+                          className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-xs font-semibold cursor-pointer border border-red-500/30 transition-colors inline-flex items-center gap-1 disabled:opacity-50"
+                          title="Revert all selected users back to Free plan"
+                        >
+                          <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
+                          <span>Revert Selected ({selectedUsers.length}) to Free</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUsers([])}
+                          className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer"
+                        >
+                          Clear All
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
                       {selectedUsers.map((u) => (
@@ -1167,7 +1350,7 @@ export default function PlansManagementPage() {
                       { id: 'free', label: 'Free Organizer', badge: 'Complimentary Tier' },
                       { id: 'starter', label: 'Organizer Starter', badge: '₹14,999/Qtr' },
                       { id: 'enterprise', label: 'Organizer Enterprise', badge: '₹89,999/Qtr' },
-                      { id: 'growth', label: 'Organizer Growth', badge: 'Marketing Engine' }
+                      { id: 'growth', label: 'Organizer Growth', badge: 'Add-on (Starter/Enterprise only)' }
                     ].map((p) => {
                       const isSel = assignFormData.planId === p.id;
                       return (
@@ -1187,6 +1370,15 @@ export default function PlansManagementPage() {
                       );
                     })}
                   </div>
+
+                  {assignFormData.planId === 'growth' && (
+                    <div className="mt-2.5 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] leading-relaxed flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Growth Plan is an Add-on:</strong> Can only be assigned to organizers with an active <strong>Starter</strong> or <strong>Enterprise</strong> base plan. Users on the Free plan cannot take the Growth plan directly.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Step 3: Billing Cycle & Duration */}
@@ -1388,10 +1580,22 @@ export default function PlansManagementPage() {
 
                 <div className="flex items-center gap-2">
                   {selectedUsers.length > 0 && (
-                    <span className="px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-bold flex items-center gap-1.5">
-                      <Check className="h-3.5 w-3.5" />
-                      <span>{selectedUsers.length} selected</span>
-                    </span>
+                    <>
+                      <span className="px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-bold flex items-center gap-1.5">
+                        <Check className="h-3.5 w-3.5" />
+                        <span>{selectedUsers.length} selected</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleBulkRemovePlan}
+                        disabled={revertingPlan}
+                        className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 border border-red-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                        title="Revert selected users back to Free plan"
+                      >
+                        <RotateCcw className={`h-3.5 w-3.5 ${revertingPlan ? 'animate-spin' : ''}`} />
+                        <span>Revert ({selectedUsers.length}) to Free</span>
+                      </button>
+                    </>
                   )}
                   <select
                     value={subFilter}
@@ -1492,7 +1696,18 @@ export default function PlansManagementPage() {
                                 </td>
 
                                 <td className="py-3 pr-2">
-                                  <div className="font-bold text-foreground capitalize">{sub.plan || 'Free'}</div>
+                                  <div className="font-bold text-foreground capitalize flex items-center gap-1.5">
+                                    {sub.plan === 'growth' ? (
+                                      <>
+                                        <span>Growth Add-on</span>
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded font-extrabold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                          Add-on
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span>{sub.plan || 'Free'}</span>
+                                    )}
+                                  </div>
                                   <span className="text-[10px] text-muted-foreground capitalize">
                                     {sub.paymentCycle || 'Quarterly'}
                                   </span>
@@ -1517,21 +1732,63 @@ export default function PlansManagementPage() {
                                 </td>
 
                                 <td className="py-3 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedUsers([u]);
-                                      setAssignFormData({
-                                        ...INITIAL_ASSIGN_FORM_DATA,
-                                        planId: sub.plan || 'free',
-                                        billingCycle: sub.paymentCycle || 'yearly',
-                                        price: sub.price ?? 0
-                                      });
-                                    }}
-                                    className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-[11px] font-semibold cursor-pointer border border-border"
-                                  >
-                                    Modify
-                                  </button>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedUsers([u]);
+                                        setAssignFormData({
+                                          ...INITIAL_ASSIGN_FORM_DATA,
+                                          planId: sub.plan || 'free',
+                                          billingCycle: sub.paymentCycle || 'yearly',
+                                          price: sub.price ?? 0
+                                        });
+                                      }}
+                                      className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-[11px] font-semibold cursor-pointer border border-border"
+                                    >
+                                      Modify
+                                    </button>
+                                    {sub.status === 'active' && sub.plan === 'growth' && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemovePlan({
+                                            userId: u?._id,
+                                            subscriptionId: sub._id,
+                                            planType: 'growth',
+                                            userName: u?.name || 'Organizer',
+                                            planName: 'Growth Add-on'
+                                          })
+                                        }
+                                        disabled={revertingPlan}
+                                        className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 hover:text-amber-400 text-[11px] font-semibold cursor-pointer border border-amber-500/30 transition-colors inline-flex items-center gap-1 disabled:opacity-50"
+                                        title="Remove Growth Add-on only (keeps base plan active)"
+                                      >
+                                        <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
+                                        <span>Remove Add-on</span>
+                                      </button>
+                                    )}
+                                    {sub.status === 'active' && sub.plan !== 'growth' && sub.plan !== 'free' && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRemovePlan({
+                                            userId: u?._id,
+                                            subscriptionId: sub._id,
+                                            planType: 'base',
+                                            userName: u?.name || 'Organizer',
+                                            planName: sub.plan || 'Plan'
+                                          })
+                                        }
+                                        disabled={revertingPlan}
+                                        className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-[11px] font-semibold cursor-pointer border border-red-500/30 transition-colors inline-flex items-center gap-1 disabled:opacity-50"
+                                        title="Revert base plan back to Free plan"
+                                      >
+                                        <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
+                                        <span>Revert to Free</span>
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             );
