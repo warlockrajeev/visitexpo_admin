@@ -37,7 +37,8 @@ import {
   CalendarDays,
   MessageSquare,
   HelpCircle,
-  UserPlus
+  UserPlus,
+  Send
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -237,6 +238,14 @@ export default function AdminLayout({ children }) {
       permission: 'subscriptions.view'
     },
     { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard, permission: 'subscriptions.view' },
+    {
+      name: 'Email Promotions',
+      href: '/email-promotions',
+      icon: Send,
+      badge: 'Growth',
+      badgeColor: 'bg-indigo-600 text-white',
+      permission: 'subscriptions.view'
+    },
     { name: 'Invoices & Sales', href: '/invoices', icon: FileText, permission: 'invoices.view' },
     { name: 'Support Tickets', href: '/tickets', icon: LifeBuoy, permission: 'tickets.manage' },
     {
