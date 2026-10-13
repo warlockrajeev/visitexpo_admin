@@ -127,7 +127,8 @@ export default function AdminEmailPromotionsPage() {
           title: 'Promotional SMTP Connected!',
           html: `
             <div style="text-align: left; font-size: 13px; line-height: 1.6;">
-              <p><strong>Sender Email:</strong> ${res.data.user}</p>
+              <p><strong>From Address:</strong> ${res.data.from || '"VisitExpo Promotions" &lt;promotion@client.visitexpo.in&gt;'}</p>
+              <p><strong>Sender Account:</strong> ${res.data.user}</p>
               <p><strong>Mail Host:</strong> ${res.data.host}:${res.data.port} (SSL/TLS)</p>
               <p><strong>Response Latency:</strong> ${res.data.latencyMs} ms</p>
               <p style="color: #10b981; font-weight: bold;">Status: Authenticated & Ready for High-Volume Promotions</p>

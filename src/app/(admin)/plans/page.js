@@ -692,6 +692,9 @@ export default function PlansManagementPage() {
         showSweetSuccess(`Plan "${editFormData.name.trim()}" updated successfully.`);
         setShowEditModal(false);
         setEditFormErrors({});
+        if (res.data.data) {
+          setPlans((prev) => prev.map((p) => (p._id === editingPlan._id ? res.data.data : p)));
+        }
         fetchPlans();
       }
     } catch (err) {
@@ -808,35 +811,47 @@ export default function PlansManagementPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Organizer Starter
+            {plans.find((p) => p.planId === 'starter')?.name || 'Organizer Starter'}
           </span>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-extrabold text-foreground font-mono">₹14,999</span>
+            <span className="text-2xl font-extrabold text-foreground font-mono">
+              ₹{(plans.find((p) => p.planId === 'starter')?.pricing?.quarterlyPrice ?? 14999).toLocaleString('en-IN')}
+            </span>
             <span className="text-xs text-muted-foreground">/ Qtr</span>
           </div>
-          <p className="mt-1 text-xs text-emerald-500 font-medium">₹49,999 / Year (Save 17%)</p>
+          <p className="mt-1 text-xs text-emerald-500 font-medium">
+            ₹{(plans.find((p) => p.planId === 'starter')?.pricing?.yearlyPrice ?? 49999).toLocaleString('en-IN')} / Year (Save 17%)
+          </p>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Organizer Enterprise
+            {plans.find((p) => p.planId === 'enterprise')?.name || 'Organizer Enterprise'}
           </span>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-extrabold text-indigo-500 font-mono">₹89,999</span>
+            <span className="text-2xl font-extrabold text-indigo-500 font-mono">
+              ₹{(plans.find((p) => p.planId === 'enterprise')?.pricing?.quarterlyPrice ?? 89999).toLocaleString('en-IN')}
+            </span>
             <span className="text-xs text-muted-foreground">/ Qtr</span>
           </div>
-          <p className="mt-1 text-xs text-indigo-400 font-medium">₹2,99,999 / Year (Save 17%)</p>
+          <p className="mt-1 text-xs text-indigo-400 font-medium">
+            ₹{(plans.find((p) => p.planId === 'enterprise')?.pricing?.yearlyPrice ?? 299999).toLocaleString('en-IN')} / Year (Save 17%)
+          </p>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Free Organizer Tier
+            {plans.find((p) => p.planId === 'free')?.name || 'Free Organizer Tier'}
           </span>
           <div className="mt-2 flex items-baseline gap-1">
             <span className="text-2xl font-extrabold text-foreground">₹0</span>
             <span className="text-xs text-muted-foreground">Corporate Email</span>
           </div>
-          <p className="mt-1 text-xs text-amber-500 font-medium">₹1,499 for general email</p>
+          <p className="mt-1 text-xs text-amber-500 font-medium">
+            {plans.find((p) => p.planId === 'free')?.pricing?.generalEmailPrice === 0
+              ? '₹0 (No charge) general email'
+              : `₹${(plans.find((p) => p.planId === 'free')?.pricing?.generalEmailPrice || 1499).toLocaleString('en-IN')} for general email`}
+          </p>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -1347,10 +1362,26 @@ export default function PlansManagementPage() {
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { id: 'free', label: 'Free Organizer', badge: 'Complimentary Tier' },
-                      { id: 'starter', label: 'Organizer Starter', badge: '₹14,999/Qtr' },
-                      { id: 'enterprise', label: 'Organizer Enterprise', badge: '₹89,999/Qtr' },
-                      { id: 'growth', label: 'Organizer Growth', badge: 'Add-on (Starter/Enterprise only)' }
+                      {
+                        id: 'free',
+                        label: plans.find((pl) => pl.planId === 'free')?.name || 'Free Organizer',
+                        badge: plans.find((pl) => pl.planId === 'free')?.badge || 'Complimentary Tier'
+                      },
+                      {
+                        id: 'starter',
+                        label: plans.find((pl) => pl.planId === 'starter')?.name || 'Organizer Starter',
+                        badge: plans.find((pl) => pl.planId === 'starter')?.badge || `₹${(plans.find((pl) => pl.planId === 'starter')?.pricing?.quarterlyPrice ?? 14999).toLocaleString('en-IN')}/Qtr`
+                      },
+                      {
+                        id: 'enterprise',
+                        label: plans.find((pl) => pl.planId === 'enterprise')?.name || 'Organizer Enterprise',
+                        badge: plans.find((pl) => pl.planId === 'enterprise')?.badge || `₹${(plans.find((pl) => pl.planId === 'enterprise')?.pricing?.quarterlyPrice ?? 89999).toLocaleString('en-IN')}/Qtr`
+                      },
+                      {
+                        id: 'growth',
+                        label: plans.find((pl) => pl.planId === 'growth')?.name || 'Organizer Growth',
+                        badge: plans.find((pl) => pl.planId === 'growth')?.badge || 'Add-on (Starter/Enterprise only)'
+                      }
                     ].map((p) => {
                       const isSel = assignFormData.planId === p.id;
                       return (

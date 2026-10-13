@@ -38,7 +38,8 @@ import {
   MessageSquare,
   HelpCircle,
   UserPlus,
-  Send
+  Send,
+  Sparkles
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -245,6 +246,14 @@ export default function AdminLayout({ children }) {
       badge: 'Growth',
       badgeColor: 'bg-indigo-600 text-white',
       permission: 'subscriptions.view'
+    },
+    {
+      name: 'Banner Spotlight',
+      href: '/banner-spotlight',
+      icon: Award,
+      badge: 'Growth',
+      badgeColor: 'bg-amber-500 text-black font-extrabold',
+      permission: 'events.view'
     },
     { name: 'Invoices & Sales', href: '/invoices', icon: FileText, permission: 'invoices.view' },
     { name: 'Support Tickets', href: '/tickets', icon: LifeBuoy, permission: 'tickets.manage' },
