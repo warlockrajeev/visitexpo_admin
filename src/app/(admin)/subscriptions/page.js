@@ -24,6 +24,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 export default function SubscriptionsPage() {
   const { accessToken } = useAuth();
   const [subs, setSubs] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -46,17 +47,25 @@ export default function SubscriptionsPage() {
     const fetchSubs = async () => {
       if (!accessToken) return;
       try {
-        const res = await axios.get(`${API_URL}/admin/subscriptions`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        if (res.data && res.data.success) {
-          const subsList = res.data.data || [];
+        const [subsRes, plansRes] = await Promise.all([
+          axios.get(`${API_URL}/admin/subscriptions`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          }),
+          axios.get(`${API_URL}/plans`)
+        ]);
+
+        if (subsRes.data && subsRes.data.success) {
+          const subsList = subsRes.data.data || [];
           setSubs(subsList);
           try {
             if (typeof window !== 'undefined') {
               sessionStorage.setItem('visitexpo_admin_subs_cache', JSON.stringify(subsList));
             }
           } catch (e) {}
+        }
+
+        if (plansRes.data?.success && Array.isArray(plansRes.data.data)) {
+          setPlans(plansRes.data.data);
         }
       } catch (err) {
         console.error('Fetch subscriptions failed', err);
@@ -73,6 +82,13 @@ export default function SubscriptionsPage() {
   const freePlanCount = subs.filter(s => s.plan === 'free').length;
   const starterPlanCount = subs.filter(s => s.plan === 'starter').length;
   const enterpriseCount = subs.filter(s => s.plan === 'enterprise').length;
+
+  const starterPlan = plans.find(p => p.planId === 'starter');
+  const enterprisePlan = plans.find(p => p.planId === 'enterprise');
+  const starterQ = starterPlan?.pricing?.quarterlyPrice ?? 14999;
+  const starterY = starterPlan?.pricing?.yearlyPrice ?? 49999;
+  const enterpriseQ = enterprisePlan?.pricing?.quarterlyPrice ?? 39999;
+  const enterpriseY = enterprisePlan?.pricing?.yearlyPrice ?? 89999;
 
   return (
     <div className="space-y-6">
@@ -101,8 +117,8 @@ export default function SubscriptionsPage() {
         {[
           { title: 'Active Subscriptions', value: activeCount, desc: 'Currently active organizer accounts', color: 'text-emerald-500' },
           { title: 'Free Tier Accounts', value: freePlanCount, desc: 'Free corporate / general ₹1,499', color: 'text-zinc-500' },
-          { title: 'Starter Subscriptions', value: starterPlanCount, desc: '₹14,999/Qtr or ₹49,999/Yr', color: 'text-primary' },
-          { title: 'Enterprise Accounts', value: enterpriseCount, desc: '₹89,999/Qtr or ₹2,99,999/Yr', color: 'text-indigo-400' }
+          { title: 'Starter Subscriptions', value: starterPlanCount, desc: `₹${Number(starterQ).toLocaleString('en-IN')}/Qtr or ₹${Number(starterY).toLocaleString('en-IN')}/Yr`, color: 'text-primary' },
+          { title: 'Enterprise Accounts', value: enterpriseCount, desc: `₹${Number(enterpriseQ).toLocaleString('en-IN')}/Qtr or ₹${Number(enterpriseY).toLocaleString('en-IN')}/Yr`, color: 'text-indigo-400' }
         ].map((kpi, idx) => (
           <div key={idx} className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{kpi.title}</span>
@@ -132,8 +148,8 @@ export default function SubscriptionsPage() {
           },
           {
             name: 'Organizer Starter',
-            price: '₹14,999',
-            duration: '/ Quarter (₹49,999/Yr)',
+            price: `₹${Number(starterQ).toLocaleString('en-IN')}`,
+            duration: `/ Quarter (₹${Number(starterY).toLocaleString('en-IN')}/Yr)`,
             features: [
               'Everything in Free included',
               'Full unlocked lead access',
@@ -146,8 +162,8 @@ export default function SubscriptionsPage() {
           },
           {
             name: 'Organizer Enterprise',
-            price: '₹89,999',
-            duration: '/ Quarter (₹2,99,999/Yr)',
+            price: `₹${Number(enterpriseQ).toLocaleString('en-IN')}`,
+            duration: `/ Quarter (₹${Number(enterpriseY).toLocaleString('en-IN')}/Yr)`,
             features: [
               'Everything in Starter & Free',
               'Full + advanced CRM + API keys',

@@ -57,6 +57,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { isCorporateEmail } from '../../../utils/emailValidator.js';
+import { calculateAnnualDiscountPercent } from '../../../utils/pricing.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -91,6 +92,20 @@ const INITIAL_ASSIGN_FORM_DATA = {
   upgradeRoleToOrganizer: true,
   adminNotes: 'Super Admin complimentary plan assignment (No charge for general mail)',
   durationDays: ''
+};
+
+const formatDateTime = (dateVal) => {
+  if (!dateVal) return null;
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
 };
 
 export default function PlansManagementPage() {
@@ -172,6 +187,7 @@ export default function PlansManagementPage() {
   const [assignedSubs, setAssignedSubs] = useState([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [subFilter, setSubFilter] = useState('all');
+  const [subStatusFilter, setSubStatusFilter] = useState('all');
   const [subPage, setSubPage] = useState(1);
   const [subPageSize, setSubPageSize] = useState(10);
 
@@ -247,8 +263,12 @@ export default function PlansManagementPage() {
   // Search users for assignment
   const handleSearchUsers = useCallback(async (query, role) => {
     if (!accessToken) return;
+    if (!query || !query.trim()) {
+      setUserSearchResults([]);
+      return;
+    }
     try {
-      const res = await axios.get(`${API_URL}/plans/admin/users?q=${encodeURIComponent(query || '')}&role=${role || 'all'}`, {
+      const res = await axios.get(`${API_URL}/plans/admin/users?q=${encodeURIComponent(query.trim())}&role=${role || 'all'}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data?.success) {
@@ -264,7 +284,7 @@ export default function PlansManagementPage() {
     if (!accessToken) return;
     setLoadingSubs(true);
     try {
-      const res = await axios.get(`${API_URL}/plans/admin/assigned-subscriptions?plan=${subFilter}`, {
+      const res = await axios.get(`${API_URL}/plans/admin/assigned-subscriptions?plan=${subFilter}&status=${subStatusFilter}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data?.success) {
@@ -275,15 +295,14 @@ export default function PlansManagementPage() {
     } finally {
       setLoadingSubs(false);
     }
-  }, [accessToken, subFilter]);
+  }, [accessToken, subFilter, subStatusFilter]);
 
   useEffect(() => {
     if (activeTab === 'assign') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      handleSearchUsers('', 'all');
       fetchAssignedSubscriptions();
     }
-  }, [activeTab, handleSearchUsers, fetchAssignedSubscriptions]);
+  }, [activeTab, fetchAssignedSubscriptions]);
 
   // Submit Plan Assignment
   const handleAssignPlan = async (e) => {
@@ -497,7 +516,7 @@ export default function PlansManagementPage() {
   const handleRestoreDefaults = async () => {
     const confirmed = await showSweetConfirm({
       title: 'Restore Official Pricing Defaults?',
-      text: 'This will reset Free Organizer, Starter, Enterprise, and Growth plans to the official specifications (Free corp/1499 gen, Starter 14,999/49,999, Enterprise 89,999/2,99,999, Proposed Research 4,999).',
+      text: 'This will reset Free Organizer, Starter, Enterprise, and Growth plans to the official specifications (Free corp/1499 gen, Starter 14,999/49,999, Enterprise 39,999/89,999, Proposed Research 4,999).',
       confirmButtonText: 'Reset to Defaults',
       isDanger: false
     });
@@ -668,7 +687,16 @@ export default function PlansManagementPage() {
           quarterlyPrice: Math.max(0, Number(editFormData.quarterlyPrice || 0)),
           yearlyPrice: Math.max(0, Number(editFormData.yearlyPrice || 0)),
           proposedEventResearchPrice: Math.max(0, Number(editFormData.proposedEventResearchPrice || 0)),
-          billingNote: editFormData.billingNote?.trim() || ''
+          billingNote: (() => {
+            const q = Math.max(0, Number(editFormData.quarterlyPrice || 0));
+            const y = Math.max(0, Number(editFormData.yearlyPrice || 0));
+            const discount = calculateAnnualDiscountPercent(q, y);
+            const userNote = editFormData.billingNote?.trim() || '';
+            if (discount > 0 && (!userNote || userNote.includes('Save '))) {
+              return `₹${q.toLocaleString('en-IN')} per quarter · ₹${y.toLocaleString('en-IN')} per year (Save ${discount}%)`;
+            }
+            return userNote;
+          })()
         },
         highlights: editFormData.highlights
           .split('\n')
@@ -809,35 +837,51 @@ export default function PlansManagementPage() {
 
       {/* KPI Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {plans.find((p) => p.planId === 'starter')?.name || 'Organizer Starter'}
-          </span>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-extrabold text-foreground font-mono">
-              ₹{(plans.find((p) => p.planId === 'starter')?.pricing?.quarterlyPrice ?? 14999).toLocaleString('en-IN')}
-            </span>
-            <span className="text-xs text-muted-foreground">/ Qtr</span>
-          </div>
-          <p className="mt-1 text-xs text-emerald-500 font-medium">
-            ₹{(plans.find((p) => p.planId === 'starter')?.pricing?.yearlyPrice ?? 49999).toLocaleString('en-IN')} / Year (Save 17%)
-          </p>
-        </div>
+        {(() => {
+          const starter = plans.find((p) => p.planId === 'starter');
+          const qPrice = starter?.pricing?.quarterlyPrice ?? 14999;
+          const yPrice = starter?.pricing?.yearlyPrice ?? 49999;
+          const discount = calculateAnnualDiscountPercent(qPrice, yPrice);
+          return (
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {starter?.name || 'Organizer Starter'}
+              </span>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-2xl font-extrabold text-foreground font-mono">
+                  ₹{Number(qPrice).toLocaleString('en-IN')}
+                </span>
+                <span className="text-xs text-muted-foreground">/ Qtr</span>
+              </div>
+              <p className="mt-1 text-xs text-emerald-500 font-medium">
+                ₹{Number(yPrice).toLocaleString('en-IN')} / Year{discount > 0 ? ` (Save ${discount}%)` : ''}
+              </p>
+            </div>
+          );
+        })()}
 
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {plans.find((p) => p.planId === 'enterprise')?.name || 'Organizer Enterprise'}
-          </span>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-extrabold text-indigo-500 font-mono">
-              ₹{(plans.find((p) => p.planId === 'enterprise')?.pricing?.quarterlyPrice ?? 89999).toLocaleString('en-IN')}
-            </span>
-            <span className="text-xs text-muted-foreground">/ Qtr</span>
-          </div>
-          <p className="mt-1 text-xs text-indigo-400 font-medium">
-            ₹{(plans.find((p) => p.planId === 'enterprise')?.pricing?.yearlyPrice ?? 299999).toLocaleString('en-IN')} / Year (Save 17%)
-          </p>
-        </div>
+        {(() => {
+          const enterprise = plans.find((p) => p.planId === 'enterprise');
+          const qPrice = enterprise?.pricing?.quarterlyPrice ?? 39999;
+          const yPrice = enterprise?.pricing?.yearlyPrice ?? 89999;
+          const discount = calculateAnnualDiscountPercent(qPrice, yPrice);
+          return (
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {enterprise?.name || 'Organizer Enterprise'}
+              </span>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="text-2xl font-extrabold text-indigo-500 font-mono">
+                  ₹{Number(qPrice).toLocaleString('en-IN')}
+                </span>
+                <span className="text-xs text-muted-foreground">/ Qtr</span>
+              </div>
+              <p className="mt-1 text-xs text-indigo-400 font-medium">
+                ₹{Number(yPrice).toLocaleString('en-IN')} / Year{discount > 0 ? ` (Save ${discount}%)` : ''}
+              </p>
+            </div>
+          );
+        })()}
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -1033,9 +1077,18 @@ export default function PlansManagementPage() {
                               ₹{plan.pricing?.yearlyPrice?.toLocaleString('en-IN') || 0}
                             </span>
                           </div>
-                          <div className="text-[10px] text-emerald-500 font-medium pt-1 border-t border-border/60">
-                            Save 17% on Annual Billing
-                          </div>
+                          {(() => {
+                            const discount = calculateAnnualDiscountPercent(plan.pricing?.quarterlyPrice, plan.pricing?.yearlyPrice);
+                            return discount > 0 ? (
+                              <div className="text-[10px] text-emerald-500 font-semibold pt-1 border-t border-border/60">
+                                Save {discount}% on Annual Billing
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-muted-foreground font-medium pt-1 border-t border-border/60">
+                                Annual Billing Available
+                              </div>
+                            );
+                          })()}
                         </>
                       )}
                     </div>
@@ -1162,8 +1215,8 @@ export default function PlansManagementPage() {
                   </select>
                 </div>
 
-                {/* Search Results Dropdown List */}
-                {userSearchResults.length > 0 && (
+                {/* Search Results Dropdown List (only shown when actively searching) */}
+                {userSearchQuery.trim().length > 0 && userSearchResults.length > 0 && (
                   <div className="max-h-52 overflow-y-auto rounded-xl border border-border bg-secondary/90 divide-y divide-border/60 shadow-lg text-xs">
                     {userSearchResults.slice(0, 8).map((u) => {
                       const isCorp = isCorporateEmail(u.email);
@@ -1212,78 +1265,48 @@ export default function PlansManagementPage() {
                   </div>
                 )}
 
+                {userSearchQuery.trim().length > 0 && userSearchResults.length === 0 && (
+                  <div className="p-3 rounded-xl border border-border bg-secondary/50 text-center text-xs text-muted-foreground">
+                    No users found matching &ldquo;{userSearchQuery}&rdquo;
+                  </div>
+                )}
+
                 {/* Selected User(s) Badge / Card */}
                 {selectedUsers.length === 1 && selectedUser ? (
-                  <div className="p-3.5 rounded-xl bg-secondary/80 border border-primary/30 flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">{selectedUser.name}</span>
-                        <span className="text-[10px] px-2 py-0.2 rounded-full font-bold uppercase bg-primary text-black">
-                          {selectedUser.role}
-                        </span>
-                        <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold border ${
-                          isCorporateEmail(selectedUser.email)
-                            ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                            : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                        }`}>
-                          {isCorporateEmail(selectedUser.email) ? 'Corporate Email' : 'Personal Email'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-                        <span>{selectedUser.email}</span>
-                        {selectedUser.phone && <span>• {selectedUser.phone}</span>}
-                        {selectedUser.organization?.name && <span>• {selectedUser.organization.name}</span>}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                        <span>Current:</span>
-                        <strong className="text-foreground capitalize">{selectedUser.plan || 'Free'}</strong>
-                        {selectedUser.hasGrowthPlan && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            + Growth Add-on
+                  <div className="p-3.5 rounded-xl bg-secondary/80 border border-primary/30 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-foreground truncate">{selectedUser.name}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-primary text-black">
+                            {selectedUser.role}
                           </span>
-                        )}
-                        <span>(Status: <span className="capitalize">{selectedUser.planStatus || 'pending'}</span>, Verified: {selectedUser.isVerified ? 'Yes' : 'No'})</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                            isCorporateEmail(selectedUser.email)
+                              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                          }`}>
+                            {isCorporateEmail(selectedUser.email) ? 'Corporate Email' : 'Personal Email'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                          <span>{selectedUser.email}</span>
+                          {selectedUser.phone && <span>• {selectedUser.phone}</span>}
+                          {selectedUser.organization?.name && <span>• {selectedUser.organization.name}</span>}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                          <span>Current:</span>
+                          <strong className="text-foreground capitalize">{selectedUser.plan || 'Free'}</strong>
+                          {selectedUser.hasGrowthPlan && (
+                            <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              + Growth Add-on
+                            </span>
+                          )}
+                          <span>• Status: <span className="capitalize font-semibold text-foreground">{selectedUser.planStatus || 'Active'}</span></span>
+                          <span>• Verified: {selectedUser.isVerified ? 'Yes' : 'No'}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                      {selectedUser.hasGrowthPlan && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleRemovePlan({
-                              userId: selectedUser._id || selectedUser.id,
-                              planType: 'growth',
-                              userName: selectedUser.name,
-                              planName: 'Growth Add-on'
-                            })
-                          }
-                          disabled={revertingPlan}
-                          className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 hover:text-amber-400 text-xs font-semibold cursor-pointer border border-amber-500/30 transition-colors inline-flex items-center gap-1 disabled:opacity-50"
-                          title="Remove Growth Add-on only (keeps base plan active)"
-                        >
-                          <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
-                          <span>Remove Add-on</span>
-                        </button>
-                      )}
-                      {selectedUser.plan && selectedUser.plan !== 'free' && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleRemovePlan({
-                              userId: selectedUser._id || selectedUser.id,
-                              planType: 'base',
-                              userName: selectedUser.name,
-                              planName: selectedUser.plan
-                            })
-                          }
-                          disabled={revertingPlan}
-                          className="px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-xs font-semibold cursor-pointer border border-red-500/30 transition-colors inline-flex items-center gap-1 disabled:opacity-50"
-                          title="Revert user back to Free plan"
-                        >
-                          <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
-                          <span>Revert to Free</span>
-                        </button>
-                      )}
+
                       <button
                         type="button"
                         onClick={() => {
@@ -1291,11 +1314,55 @@ export default function PlansManagementPage() {
                           setUserSearchQuery('');
                           setUserSearchResults([]);
                         }}
-                        className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer px-1 py-1"
+                        className="text-xs text-muted-foreground hover:text-red-500 transition-colors cursor-pointer px-2 py-1 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20 shrink-0"
+                        title="Deselect this user"
                       >
-                        Remove
+                        ✕ Deselect
                       </button>
                     </div>
+
+                    {(selectedUser.hasGrowthPlan || (selectedUser.plan && selectedUser.plan !== 'free')) && (
+                      <div className="pt-2 border-t border-border/60 flex items-center gap-2 flex-wrap">
+                        {selectedUser.hasGrowthPlan && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRemovePlan({
+                                userId: selectedUser._id || selectedUser.id,
+                                planType: 'growth',
+                                userName: selectedUser.name,
+                                planName: 'Growth Add-on'
+                              })
+                            }
+                            disabled={revertingPlan}
+                            className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 hover:text-amber-400 text-xs font-semibold cursor-pointer border border-amber-500/30 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+                            title="Remove Growth Add-on only (keeps base plan active)"
+                          >
+                            <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
+                            <span>Remove Growth Add-on</span>
+                          </button>
+                        )}
+                        {selectedUser.plan && selectedUser.plan !== 'free' && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRemovePlan({
+                                userId: selectedUser._id || selectedUser.id,
+                                planType: 'base',
+                                userName: selectedUser.name,
+                                planName: selectedUser.plan
+                              })
+                            }
+                            disabled={revertingPlan}
+                            className="px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-400 text-xs font-semibold cursor-pointer border border-red-500/30 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+                            title="Revert user back to Free plan"
+                          >
+                            <RotateCcw className={`h-3 w-3 ${revertingPlan ? 'animate-spin' : ''}`} />
+                            <span>Revert to Free</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : selectedUsers.length > 1 ? (
                   <div className="p-3.5 rounded-xl bg-secondary/80 border border-primary/30 space-y-2.5">
@@ -1609,7 +1676,7 @@ export default function PlansManagementPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
                   {selectedUsers.length > 0 && (
                     <>
                       <span className="px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-bold flex items-center gap-1.5">
@@ -1641,6 +1708,19 @@ export default function PlansManagementPage() {
                     <option value="starter">Starter</option>
                     <option value="enterprise">Enterprise</option>
                     <option value="growth">Growth</option>
+                  </select>
+
+                  <select
+                    value={subStatusFilter}
+                    onChange={(e) => {
+                      setSubStatusFilter(e.target.value);
+                      setSubPage(1);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs text-foreground focus:outline-none cursor-pointer"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active Only</option>
+                    <option value="cancelled">Cancelled Only</option>
                   </select>
 
                   <button
@@ -1675,23 +1755,26 @@ export default function PlansManagementPage() {
                       <table className="w-full text-left text-xs">
                         <thead>
                           <tr className="border-b border-border text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                            <th className="pb-2.5 pl-3 pr-2 w-8">
-                              <input
-                                type="checkbox"
-                                aria-label="Select all subscriptions on this page"
-                                checked={
-                                  paginatedSubs.length > 0 &&
-                                  paginatedSubs.every((sub) => sub.user && isUserSelected(sub.user))
-                                }
-                                onChange={handleSelectAllSubs}
-                                className="h-3.5 w-3.5 rounded accent-primary cursor-pointer align-middle"
-                                title="Select / deselect all visible"
-                              />
+                            <th className="pb-2.5 pl-3 pr-2 w-10 text-center">
+                              <div className="flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  aria-label="Select all subscriptions on this page"
+                                  checked={
+                                    paginatedSubs.length > 0 &&
+                                    paginatedSubs.every((sub) => sub.user && isUserSelected(sub.user))
+                                  }
+                                  onChange={handleSelectAllSubs}
+                                  className="h-4 w-4 rounded accent-primary cursor-pointer"
+                                  title="Select / deselect all visible"
+                                />
+                              </div>
                             </th>
                             <th className="pb-2.5">User</th>
                             <th className="pb-2.5">Plan / Cycle</th>
+                            <th className="pb-2.5 whitespace-nowrap">Assigned On</th>
+                            <th className="pb-2.5 whitespace-nowrap">Status</th>
                             <th className="pb-2.5">Fee / Waiver</th>
-                            <th className="pb-2.5">Status</th>
                             <th className="pb-2.5 text-right">Action</th>
                           </tr>
                         </thead>
@@ -1707,14 +1790,16 @@ export default function PlansManagementPage() {
                                   isChecked ? 'bg-primary/10' : 'hover:bg-secondary/20'
                                 }`}
                               >
-                                <td className="py-3 pl-3 pr-2">
-                                  <input
-                                    type="checkbox"
-                                    aria-label={`Select ${u.name || 'user'}`}
-                                    checked={isChecked}
-                                    onChange={() => toggleSelectUser(u)}
-                                    className="h-3.5 w-3.5 rounded accent-primary cursor-pointer align-middle"
-                                  />
+                                <td className="py-3 pl-3 pr-2 w-10 text-center align-middle">
+                                  <div className="flex items-center justify-center">
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Select ${u.name || 'user'}`}
+                                      checked={isChecked}
+                                      onChange={() => toggleSelectUser(u)}
+                                      className="h-4 w-4 rounded accent-primary cursor-pointer"
+                                    />
+                                  </div>
                                 </td>
                                 <td className="py-3 pr-2">
                                   <div className="font-semibold text-foreground">{u.name || 'Organizer'}</div>
@@ -1744,22 +1829,41 @@ export default function PlansManagementPage() {
                                   </span>
                                 </td>
 
-                                <td className="py-3 pr-2 font-mono">
+                                <td className="py-3 pr-2 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 text-foreground font-medium text-[11px]">
+                                    <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                                    <span>{formatDateTime(sub.startDate || sub.createdAt) || 'N/A'}</span>
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground pl-5">
+                                    {sub.endDate ? `Valid to: ${new Date(sub.endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : 'Lifetime'}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 pr-2 whitespace-nowrap">
+                                  <div>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                                      sub.status === 'active'
+                                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                        : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                                    }`}>
+                                      <span className={`h-1.5 w-1.5 rounded-full ${sub.status === 'active' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                      {sub.status || 'Active'}
+                                    </span>
+                                  </div>
+                                  {sub.status === 'cancelled' && (
+                                    <div className="mt-1 text-[10px] text-red-400 font-medium flex items-center gap-1">
+                                      <XCircle className="h-3 w-3 shrink-0" />
+                                      <span>Cancelled: {formatDateTime(sub.cancelledAt || sub.updatedAt) || 'N/A'}</span>
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td className="py-3 pr-2 font-mono whitespace-nowrap">
                                   {sub.price === 0 ? (
                                     <span className="text-emerald-500 font-bold">₹0 (Waived)</span>
                                   ) : (
                                     <span className="font-bold text-foreground">₹{sub.price?.toLocaleString('en-IN')}</span>
                                   )}
-                                </td>
-
-                                <td className="py-3 pr-2">
-                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
-                                    sub.status === 'active'
-                                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                      : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                                  }`}>
-                                    {sub.status || 'Active'}
-                                  </span>
                                 </td>
 
                                 <td className="py-3 text-right">
@@ -2526,6 +2630,22 @@ export default function PlansManagementPage() {
                       <p className="text-[11px] text-red-500 mt-1">{editFormErrors.proposedEventResearchPrice}</p>
                     )}
                   </div>
+
+                  {editingPlan.planId !== 'free' && editingPlan.planId !== 'growth' && (
+                    <div className="sm:col-span-3 flex items-center justify-between p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs">
+                      <span className="text-muted-foreground font-medium">Auto-Calculated Annual Discount:</span>
+                      {(() => {
+                        const discount = calculateAnnualDiscountPercent(editFormData.quarterlyPrice, editFormData.yearlyPrice);
+                        return discount > 0 ? (
+                          <span className="font-extrabold text-emerald-400">
+                            Save {discount}% annually (4 × ₹{Number(editFormData.quarterlyPrice || 0).toLocaleString('en-IN')} = ₹{(Number(editFormData.quarterlyPrice || 0) * 4).toLocaleString('en-IN')} vs ₹{Number(editFormData.yearlyPrice || 0).toLocaleString('en-IN')})
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 font-semibold">No annual discount (0%)</span>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
 
