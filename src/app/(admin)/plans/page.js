@@ -235,18 +235,21 @@ export default function PlansManagementPage() {
     if (!accessToken) return;
     try {
       setInquiriesLoading(true);
-      const res = await axios.get(`${API_URL}/plans/admin/inquiries?status=${inquiryFilter}`, {
+      const res = await axios.get(`${API_URL}/plans/admin/inquiries?status=all&limit=500`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data?.success) {
         setInquiries(res.data.data || []);
+        if (res.data.pagination?.total !== undefined) {
+          setStats((prev) => ({ ...prev, totalInquiries: res.data.pagination.total }));
+        }
       }
     } catch (err) {
       console.error('Failed to fetch inquiries', err);
     } finally {
       setInquiriesLoading(false);
     }
-  }, [accessToken, inquiryFilter]);
+  }, [accessToken]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -2060,214 +2063,224 @@ export default function PlansManagementPage() {
       {/* ========================================================= */}
       {/* TAB 3: ORGANIZER UPGRADE & TOP-UP INQUIRIES */}
       {/* ========================================================= */}
-      {activeTab === 'inquiries' && (
-        <div className="space-y-6">
-          {/* Filter Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-4 rounded-xl border border-border">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-              {['all', 'new', 'contacted', 'in_discussion', 'converted', 'rejected'].map((st) => (
-                <button
-                  key={st}
-                  onClick={() => {
-                    setInquiryFilter(st);
-                    setInquiryPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
-                    inquiryFilter === st
-                      ? 'bg-primary text-black'
-                      : 'bg-secondary text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {st.replace('_', ' ')}
-                </button>
-              ))}
+      {activeTab === 'inquiries' && (() => {
+        const filteredInquiries = inquiries.filter((inq) => {
+          if (inquiryFilter === 'all') return true;
+          return inq.status === inquiryFilter;
+        });
+        const totalInquiryPages = Math.max(1, Math.ceil(filteredInquiries.length / inquiryPageSize));
+        const safeInquiryPage = Math.min(inquiryPage, totalInquiryPages);
+        const paginatedInquiries = filteredInquiries.slice(
+          (safeInquiryPage - 1) * inquiryPageSize,
+          safeInquiryPage * inquiryPageSize
+        );
+        const totalRecords = inquiries.length;
+
+        return (
+          <div className="space-y-6">
+            {/* Filter Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card p-4 rounded-xl border border-border">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 flex-wrap sm:flex-nowrap">
+                {['all', 'new', 'contacted', 'in_discussion', 'converted', 'rejected'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => {
+                      setInquiryFilter(st);
+                      setInquiryPage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all cursor-pointer ${
+                      inquiryFilter === st
+                        ? 'bg-primary text-black'
+                        : 'bg-secondary text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {st.replace('_', ' ')}
+                  </button>
+                ))}
+
+                {/* Total Records Badge */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary/80 border border-border text-xs font-semibold text-muted-foreground whitespace-nowrap shrink-0">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span>Total Records:</span>
+                  <span className="font-bold text-foreground font-mono">
+                    {inquiryFilter === 'all'
+                      ? totalRecords
+                      : `${filteredInquiries.length} of ${totalRecords}`}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={fetchInquiries}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold hover:bg-secondary cursor-pointer shrink-0"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${inquiriesLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
             </div>
 
-            <button
-              onClick={fetchInquiries}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold hover:bg-secondary cursor-pointer shrink-0"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${inquiriesLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
+            {/* Table */}
+            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+              {inquiriesLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm">Fetching inquiries...</p>
+                </div>
+              ) : filteredInquiries.length === 0 ? (
+                <div className="py-16 text-center text-muted-foreground space-y-2">
+                  <HelpCircle className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                  <p className="text-sm font-semibold text-foreground">No inquiries found</p>
+                  <p className="text-xs">
+                    {inquiryFilter === 'all'
+                      ? 'Organizer inquiries submitted on the website will be displayed here in real time.'
+                      : `No inquiries with status "${inquiryFilter.replace('_', ' ')}".`}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          <th className="px-5 py-3.5">Organizer &amp; Company</th>
+                          <th className="px-5 py-3.5">Plan Requested</th>
+                          <th className="px-5 py-3.5">Contact Details</th>
+                          <th className="px-5 py-3.5">Email Type</th>
+                          <th className="px-5 py-3.5">Status</th>
+                          <th className="px-5 py-3.5">Date</th>
+                          <th className="px-5 py-3.5 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {paginatedInquiries.map((inq) => (
+                          <tr key={inq._id} className="hover:bg-secondary/40 transition-colors">
+                            <td className="px-5 py-3.5">
+                              <div className="font-bold text-foreground text-sm">{inq.organizerName}</div>
+                              <div className="text-muted-foreground text-[11px] flex items-center gap-1 mt-0.5">
+                                <Building className="h-3 w-3" />
+                                {inq.organizationName || 'Individual'}
+                              </div>
+                            </td>
 
-          {/* Table */}
-          {(() => {
-            const filteredInquiries = inquiries.filter((inq) => {
-              if (inquiryFilter === 'all') return true;
-              return inq.status === inquiryFilter;
-            });
-            const totalInquiryPages = Math.max(1, Math.ceil(filteredInquiries.length / inquiryPageSize));
-            const safeInquiryPage = Math.min(inquiryPage, totalInquiryPages);
-            const paginatedInquiries = filteredInquiries.slice(
-              (safeInquiryPage - 1) * inquiryPageSize,
-              safeInquiryPage * inquiryPageSize
-            );
+                            <td className="px-5 py-3.5">
+                              <span className="font-bold text-foreground">{inq.planName}</span>
+                              <div className="text-muted-foreground text-[11px] capitalize">{inq.billingCycle}</div>
+                            </td>
 
-            return (
-              <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-                {inquiriesLoading ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-sm">Fetching inquiries...</p>
-                  </div>
-                ) : filteredInquiries.length === 0 ? (
-                  <div className="py-16 text-center text-muted-foreground space-y-2">
-                    <HelpCircle className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                    <p className="text-sm font-semibold text-foreground">No inquiries found</p>
-                    <p className="text-xs">
-                      {inquiryFilter === 'all'
-                        ? 'Organizer inquiries submitted on the website will be displayed here in real time.'
-                        : `No inquiries with status "${inquiryFilter.replace('_', ' ')}".`}
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-border bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            <th className="px-5 py-3.5">Organizer &amp; Company</th>
-                            <th className="px-5 py-3.5">Plan Requested</th>
-                            <th className="px-5 py-3.5">Contact Details</th>
-                            <th className="px-5 py-3.5">Email Type</th>
-                            <th className="px-5 py-3.5">Status</th>
-                            <th className="px-5 py-3.5">Date</th>
-                            <th className="px-5 py-3.5 text-right">Actions</th>
+                            <td className="px-5 py-3.5 space-y-0.5">
+                              <div className="text-foreground font-mono">{inq.email}</div>
+                              <div className="text-muted-foreground font-mono">{inq.phone}</div>
+                            </td>
+
+                            <td className="px-5 py-3.5">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  inq.emailType === 'corporate'
+                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                    : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                }`}
+                              >
+                                {inq.emailType === 'corporate' ? 'Corporate Domain' : 'General Email'}
+                              </span>
+                            </td>
+
+                            <td className="px-5 py-3.5">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                  inq.status === 'new'
+                                    ? 'bg-amber-500/10 text-amber-500 animate-pulse'
+                                    : inq.status === 'converted'
+                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                    : inq.status === 'in_discussion'
+                                    ? 'bg-blue-500/10 text-blue-500'
+                                    : inq.status === 'contacted'
+                                    ? 'bg-indigo-500/10 text-indigo-500'
+                                    : 'bg-zinc-500/10 text-zinc-500'
+                                }`}
+                              >
+                                {inq.status.replace('_', ' ')}
+                              </span>
+                            </td>
+
+                            <td className="px-5 py-3.5 text-muted-foreground">
+                              {new Date(inq.createdAt).toLocaleDateString()}
+                            </td>
+
+                            <td className="px-5 py-3.5 text-right">
+                              <button
+                                onClick={() => {
+                                  setActiveInquiry(inq);
+                                  setInquiryNotes(inq.adminNotes || '');
+                                  setInquiryStatus(inq.status || 'new');
+                                  setShowInquiryModal(true);
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                              >
+                                <Edit3 className="h-3 w-3" />
+                                Manage
+                              </button>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {paginatedInquiries.map((inq) => (
-                            <tr key={inq._id} className="hover:bg-secondary/40 transition-colors">
-                              <td className="px-5 py-3.5">
-                                <div className="font-bold text-foreground text-sm">{inq.organizerName}</div>
-                                <div className="text-muted-foreground text-[11px] flex items-center gap-1 mt-0.5">
-                                  <Building className="h-3 w-3" />
-                                  {inq.organizationName || 'Individual'}
-                                </div>
-                              </td>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                              <td className="px-5 py-3.5">
-                                <span className="font-bold text-foreground">{inq.planName}</span>
-                                <div className="text-muted-foreground text-[11px] capitalize">{inq.billingCycle}</div>
-                              </td>
-
-                              <td className="px-5 py-3.5 space-y-0.5">
-                                <div className="text-foreground font-mono">{inq.email}</div>
-                                <div className="text-muted-foreground font-mono">{inq.phone}</div>
-                              </td>
-
-                              <td className="px-5 py-3.5">
-                                <span
-                                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                    inq.emailType === 'corporate'
-                                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                      : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                                  }`}
-                                >
-                                  {inq.emailType === 'corporate' ? 'Corporate Domain' : 'General Email'}
-                                </span>
-                              </td>
-
-                              <td className="px-5 py-3.5">
-                                <span
-                                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                    inq.status === 'new'
-                                      ? 'bg-amber-500/10 text-amber-500 animate-pulse'
-                                      : inq.status === 'converted'
-                                      ? 'bg-emerald-500/10 text-emerald-500'
-                                      : inq.status === 'in_discussion'
-                                      ? 'bg-blue-500/10 text-blue-500'
-                                      : inq.status === 'contacted'
-                                      ? 'bg-indigo-500/10 text-indigo-500'
-                                      : 'bg-zinc-500/10 text-zinc-500'
-                                  }`}
-                                >
-                                  {inq.status.replace('_', ' ')}
-                                </span>
-                              </td>
-
-                              <td className="px-5 py-3.5 text-muted-foreground">
-                                {new Date(inq.createdAt).toLocaleDateString()}
-                              </td>
-
-                              <td className="px-5 py-3.5 text-right">
-                                <button
-                                  onClick={() => {
-                                    setActiveInquiry(inq);
-                                    setInquiryNotes(inq.adminNotes || '');
-                                    setInquiryStatus(inq.status || 'new');
-                                    setShowInquiryModal(true);
-                                  }}
-                                  className="px-2.5 py-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground font-semibold text-[11px] cursor-pointer inline-flex items-center gap-1"
-                                >
-                                  <Edit3 className="h-3 w-3" />
-                                  Manage
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Inquiries Pagination Controls */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-t border-border bg-card text-xs text-muted-foreground">
-                      <span>
-                        Showing {(safeInquiryPage - 1) * inquiryPageSize + 1}-
-                        {Math.min(safeInquiryPage * inquiryPageSize, filteredInquiries.length)} of{' '}
-                        {filteredInquiries.length} inquiries
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-2">
-                          <span>Per page</span>
-                          <select
-                            value={inquiryPageSize}
-                            onChange={(e) => {
-                              setInquiryPageSize(Number(e.target.value));
-                              setInquiryPage(1);
-                            }}
-                            className="rounded-lg border border-border bg-secondary px-2.5 py-1 text-foreground focus:outline-none focus:border-primary text-xs cursor-pointer"
-                            aria-label="Inquiries per page"
-                          >
-                            <option value={5}>5</option>
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                          </select>
-                        </label>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setInquiryPage((p) => Math.max(1, p - 1))}
-                            disabled={safeInquiryPage <= 1}
-                            className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                            aria-label="Previous page"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                          </button>
-                          <span className="min-w-16 text-center text-foreground font-semibold">
-                            Page {safeInquiryPage} of {totalInquiryPages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setInquiryPage((p) => Math.min(totalInquiryPages, p + 1))}
-                            disabled={safeInquiryPage >= totalInquiryPages}
-                            className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
-                            aria-label="Next page"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
-                        </div>
+                  {/* Inquiries Pagination Controls */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-t border-border bg-card text-xs text-muted-foreground">
+                    <span>
+                      Showing {filteredInquiries.length === 0 ? 0 : (safeInquiryPage - 1) * inquiryPageSize + 1}-
+                      {Math.min(safeInquiryPage * inquiryPageSize, filteredInquiries.length)} of{' '}
+                      {filteredInquiries.length} {inquiryFilter !== 'all' ? `(${totalRecords} total) inquiries` : 'inquiries'}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2">
+                        <span>Per page</span>
+                        <select
+                          value={inquiryPageSize}
+                          onChange={(e) => {
+                            setInquiryPageSize(Number(e.target.value));
+                            setInquiryPage(1);
+                          }}
+                          className="rounded-lg border border-border bg-secondary px-2.5 py-1 text-foreground focus:outline-none focus:border-primary text-xs cursor-pointer"
+                          aria-label="Inquiries per page"
+                        >
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                        </select>
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setInquiryPage((p) => Math.max(1, p - 1))}
+                          disabled={safeInquiryPage <= 1}
+                          className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                          aria-label="Previous page"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="min-w-16 text-center text-foreground font-semibold">
+                          Page {safeInquiryPage} of {totalInquiryPages}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setInquiryPage((p) => Math.min(totalInquiryPages, p + 1))}
+                          disabled={safeInquiryPage >= totalInquiryPages}
+                          className="p-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                          aria-label="Next page"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ========================================================= */}
       {/* TAB 4: FEATURE COMPARISON MATRIX */}
