@@ -315,9 +315,16 @@ export default function PlansManagementPage() {
       return;
     }
 
-    if (assignFormData.durationDays !== '' && Number(assignFormData.durationDays) < 0) {
-      showSweetError('Custom Duration (Days) cannot be a negative number.');
-      return;
+    if (assignFormData.durationDays !== '') {
+      const daysNum = Number(assignFormData.durationDays);
+      if (isNaN(daysNum) || daysNum < 1) {
+        showSweetError('Custom Duration (Days) must be at least 1 day.');
+        return;
+      }
+      if (daysNum > 366) {
+        showSweetError('Custom Duration (Days) cannot exceed 366 days (maximum 1 leap year).');
+        return;
+      }
     }
 
     // Validation: Growth Plan is an add-on and can only be taken by users with Starter or Enterprise plan
@@ -347,7 +354,7 @@ export default function PlansManagementPage() {
         isVerified: assignFormData.isVerified,
         upgradeRoleToOrganizer: assignFormData.upgradeRoleToOrganizer,
         adminNotes: assignFormData.adminNotes,
-        durationDays: assignFormData.durationDays ? Math.max(0, Number(assignFormData.durationDays)) : undefined
+        durationDays: assignFormData.durationDays ? Math.min(366, Math.max(1, Number(assignFormData.durationDays))) : undefined
       };
 
       const res = await axios.post(`${API_URL}/plans/admin/assign-plan`, payload, {
@@ -1501,14 +1508,20 @@ export default function PlansManagementPage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-foreground mb-1">
-                      Custom Duration (Days)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-semibold text-foreground">
+                        Custom Duration (Days)
+                      </label>
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        Max 366 days
+                      </span>
+                    </div>
                     <input
                       type="number"
-                      min="0"
+                      min="1"
+                      max="366"
                       step="1"
-                      placeholder="e.g. 365, 90 (Optional)"
+                      placeholder="e.g. 365, 90 (Max 366 days)"
                       value={assignFormData.durationDays}
                       onKeyDown={(e) => {
                         if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
@@ -1525,12 +1538,29 @@ export default function PlansManagementPage() {
                         if (cleanVal === '') {
                           setAssignFormData({ ...assignFormData, durationDays: '' });
                         } else {
-                          const num = Math.max(0, parseInt(cleanVal, 10));
+                          const num = parseInt(cleanVal, 10);
                           setAssignFormData({ ...assignFormData, durationDays: String(num) });
                         }
                       }}
-                      className="w-full px-3 py-2 rounded-xl bg-secondary border border-border text-foreground focus:outline-none focus:border-primary text-xs"
+                      onBlur={() => {
+                        if (assignFormData.durationDays !== '') {
+                          const num = parseInt(assignFormData.durationDays, 10);
+                          if (!isNaN(num) && num > 366) {
+                            setAssignFormData({ ...assignFormData, durationDays: '366' });
+                          }
+                        }
+                      }}
+                      className={`w-full px-3 py-2 rounded-xl bg-secondary border text-foreground focus:outline-none text-xs transition-colors ${
+                        assignFormData.durationDays && Number(assignFormData.durationDays) > 366
+                          ? 'border-destructive focus:border-destructive ring-1 ring-destructive/20'
+                          : 'border-border focus:border-primary'
+                      }`}
                     />
+                    {assignFormData.durationDays && Number(assignFormData.durationDays) > 366 && (
+                      <p className="text-[11px] text-destructive mt-1 font-semibold">
+                        Maximum duration cannot exceed 366 days.
+                      </p>
+                    )}
                   </div>
                 </div>
 
