@@ -31,6 +31,56 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+const INVALID_START_REGEX = /^[^a-zA-Z0-9\s"']/;
+const CONSECUTIVE_SYMBOLS_REGEX = /[!@#$%^&*()_+={}\[\]|\\:;\"'<>,~`]{3,}/;
+const START_SYMBOLS_REGEX = /^[^a-zA-Z0-9\s]{2,}/;
+const REPEATED_CHARS_REGEX = /(.)\1{4,}/;
+
+const filterTicketInput = (newVal, prevVal = '') => {
+  if (!newVal) return newVal;
+  if (newVal.length < prevVal.length) return newVal;
+  if (INVALID_START_REGEX.test(newVal)) return prevVal;
+  if (START_SYMBOLS_REGEX.test(newVal)) return prevVal;
+  if (CONSECUTIVE_SYMBOLS_REGEX.test(newVal)) return prevVal;
+  if (REPEATED_CHARS_REGEX.test(newVal)) return prevVal;
+  if (/<[a-z]/i.test(newVal)) return prevVal;
+  return newVal;
+};
+
+const validateTicketInput = (text, fieldName = 'Text') => {
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return { valid: false, error: `${fieldName} is required.` };
+  }
+  const trimmed = text.trim();
+  if (trimmed.length < 2) {
+    return { valid: false, error: `${fieldName} must be at least 2 characters.` };
+  }
+  if (INVALID_START_REGEX.test(trimmed)) {
+    return { valid: false, error: `${fieldName} must start with a letter or number, not symbols.` };
+  }
+  const letterMatches = trimmed.match(/[a-zA-Z]/g);
+  if (!letterMatches || letterMatches.length === 0) {
+    return { valid: false, error: `${fieldName} must contain genuine words or text, not just symbols or numbers.` };
+  }
+  const nonSpaceChars = trimmed.replace(/\s+/g, '');
+  if (nonSpaceChars.length >= 4) {
+    const alphaNumMatches = nonSpaceChars.match(/[a-zA-Z0-9]/g) || [];
+    if (alphaNumMatches.length / nonSpaceChars.length < 0.5) {
+      return { valid: false, error: `Too many random symbols in ${fieldName.toLowerCase()}. Please enter meaningful text.` };
+    }
+  }
+  if (CONSECUTIVE_SYMBOLS_REGEX.test(trimmed)) {
+    return { valid: false, error: `Random symbol spam detected in ${fieldName.toLowerCase()}. Please enter genuine text.` };
+  }
+  if (REPEATED_CHARS_REGEX.test(trimmed)) {
+    return { valid: false, error: `Excessive repeated characters detected in ${fieldName.toLowerCase()}.` };
+  }
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) {
+    return { valid: false, error: `HTML tags or code scripts are not allowed in ${fieldName.toLowerCase()}.` };
+  }
+  return { valid: true };
+};
+
 export default function SupportTicketsPage() {
   const { accessToken } = useAuth();
   const [activeTab, setActiveTab] = useState('support'); // 'support' or 'event_tickets'
@@ -224,14 +274,20 @@ export default function SupportTicketsPage() {
   // 7. Post response to ticket thread
   const handlePostAdminReply = async (e) => {
     e.preventDefault();
-    if (!replyMessage.trim() || !selectedTicket) return;
+    if (!selectedTicket) return;
+
+    const validation = validateTicketInput(replyMessage, 'Reply message');
+    if (!validation.valid) {
+      alert(validation.error);
+      return;
+    }
 
     setPostingReply(true);
     try {
       const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
       const res = await axios.post(
         `${API_URL}/support-tickets/${selectedTicket._id}/responses`,
-        { message: replyMessage },
+        { message: replyMessage.trim() },
         { headers }
       );
 
@@ -242,7 +298,7 @@ export default function SupportTicketsPage() {
       }
     } catch (err) {
       console.error('Failed to post reply:', err);
-      alert('Failed to send admin response');
+      alert(err.response?.data?.error || 'Failed to send admin response');
     } finally {
       setPostingReply(false);
     }
@@ -703,12 +759,11 @@ export default function SupportTicketsPage() {
 
             {/* Modal Footer - Post Reply & Resolve */}
             <div className="p-4 border-t border-border bg-muted/20 space-y-3">
-              <form onSubmit={handlePostAdminReply} className="flex gap-2">
+              <form onSubmit={handlePostAdminReply} noValidate className="flex gap-2">
                 <input
                   type="text"
-                  required
                   value={replyMessage}
-                  onChange={(e) => setReplyMessage(e.target.value)}
+                  onChange={(e) => setReplyMessage(prev => filterTicketInput(e.target.value, prev))}
                   placeholder="Type official admin response to client..."
                   className="flex-1 rounded-xl border border-border bg-background px-4 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
