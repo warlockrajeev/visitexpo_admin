@@ -105,6 +105,17 @@ export default function SupportTicketsPage() {
   const [eventTickets, setEventTickets] = useState([]);
   const [loadingEventTickets, setLoadingEventTickets] = useState(false);
 
+  // Suppress native HTML5 validation bubbles/tooltips completely
+  useEffect(() => {
+    const handleInvalid = (e) => {
+      e.preventDefault();
+    };
+    document.addEventListener('invalid', handleInvalid, true);
+    return () => {
+      document.removeEventListener('invalid', handleInvalid, true);
+    };
+  }, []);
+
   // 1. Fetch live support tickets from API
   const fetchSupportTickets = async (silent = false) => {
     if (!silent) setLoadingSupport(true);
@@ -769,6 +780,7 @@ export default function SupportTicketsPage() {
                 />
                 <button
                   type="submit"
+                  formNoValidate
                   disabled={postingReply}
                   className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all flex items-center gap-1.5 shrink-0"
                 >
