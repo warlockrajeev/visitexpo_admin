@@ -292,7 +292,7 @@ export default function SupportTicketsPage() {
       );
 
       if (res.data?.success) {
-        setSelectedTicket(res.data.ticket);
+        setSelectedTicket(null);
         setReplyMessage('');
         fetchSupportTickets();
       }
