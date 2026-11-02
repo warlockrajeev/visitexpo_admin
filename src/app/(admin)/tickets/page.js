@@ -202,7 +202,10 @@ export default function SupportTicketsPage() {
     const fetchTicketTiers = async () => {
       setLoadingEventTickets(true);
       try {
-        const res = await axios.get(`${API_URL}/tickets`, { params: { eventId: selectedEventId } });
+        const res = await axios.get(`${API_URL}/tickets/manage`, {
+          params: { eventId: selectedEventId },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
+        });
         if (res.data?.success) {
           setEventTickets(res.data.data || []);
         }
