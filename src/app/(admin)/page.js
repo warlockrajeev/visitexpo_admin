@@ -40,7 +40,8 @@ import {
   Layers,
   Award,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  FileSpreadsheet
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -693,6 +694,34 @@ export default function AdminOverview() {
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all shadow-xs shrink-0 self-start md:self-auto cursor-pointer"
         >
           <span>Open Attendees Console</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+
+      {/* Expo Reports & Multi-Format Data Export Banner */}
+      <div className="rounded-2xl border border-border bg-gradient-to-r from-card via-card to-emerald-500/5 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+            <FileSpreadsheet className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-base text-foreground">Expo Reports &amp; Multi-Format Data Export</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                CSV • Excel (.xlsx) • PDF
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground max-w-2xl">
+              Select any individual expo, multiple exhibitions, or the entire catalog to download complete datasets (Overview, Visitors, Attendees &amp; Followers, CRM Leads, Exhibitors, Sponsors, Ticket Orders, and Campaigns) in CSV, multi-sheet Excel, or A4 PDF format.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/reports"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-all shadow-xs shrink-0 self-start md:self-auto cursor-pointer"
+        >
+          <span>Open Expo Reports</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>

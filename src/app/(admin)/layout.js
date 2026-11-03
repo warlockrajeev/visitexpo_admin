@@ -40,7 +40,8 @@ import {
   UserPlus,
   Send,
   Sparkles,
-  Flag
+  Flag,
+  FileSpreadsheet
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -157,6 +158,14 @@ export default function AdminLayout({ children }) {
       href: '/events',
       icon: Calendar,
       badge: pendingCounts.pendingEvents > 0 ? `${pendingCounts.pendingEvents} Draft` : null,
+      permission: 'events.view'
+    },
+    {
+      name: 'Expo Reports',
+      href: '/reports',
+      icon: FileSpreadsheet,
+      badge: 'CSV / PDF',
+      badgeColor: 'bg-primary text-black font-bold',
       permission: 'events.view'
     },
     {
@@ -306,6 +315,7 @@ export default function AdminLayout({ children }) {
     if (path === '/') return 'System Administration Console';
     if (path === '/moderation') return 'Approval & Moderation Command Center';
     if (path === '/events') return 'Events Management & WordPress Sync';
+    if (path === '/reports') return 'Expo Reports & Multi-Format Data Export';
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
     if (path === '/venue-reports') return 'Venue Information Reports';
     if (path === '/organizers') return 'Organizers & Events Directory';
