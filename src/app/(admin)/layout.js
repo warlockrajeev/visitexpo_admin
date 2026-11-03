@@ -39,7 +39,8 @@ import {
   HelpCircle,
   UserPlus,
   Send,
-  Sparkles
+  Sparkles,
+  Flag
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -165,6 +166,12 @@ export default function AdminLayout({ children }) {
       badge: 'Profiles',
       badgeColor: 'bg-emerald-500 text-white',
       permission: 'events.view'
+    },
+    {
+      name: 'Venue Reports',
+      href: '/venue-reports',
+      icon: Flag,
+      permission: 'venues.manage'
     },
     {
       name: 'Organizers',
@@ -300,6 +307,7 @@ export default function AdminLayout({ children }) {
     if (path === '/moderation') return 'Approval & Moderation Command Center';
     if (path === '/events') return 'Events Management & WordPress Sync';
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
+    if (path === '/venue-reports') return 'Venue Information Reports';
     if (path === '/organizers') return 'Organizers & Events Directory';
     if (path === '/chat-organizers') return 'Live Chat Organizers & Inquiries Control';
     if (path === '/organizer-support') return 'Organizer Support Chat';
