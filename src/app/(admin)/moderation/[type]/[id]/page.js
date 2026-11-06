@@ -36,7 +36,6 @@ import {
   AlertCircle,
   FileText,
   Layers,
-  Sparkles,
   Award,
   ChevronLeft,
   ChevronRight

@@ -35,7 +35,6 @@ import {
   Layers,
   AlertCircle,
   Loader2,
-  Sparkles,
   ShieldCheck,
   Building2,
   SlidersHorizontal,

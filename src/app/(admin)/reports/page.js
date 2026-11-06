@@ -45,7 +45,6 @@ import {
   X,
   Loader2,
   CheckCircle2,
-  Sparkles,
   Filter,
   ChevronDown,
   ExternalLink,
@@ -56,6 +55,7 @@ import {
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const REPORTS_EVALUATION_TIME = Date.now();
 
 const MODULE_OPTIONS = [
   { key: 'visitors', label: 'Visitors & Passes', icon: UserCheck },
@@ -66,6 +66,21 @@ const MODULE_OPTIONS = [
   { key: 'orders', label: 'Ticket Orders & Revenue', icon: Ticket },
   { key: 'campaigns', label: 'Marketing Campaigns', icon: Send }
 ];
+
+function getEventEndDate(value) {
+  if (!value) return null;
+  const dateOnlyMatch =
+    typeof value === 'string'
+      ? value.match(/^(\d{4}-\d{2}-\d{2})(?:T00:00:00(?:\.000)?Z)?$/)
+      : null;
+  const parsed = dateOnlyMatch ? new Date(`${dateOnlyMatch[1]}T00:00:00`) : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  if (parsed.getHours() === 0 && parsed.getMinutes() === 0) {
+    parsed.setHours(23, 59, 59, 999);
+  }
+  return parsed;
+}
 
 export default function AdminExpoReportsPage() {
   const { accessToken } = useAuth();
@@ -198,6 +213,16 @@ export default function AdminExpoReportsPage() {
       if (e.city && e.city.trim()) set.add(e.city.trim());
     });
     return Array.from(set).sort();
+  }, [expos]);
+
+  const concludedExpos = useMemo(() => {
+    return expos.filter(event => {
+      const eventStatus = String(event.status || '').toLowerCase();
+      if (['completed', 'ended', 'archived', 'expired'].includes(eventStatus)) return true;
+
+      const endDate = getEventEndDate(event.endDate || event.startDate);
+      return endDate ? endDate.getTime() < REPORTS_EVALUATION_TIME : false;
+    });
   }, [expos]);
 
   // Filtered & sorted expos
@@ -440,6 +465,61 @@ export default function AdminExpoReportsPage() {
     }
   };
 
+  const handleDownloadExhibitorsList = async (format) => {
+    if (!accessToken) return;
+
+    const actionKey = `exhibitors-list-${format}`;
+    setExportingKey(actionKey);
+    try {
+      const res = await axios.post(
+        `${API_URL}/admin/expo-reports/export-data`,
+        { exportAll: true, granularOnly: true },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!res.data?.success || !res.data?.data || typeof res.data.data !== 'object') {
+        throw new Error(res.data?.error || 'Could not load exhibitor records.');
+      }
+
+      const reportsData = Object.entries(res.data.data)
+        .map(([eventId, details]) => {
+          const expo = expos.find(event => String(event._id) === String(eventId));
+          if (!expo) return null;
+          return { expo, exhibitors: Array.isArray(details?.exhibitors) ? details.exhibitors : [] };
+        })
+        .filter(report => report && report.exhibitors.length > 0);
+      const exhibitorCount = reportsData.reduce((count, report) => count + report.exhibitors.length, 0);
+
+      if (exhibitorCount === 0) {
+        showSweetWarning('No exhibitor records found to download.');
+        return;
+      }
+
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      const fileName = `VisitExpo_Exhibitors_List_${dateStamp}.${format}`;
+      const modules = {
+        visitors: false,
+        attendees: false,
+        leads: false,
+        exhibitors: true,
+        sponsors: false,
+        orders: false,
+        campaigns: false
+      };
+
+      if (format === 'csv') {
+        exportExpoReportsToCSV(reportsData, modules, fileName);
+      } else {
+        exportExpoReportsToExcel(reportsData, modules, fileName);
+      }
+      showSweetSuccess(`Downloaded exhibitor list with ${exhibitorCount} records.`);
+    } catch (err) {
+      console.warn('Exhibitor list export failed:', err?.message || err);
+      showSweetError(err.response?.data?.error || err.message || 'Failed to download the exhibitor list.');
+    } finally {
+      setExportingKey('');
+    }
+  };
+
   // Open Single-Expo Data Inspector Modal
   const handleInspectExpo = async (expoId) => {
     if (!accessToken || !expoId) return;
@@ -486,7 +566,6 @@ export default function AdminExpoReportsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-primary mb-2">
-              <Sparkles className="h-3.5 w-3.5" />
               <span>Exhibition Intelligence &amp; Data Export Center</span>
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
@@ -781,6 +860,101 @@ export default function AdminExpoReportsPage() {
           <p className="mt-1 text-[11px] text-muted-foreground">{summary.totalOrders} Ticket Orders</p>
         </div>
       </div>
+
+      {/* Focused downloads for concluded events and the platform exhibitor directory */}
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="mb-4">
+          <h2 className="flex items-center gap-2 text-sm font-extrabold text-foreground">
+            <Download className="h-4 w-4 text-primary" />
+            Special Reports &amp; Downloads
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Download reports for concluded events or a consolidated list of exhibitors across all events.
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-xs font-extrabold text-foreground">
+                  <Calendar className="h-4 w-4 text-amber-500" />
+                  Expired / Concluded Events
+                </h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {concludedExpos.length} event{concludedExpos.length === 1 ? '' : 's'} with an elapsed end date or concluded status.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  disabled={!!exportingKey || concludedExpos.length === 0}
+                  onClick={() =>
+                    handleDownloadReport({
+                      targetIds: concludedExpos.map(event => String(event._id)),
+                      format: 'csv',
+                      actionKey: 'concluded-events-csv'
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold text-emerald-600 transition-colors hover:bg-emerald-500/20 disabled:opacity-40 dark:text-emerald-400"
+                >
+                  {exportingKey === 'concluded-events-csv' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  disabled={!!exportingKey || concludedExpos.length === 0}
+                  onClick={() =>
+                    handleDownloadReport({
+                      targetIds: concludedExpos.map(event => String(event._id)),
+                      format: 'xlsx',
+                      actionKey: 'concluded-events-xlsx'
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[11px] font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                >
+                  {exportingKey === 'concluded-events-xlsx' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+                  Excel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-xs font-extrabold text-foreground">
+                  <Building2 className="h-4 w-4 text-purple-500" />
+                  Exhibitors List
+                </h3>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Export exhibitor contacts, booth details, status, and associated event information.
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  disabled={!!exportingKey || expos.length === 0}
+                  onClick={() => handleDownloadExhibitorsList('csv')}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] font-bold text-emerald-600 transition-colors hover:bg-emerald-500/20 disabled:opacity-40 dark:text-emerald-400"
+                >
+                  {exportingKey === 'exhibitors-list-csv' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  disabled={!!exportingKey || expos.length === 0}
+                  onClick={() => handleDownloadExhibitorsList('xlsx')}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-[11px] font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
+                >
+                  {exportingKey === 'exhibitors-list-xlsx' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+                  Excel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Included Data Modules Selector Bar */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -1836,4 +2010,3 @@ export default function AdminExpoReportsPage() {
     </div>
   );
 }
-

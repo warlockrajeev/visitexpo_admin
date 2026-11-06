@@ -41,7 +41,6 @@ import {
   ArrowRight,
   Eye,
   RefreshCw,
-  Sparkles,
   Edit,
   Star,
   SlidersHorizontal,

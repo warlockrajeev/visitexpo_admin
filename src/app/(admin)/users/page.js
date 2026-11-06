@@ -42,7 +42,6 @@ import {
   FileText,
   Ticket,
   Store,
-  Sparkles,
   Globe,
   Hash,
   ChevronRight,

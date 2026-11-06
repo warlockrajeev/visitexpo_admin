@@ -26,7 +26,6 @@ import {
   TrendingUp,
   ShieldCheck,
   Calendar,
-  Sparkles,
   X,
   ChevronRight,
   ChevronLeft,

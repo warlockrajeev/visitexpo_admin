@@ -45,7 +45,6 @@ import {
   Grid,
   List,
   Eye,
-  Sparkles,
   Layers,
   ArrowUpDown,
   BellRing,
@@ -344,7 +343,6 @@ export default function ChatOrganizersPage() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-300" />
               <span>Organizer Live Communication Center</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">

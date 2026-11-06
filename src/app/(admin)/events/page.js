@@ -34,7 +34,6 @@ import {
   Trash2,
   Clock,
   Eye,
-  Sparkles,
   UploadCloud,
   FileText,
   DollarSign,

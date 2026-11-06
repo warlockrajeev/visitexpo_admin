@@ -39,7 +39,6 @@ import {
   HelpCircle,
   UserPlus,
   Send,
-  Sparkles,
   Flag,
   FileSpreadsheet
 } from 'lucide-react';
