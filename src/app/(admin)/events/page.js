@@ -1240,7 +1240,7 @@ export default function AdminEventsPage() {
                         name="orgEmail"
                         value={editingEvent.orgEmail}
                         onChange={handleEditChange}
-                        placeholder="organizer@visitexpo.in"
+                        placeholder="name@company.com"
                         className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                     </div>
@@ -1253,7 +1253,7 @@ export default function AdminEventsPage() {
                         name="orgPhone"
                         value={editingEvent.orgPhone}
                         onChange={handleEditChange}
-                        placeholder="+91 98765 43210"
+                        placeholder="+91 98765 xxxx"
                         className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                     </div>

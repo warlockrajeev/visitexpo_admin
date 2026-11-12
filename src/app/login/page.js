@@ -105,7 +105,7 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-xl border border-zinc-300 bg-zinc-50/60 focus:bg-white py-2.5 pl-10 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-                placeholder="admin@visitexpo.in"
+                placeholder="name@company.com"
               />
             </div>
           </div>

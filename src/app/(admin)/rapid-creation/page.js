@@ -537,7 +537,7 @@ export default function RapidCreationPage() {
                   required
                   value={singleForm.name}
                   onChange={(e) => setSingleForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Vikram Singhania"
+                  placeholder="First and last name"
                   className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -552,7 +552,7 @@ export default function RapidCreationPage() {
                   required
                   value={singleForm.email}
                   onChange={(e) => setSingleForm((prev) => ({ ...prev, email: e.target.value }))}
-                  placeholder="user@testexpo.in"
+                  placeholder="name@company.com"
                   className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                 />
               </div>
@@ -589,7 +589,7 @@ export default function RapidCreationPage() {
                   type="text"
                   value={singleForm.phone}
                   onChange={(e) => setSingleForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="9876543210"
+                  placeholder="98765xxxx"
                   className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                 />
               </div>

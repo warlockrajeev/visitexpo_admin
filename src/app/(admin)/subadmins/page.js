@@ -887,7 +887,7 @@ export default function SubadminsManagementPage() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Vikram Malhotra"
+                      placeholder="First and last name"
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -901,7 +901,7 @@ export default function SubadminsManagementPage() {
                       type="email"
                       required
                       disabled={modalMode === 'edit'}
-                      placeholder="e.g. vikram@visitexpo.in"
+                      placeholder="name@company.com"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
