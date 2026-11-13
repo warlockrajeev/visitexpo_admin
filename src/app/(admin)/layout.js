@@ -40,7 +40,8 @@ import {
   UserPlus,
   Send,
   Flag,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Mic
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -279,6 +280,20 @@ export default function AdminLayout({ children }) {
       badge: unreadInquiries > 0 ? `${unreadInquiries} New` : null,
       permission: 'contacts.manage'
     },
+    {
+      name: 'Booth Requests',
+      href: '/booth-requests',
+      icon: Building2,
+      badge: pendingCounts.pendingBoothRequests > 0 ? `${pendingCounts.pendingBoothRequests} New` : null,
+      permission: 'contacts.manage'
+    },
+    {
+      name: 'Speaker & VIP Requests',
+      href: '/event-requests',
+      icon: Mic,
+      badge: pendingCounts.pendingEventRequests > 0 ? `${pendingCounts.pendingEventRequests} New` : null,
+      permission: 'contacts.manage'
+    },
     { name: 'Reviews Moderation', href: '/reviews', icon: MessageSquare, badge: 'Live', permission: 'reviews.manage' },
     { name: 'FAQ Management', href: '/faqs', icon: HelpCircle, badge: 'CMS', permission: 'faqs.manage' },
     { name: 'CMS & Settings', href: '/settings', icon: Settings, permission: 'settings.manage' },
@@ -326,6 +341,8 @@ export default function AdminLayout({ children }) {
     if (path === '/attendees') return 'Event Attendees & Followers Directory';
     if (path === '/sponsors') return 'Our Sponsors & Exhibitor Partners';
     if (path === '/contacts') return 'Landing Page Contact Inquiries';
+    if (path === '/booth-requests') return 'Booth Request Queries';
+    if (path === '/event-requests') return 'Speaker, Delegation & Travel Requests';
     if (path === '/reviews') return 'Reviews Moderation & Landing Showcase';
     if (path === '/faqs') return 'FAQ Management & Landing Showcase';
     if (path === '/rapid-creation') return 'Rapid Dummy User Creation & Impersonation';
