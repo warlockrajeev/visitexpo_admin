@@ -42,7 +42,7 @@ import {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export default function AdminVisitorsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
 
   // Data States
   const [visitors, setVisitors] = useState([]);
@@ -105,7 +105,10 @@ export default function AdminVisitorsPage() {
 
   // 2. Fetch Visitors with instant sessionStorage caching
   const fetchVisitors = async (isRefresh = false) => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      if (!authLoading) setLoading(false);
+      return;
+    }
     if (isRefresh) setRefreshing(true);
     else if (visitors.length === 0) setLoading(true);
 
@@ -165,13 +168,17 @@ export default function AdminVisitorsPage() {
       console.warn('Could not read visitors cache:', e);
     }
 
-    fetchAuxiliaryData();
-  }, [accessToken]);
+    if (!authLoading) {
+      fetchAuxiliaryData();
+    }
+  }, [accessToken, authLoading]);
 
   useEffect(() => {
-    fetchVisitors();
-    setPage(1);
-  }, [accessToken, selectedEventId, searchQuery]);
+    if (!authLoading) {
+      fetchVisitors();
+      setPage(1);
+    }
+  }, [accessToken, authLoading, selectedEventId, searchQuery]);
 
   // Handle Toggle Check-in
   const handleToggleCheckin = async (visitorId, currentStatus) => {

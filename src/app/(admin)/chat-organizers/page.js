@@ -55,7 +55,7 @@ import {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export default function ChatOrganizersPage() {
-  const { accessToken, isSuperAdmin } = useAuth();
+  const { accessToken, isSuperAdmin, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -95,7 +95,10 @@ export default function ChatOrganizersPage() {
 
   // Load Organizers Data
   const fetchData = async (isSilent = false) => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      if (!authLoading) setLoading(false);
+      return;
+    }
     if (!isSilent && organizers.length === 0) setLoading(true);
     else setRefreshing(true);
 
@@ -149,8 +152,10 @@ export default function ChatOrganizersPage() {
       console.warn('Could not read chat organizers cache:', e);
     }
 
-    fetchData(true);
-  }, [accessToken]);
+    if (!authLoading) {
+      fetchData(true);
+    }
+  }, [accessToken, authLoading]);
 
   // Handle Instant Toggle
   const handleToggleChat = async (organizer, forcedState = null) => {

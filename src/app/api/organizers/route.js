@@ -339,6 +339,108 @@ export async function GET(request) {
     console.warn('[client-admin/api/organizers] Express fetch note:', expErr.message);
   }
 
+  // 0.5 Fast fallback: aggregate directly from Express fast events directory
+  try {
+    const dirRes = await fetch('http://localhost:5000/api/events/all-directory', {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000)
+    });
+    if (dirRes.ok) {
+      const dirJson = await dirRes.json();
+      const events = dirJson.events || dirJson.data?.docs || dirJson.data || [];
+      if (Array.isArray(events) && events.length > 0) {
+        const orgMap = {};
+        KNOWN_ORGANIZERS.forEach((ko) => {
+          orgMap[ko.name] = {
+            id: ko.id,
+            name: ko.name,
+            shortName: ko.shortName,
+            brandColor: ko.brandColor,
+            accentColor: ko.accentColor,
+            website: ko.website,
+            logoUrl: ko.logoUrl || null,
+            badge: ko.badge,
+            type: ko.type,
+            scope: ko.scope,
+            email: '',
+            phone: '',
+            events: []
+          };
+        });
+        const resolveKnownName = (raw) => {
+          const clean = (raw || '').trim();
+          if (!clean || clean === 'Verified Organizer' || clean === 'VisitExpo Verified Organizer') {
+            return 'VisitExpo Verified Partner Expos';
+          }
+          for (const ko of KNOWN_ORGANIZERS) {
+            if (ko.aliases.some((rgx) => rgx.test(clean))) return ko.name;
+          }
+          return clean;
+        };
+        events.forEach((evt) => {
+          const resolvedName = resolveKnownName(evt.organizerName || evt.orgName || evt.organizer);
+          if (!orgMap[resolvedName]) {
+            const colors = getDynamicBrandColors(resolvedName);
+            orgMap[resolvedName] = {
+              id: resolvedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+              name: resolvedName,
+              shortName: resolvedName,
+              brandColor: colors.brand,
+              accentColor: colors.accent,
+              website: '',
+              logoUrl: null,
+              badge: resolvedName === 'VisitExpo Verified Partner Expos' ? 'Partner Fairs' : 'Platform Tenant',
+              type: resolvedName === 'VisitExpo Verified Partner Expos' ? 'national' : 'independent',
+              scope: 'Verified exhibition organizer hosting major trade events.',
+              email: '',
+              phone: '',
+              events: []
+            };
+          }
+          orgMap[resolvedName].events.push({
+            id: String(evt._id || evt.id),
+            title: evt.title,
+            slug: evt.slug,
+            category: Array.isArray(evt.categories) ? evt.categories[0] : (evt.category || 'Trade & Industry'),
+            venue: evt.venue || 'Convention Center',
+            city: evt.city || 'India',
+            country: evt.country || 'India',
+            image: evt.banner || evt.image || null,
+            banner: evt.banner || evt.image || null,
+            startDate: evt.startDate,
+            endDate: evt.endDate,
+            dates: evt.startDate ? new Date(evt.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Upcoming',
+            organizer: resolvedName,
+            status: evt.status || 'published',
+            wpUrl: evt.wpUrl || '',
+            isWordPress: Boolean(evt.wpPostId)
+          });
+        });
+
+        const list = Object.values(orgMap)
+          .filter((o) => {
+            const oName = (o.name || '').toLowerCase().trim();
+            const oId = (o.id || '').toLowerCase().trim();
+            return !deletedNames.has(oName) && !deletedSlugIds.has(oId) && oId !== 'global-tech-events';
+          })
+          .map((o) => ({ ...o, count: o.events.length }))
+          .sort((a, b) => b.count - a.count);
+
+        cachedData = {
+          totalOrganizers: list.length,
+          totalEvents: list.reduce((sum, o) => sum + o.count, 0),
+          internationalCount: list.filter((o) => o.type === 'international').length,
+          nationalCount: list.filter((o) => o.type === 'national').length,
+          organizers: list
+        };
+        cacheTime = now;
+        return NextResponse.json({ success: true, data: cachedData });
+      }
+    }
+  } catch (dirErr) {
+    console.warn('[client-admin/api/organizers] Directory fallback warning:', dirErr.message);
+  }
+
   // 1. First attempt: fetch from WordPress inspect-event-meta
   try {
     const wpUrl = process.env.WORDPRESS_URL || 'https://visitexpo.in';

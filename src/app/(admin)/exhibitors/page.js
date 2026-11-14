@@ -45,7 +45,7 @@ import {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export default function AdminExhibitorsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
 
   // Data States
   const [exhibitors, setExhibitors] = useState([]);
@@ -139,7 +139,10 @@ export default function AdminExhibitorsPage() {
 
   // 2. Fetch Exhibitors with instant sessionStorage caching
   const fetchExhibitors = async (isRefresh = false) => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      if (!authLoading) setLoading(false);
+      return;
+    }
     if (isRefresh) setRefreshing(true);
     else if (exhibitors.length === 0) setLoading(true);
 
@@ -200,13 +203,17 @@ export default function AdminExhibitorsPage() {
       console.warn('Could not read exhibitors cache:', e);
     }
 
-    fetchAuxiliaryData();
-  }, [accessToken]);
+    if (!authLoading) {
+      fetchAuxiliaryData();
+    }
+  }, [accessToken, authLoading]);
 
   useEffect(() => {
-    fetchExhibitors();
-    setPage(1);
-  }, [accessToken, activeTab, selectedEventId, searchQuery]);
+    if (!authLoading) {
+      fetchExhibitors();
+      setPage(1);
+    }
+  }, [accessToken, authLoading, activeTab, selectedEventId, searchQuery]);
 
   // Handle Approve / Reject / Revert
   const handleStatusUpdate = async (exhibitorId, status) => {

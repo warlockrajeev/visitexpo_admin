@@ -217,7 +217,7 @@ const CURRENCY_OPTIONS = [
 ];
 
 export default function AdminEventsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
 
   // Data states
   const [events, setEvents] = useState([]);
@@ -293,6 +293,7 @@ export default function AdminEventsPage() {
   };
 
   useEffect(() => {
+    let hasCachedEvents = false;
     try {
       if (typeof window !== 'undefined') {
         const cached = sessionStorage.getItem('visitexpo_admin_events_cache');
@@ -302,6 +303,7 @@ export default function AdminEventsPage() {
             setEvents(parsed.events);
             if (parsed.stats) setStats(parsed.stats);
             setLoading(false);
+            hasCachedEvents = true;
           }
         }
       }
@@ -309,10 +311,14 @@ export default function AdminEventsPage() {
       console.warn('Could not read admin events cache:', e);
     }
 
-    if (accessToken) {
-      fetchEvents(true);
+    if (authLoading) return;
+    if (!accessToken) {
+      setLoading(false);
+      return;
     }
-  }, [accessToken]);
+
+    fetchEvents(hasCachedEvents);
+  }, [accessToken, authLoading]);
 
   // Dismiss feedback
   useEffect(() => {

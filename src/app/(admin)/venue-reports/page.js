@@ -24,7 +24,7 @@ const statusStyles = {
 };
 
 export default function VenueReportsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
   const [reports, setReports] = useState([]);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,11 @@ export default function VenueReportsPage() {
   const [error, setError] = useState('');
 
   const fetchReports = useCallback(async () => {
-    if (!accessToken) return;
+    if (authLoading) return;
+    if (!accessToken) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -50,7 +54,7 @@ export default function VenueReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, statusFilter]);
+  }, [accessToken, authLoading, statusFilter]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Load reports when the admin filter or session changes.

@@ -64,7 +64,7 @@ const CATEGORY_COLORS = {
 };
 
 export default function OrganizersPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
   const [data, setData] = useState({
     totalOrganizers: 0,
     totalEvents: 0,
@@ -305,8 +305,9 @@ export default function OrganizersPage() {
       console.warn('Could not read admin organizers cache:', e);
     }
 
+    if (authLoading) return;
     fetchOrganizers();
-  }, [accessToken]);
+  }, [accessToken, authLoading]);
 
   // Distinct cities across all events
   const availableCities = useMemo(() => {

@@ -83,7 +83,7 @@ function getEventEndDate(value) {
 }
 
 export default function AdminExpoReportsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
 
   // Master data state
   const [expos, setExpos] = useState([]);
@@ -178,6 +178,7 @@ export default function AdminExpoReportsPage() {
   }, [accessToken, expos.length]);
 
   useEffect(() => {
+    let hasCachedReports = false;
     try {
       if (typeof window !== 'undefined') {
         const cached = sessionStorage.getItem('visitexpo_admin_expo_reports_cache');
@@ -187,15 +188,20 @@ export default function AdminExpoReportsPage() {
             setExpos(parsed.expos);
             if (parsed.summary) setSummary(prev => ({ ...prev, ...parsed.summary }));
             setLoading(false);
+            hasCachedReports = true;
           }
         }
       }
     } catch {}
 
-    if (accessToken) {
-      fetchExpoReports(true);
+    if (authLoading) return;
+    if (!accessToken) {
+      setLoading(false);
+      return;
     }
-  }, [accessToken]);
+
+    fetchExpoReports(hasCachedReports);
+  }, [accessToken, authLoading]);
 
   // Distinct categories & cities for filter dropdowns
   const availableCategories = useMemo(() => {

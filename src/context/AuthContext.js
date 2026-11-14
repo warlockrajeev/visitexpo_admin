@@ -9,8 +9,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 import { showSweetConfirm } from '../utils/sweetalert.js';
 
-// Set axios default withCredentials at module level
+// Set axios defaults at module level so admin pages never hang indefinitely on slow connections
 axios.defaults.withCredentials = true;
+axios.defaults.timeout = 18000;
 
 const AuthContext = createContext();
 
