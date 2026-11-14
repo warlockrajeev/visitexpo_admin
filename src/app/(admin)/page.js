@@ -66,9 +66,10 @@ const PLAN_COLORS = {
 };
 
 export default function AdminOverview() {
-  const { user, accessToken } = useAuth();
+  const { user, accessToken, loading: authLoading } = useAuth();
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [isMounted, setIsMounted] = useState(false);
   const [tenantsPage, setTenantsPage] = useState(1);
   const tenantsPerPage = 10;
@@ -78,6 +79,7 @@ export default function AdminOverview() {
   }, []);
 
   useEffect(() => {
+    let hasCachedMetrics = false;
     try {
       if (typeof window !== 'undefined') {
         const cached = sessionStorage.getItem('visitexpo_admin_overview_metrics');
@@ -86,6 +88,7 @@ export default function AdminOverview() {
           if (parsed && parsed.kpis) {
             setMetrics(parsed);
             setLoading(false);
+            hasCachedMetrics = true;
           }
         }
       }
@@ -93,13 +96,21 @@ export default function AdminOverview() {
       console.warn('Could not read admin overview cache:', e);
     }
 
+    if (authLoading) return;
+    if (!accessToken) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
     const fetchDashboardData = async () => {
-      if (!accessToken) return;
       try {
+        setFetchError('');
         const res = await axios.get(`${API_URL}/admin/dashboard`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: 15000
         });
-        if (res.data && res.data.success) {
+        if (!cancelled && res.data && res.data.success) {
           const freshMetrics = res.data.analytics;
           setMetrics(freshMetrics);
           try {
@@ -112,12 +123,20 @@ export default function AdminOverview() {
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
+        if (!cancelled && !hasCachedMetrics) {
+          setFetchError(err.response?.data?.error || 'Could not load live dashboard metrics. Check API connectivity and try refreshing.');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
     fetchDashboardData();
-  }, [accessToken]);
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, authLoading]);
 
   const totalTenants = metrics?.recentTenants?.length || 0;
   const totalTenantsPages = Math.max(1, Math.ceil(totalTenants / tenantsPerPage));
@@ -352,6 +371,14 @@ export default function AdminOverview() {
           <CheckCircle2 className="h-4 w-4" /> Moderation Queue {loading ? '' : `(${totalPending} Pending)`}
         </Link>
       </div>
+
+      {/* Fetch Error Banner */}
+      {fetchError && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-xs font-medium text-destructive flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{fetchError}</span>
+        </div>
+      )}
 
       {/* Moderation Alert Banner */}
       <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-5 shadow-sm">

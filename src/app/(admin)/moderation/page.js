@@ -41,7 +41,7 @@ import {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export default function ModerationPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('organizers'); // organizers, exhibitors, claims
 
   // Data States
@@ -132,47 +132,72 @@ export default function ModerationPage() {
 
   // Fetch pending organizers, exhibitors, and event claims on load with instant sessionStorage caching
   const fetchModerationData = async (silent = false) => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      setLoading(false);
+      return;
+    }
     if (!silent) setLoading(true);
     try {
-      const headers = { Authorization: `Bearer ${accessToken}` };
-      const [orgRes, exRes, claimRes, historyRes, orgHistRes, exHistRes, eventRes, eventHistRes] = await Promise.all([
-        axios.get(`${API_URL}/admin/pending-organizers`, { headers }),
-        axios.get(`${API_URL}/admin/pending-exhibitors`, { headers }),
-        axios.get(`${API_URL}/admin/pending-claims`, { headers }),
-        axios.get(`${API_URL}/admin/claim-history`, { headers }),
-        axios.get(`${API_URL}/admin/organizer-history`, { headers }),
-        axios.get(`${API_URL}/admin/exhibitor-history`, { headers }),
-        axios.get(`${API_URL}/admin/pending-events`, { headers }),
-        axios.get(`${API_URL}/admin/event-history`, { headers })
+      const config = {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 15000
+      };
+      const [orgRes, exRes, claimRes, historyRes, orgHistRes, exHistRes, eventRes, eventHistRes] = await Promise.allSettled([
+        axios.get(`${API_URL}/admin/pending-organizers`, config),
+        axios.get(`${API_URL}/admin/pending-exhibitors`, config),
+        axios.get(`${API_URL}/admin/pending-claims`, config),
+        axios.get(`${API_URL}/admin/claim-history`, config),
+        axios.get(`${API_URL}/admin/organizer-history`, config),
+        axios.get(`${API_URL}/admin/exhibitor-history`, config),
+        axios.get(`${API_URL}/admin/pending-events`, config),
+        axios.get(`${API_URL}/admin/event-history`, config)
       ]);
 
-      const freshData = {
-        pendingOrganizers: orgRes.data?.data || [],
-        pendingExhibitors: exRes.data?.data || [],
-        pendingClaims: claimRes.data?.data || [],
-        claimHistory: historyRes.data?.data || [],
-        organizerHistory: orgHistRes.data?.data || [],
-        exhibitorHistory: exHistRes.data?.data || [],
-        pendingEvents: eventRes.data?.data || [],
-        eventHistory: eventHistRes.data?.data || []
+      const extractList = (settled) =>
+        settled.status === 'fulfilled' && settled.value?.data?.success
+          ? settled.value.data.data || []
+          : null;
+
+      const freshData = {};
+      const applyResult = (settled, key, setter) => {
+        const list = extractList(settled);
+        if (list !== null) {
+          freshData[key] = list;
+          setter(list);
+        }
       };
 
-      if (orgRes.data && orgRes.data.success) setPendingOrganizers(freshData.pendingOrganizers);
-      if (exRes.data && exRes.data.success) setPendingExhibitors(freshData.pendingExhibitors);
-      if (claimRes.data && claimRes.data.success) setPendingClaims(freshData.pendingClaims);
-      if (historyRes.data && historyRes.data.success) setClaimHistory(freshData.claimHistory);
-      if (orgHistRes.data && orgHistRes.data.success) setOrganizerHistory(freshData.organizerHistory);
-      if (exHistRes.data && exHistRes.data.success) setExhibitorHistory(freshData.exhibitorHistory);
-      if (eventRes.data && eventRes.data.success) setPendingEvents(freshData.pendingEvents);
-      if (eventHistRes.data && eventHistRes.data.success) setEventHistory(freshData.eventHistory);
+      applyResult(orgRes, 'pendingOrganizers', setPendingOrganizers);
+      applyResult(exRes, 'pendingExhibitors', setPendingExhibitors);
+      applyResult(claimRes, 'pendingClaims', setPendingClaims);
+      applyResult(historyRes, 'claimHistory', setClaimHistory);
+      applyResult(orgHistRes, 'organizerHistory', setOrganizerHistory);
+      applyResult(exHistRes, 'exhibitorHistory', setExhibitorHistory);
+      applyResult(eventRes, 'pendingEvents', setPendingEvents);
+      applyResult(eventHistRes, 'eventHistory', setEventHistory);
 
-      try {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('visitexpo_admin_moderation_cache', JSON.stringify(freshData));
+      const results = [orgRes, exRes, claimRes, historyRes, orgHistRes, exHistRes, eventRes, eventHistRes];
+      const failedCount = results.filter((r) => r.status === 'rejected').length;
+      if (failedCount === results.length) {
+        setMessage({
+          type: 'error',
+          text: 'Could not reach the moderation server. Please refresh in a moment.'
+        });
+      }
+
+      if (Object.keys(freshData).length > 0) {
+        try {
+          if (typeof window !== 'undefined') {
+            const existingRaw = sessionStorage.getItem('visitexpo_admin_moderation_cache');
+            const existingParsed = existingRaw ? JSON.parse(existingRaw) : {};
+            sessionStorage.setItem(
+              'visitexpo_admin_moderation_cache',
+              JSON.stringify({ ...existingParsed, ...freshData })
+            );
+          }
+        } catch (e) {
+          console.warn('Could not cache moderation queue:', e);
         }
-      } catch (e) {
-        console.warn('Could not cache moderation queue:', e);
       }
     } catch (err) {
       console.error('Failed to load moderation queue', err);
@@ -182,6 +207,7 @@ export default function ModerationPage() {
   };
 
   useEffect(() => {
+    let hasCachedQueue = false;
     try {
       if (typeof window !== 'undefined') {
         const cached = sessionStorage.getItem('visitexpo_admin_moderation_cache');
@@ -197,6 +223,7 @@ export default function ModerationPage() {
             if (Array.isArray(parsed.pendingEvents)) setPendingEvents(parsed.pendingEvents);
             if (Array.isArray(parsed.eventHistory)) setEventHistory(parsed.eventHistory);
             setLoading(false);
+            hasCachedQueue = true;
           }
         }
       }
@@ -204,10 +231,14 @@ export default function ModerationPage() {
       console.warn('Could not read moderation cache:', e);
     }
 
-    if (accessToken) {
-      fetchModerationData(true);
+    if (authLoading) return;
+    if (!accessToken) {
+      setLoading(false);
+      return;
     }
-  }, [accessToken]);
+
+    fetchModerationData(hasCachedQueue);
+  }, [accessToken, authLoading]);
 
   useEffect(() => {
     setOrganizerHistoryPage(1);
