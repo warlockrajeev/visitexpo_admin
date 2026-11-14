@@ -62,7 +62,7 @@ export default function AdminVisitorsPage() {
   const [toast, setToast] = useState(null);
 
   // Filter & Search States
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'checked_in' | 'not_checked_in' | 'virtual'
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'pending' | 'checked_in' | 'not_checked_in' | 'virtual'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEventId, setSelectedEventId] = useState('all');
   const [page, setPage] = useState(1);
@@ -115,9 +115,10 @@ export default function AdminVisitorsPage() {
     try {
       const headers = { Authorization: `Bearer ${accessToken}` };
       const params = {
-        limit: 80,
+        limit: 200,
         page: 1
       };
+      if (activeTab === 'pending') params.status = 'pending';
       if (selectedEventId !== 'all') params.eventId = selectedEventId;
       if (searchQuery.trim()) params.search = searchQuery.trim();
 
@@ -125,7 +126,7 @@ export default function AdminVisitorsPage() {
       if (res.data?.success) {
         const freshDocs = res.data.data?.docs || [];
         setVisitors(freshDocs);
-        if (selectedEventId === 'all' && !searchQuery.trim()) {
+        if (activeTab === 'all' && selectedEventId === 'all' && !searchQuery.trim()) {
           try {
             if (typeof window !== 'undefined') {
               sessionStorage.setItem('visitexpo_admin_visitors_list', JSON.stringify(freshDocs));
@@ -178,7 +179,7 @@ export default function AdminVisitorsPage() {
       fetchVisitors();
       setPage(1);
     }
-  }, [accessToken, authLoading, selectedEventId, searchQuery]);
+  }, [accessToken, authLoading, selectedEventId, searchQuery, activeTab]);
 
   // Handle Toggle Check-in
   const handleToggleCheckin = async (visitorId, currentStatus) => {
@@ -230,17 +231,37 @@ export default function AdminVisitorsPage() {
       );
 
       if (res.data?.success) {
+        const updatedDoc = res.data.visitor || {};
         setToast({
           type: 'success',
-          message: `Visitor pass registration set to ${registrationStatus.toUpperCase()}!`
+          message:
+            registrationStatus === 'confirmed'
+              ? 'Pass request approved & digital QR pass issued!'
+              : registrationStatus === 'cancelled'
+              ? 'Visitor pass request declined.'
+              : `Visitor pass status set to ${registrationStatus.toUpperCase()}!`
         });
 
         setVisitors(prev =>
-          prev.map(v => (v._id === visitorId ? { ...v, registrationStatus } : v))
+          prev.map(v =>
+            v._id === visitorId
+              ? {
+                  ...v,
+                  registrationStatus,
+                  qrCode: updatedDoc.qrCode ?? v.qrCode,
+                  passStatus: updatedDoc.passStatus ?? v.passStatus
+                }
+              : v
+          )
         );
 
         if (selectedVisitor?._id === visitorId) {
-          setSelectedVisitor(prev => ({ ...prev, registrationStatus }));
+          setSelectedVisitor(prev => ({
+            ...prev,
+            registrationStatus,
+            qrCode: updatedDoc.qrCode ?? prev.qrCode,
+            passStatus: updatedDoc.passStatus ?? prev.passStatus
+          }));
         }
 
         fetchAuxiliaryData();
@@ -319,7 +340,8 @@ export default function AdminVisitorsPage() {
       const matchesEvent = selectedEventId === 'all' || v.event?._id === selectedEventId || v.event === selectedEventId;
 
       let matchesTab = true;
-      if (activeTab === 'checked_in') matchesTab = v.checkInStatus === 'checked_in';
+      if (activeTab === 'pending') matchesTab = v.registrationStatus === 'pending';
+      else if (activeTab === 'checked_in') matchesTab = v.checkInStatus === 'checked_in';
       else if (activeTab === 'not_checked_in') matchesTab = v.checkInStatus !== 'checked_in';
       else if (activeTab === 'virtual') matchesTab = v.attendanceType === 'virtual';
 
@@ -392,14 +414,39 @@ export default function AdminVisitorsPage() {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div
+          onClick={() => setActiveTab('all')}
+          className={`bg-card border rounded-2xl p-5 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'all' ? 'ring-2 ring-blue-500 border-blue-500/50' : 'border-border hover:border-blue-500/30'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Registered Visitors</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Visitors</span>
             <Users className="h-4 w-4 text-blue-500" />
           </div>
           <p className="text-2xl font-extrabold text-foreground mt-2">{stats.total}</p>
           <span className="text-[11px] text-muted-foreground">Across all exhibitions</span>
+        </div>
+
+        <div
+          onClick={() => setActiveTab('pending')}
+          className={`bg-card border rounded-2xl p-5 shadow-sm cursor-pointer transition-all ${
+            activeTab === 'pending'
+              ? 'ring-2 ring-amber-500 border-amber-500/50'
+              : stats.pending > 0
+              ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500/70'
+              : 'border-border hover:border-amber-500/30'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              Pass Requests
+            </span>
+            <Ticket className="h-4 w-4 text-amber-500" />
+          </div>
+          <p className="text-2xl font-extrabold text-amber-500 mt-2">{stats.pending || 0}</p>
+          <span className="text-[11px] text-muted-foreground">Awaiting admin approval</span>
         </div>
 
         <div
@@ -421,16 +468,16 @@ export default function AdminVisitorsPage() {
         <div
           onClick={() => setActiveTab('not_checked_in')}
           className={`bg-card border rounded-2xl p-5 shadow-sm cursor-pointer transition-all ${
-            activeTab === 'not_checked_in' ? 'ring-2 ring-amber-500 border-amber-500/50' : 'border-border hover:border-amber-500/30'
+            activeTab === 'not_checked_in' ? 'ring-2 ring-slate-500 border-slate-500/50' : 'border-border hover:border-slate-500/30'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Awaiting Check-in
             </span>
-            <Clock className="h-4 w-4 text-amber-500" />
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </div>
-          <p className="text-2xl font-extrabold text-amber-500 mt-2">{stats.notCheckedIn}</p>
+          <p className="text-2xl font-extrabold text-foreground mt-2">{stats.notCheckedIn}</p>
           <span className="text-[11px] text-muted-foreground">Registered badge holders</span>
         </div>
 
@@ -458,6 +505,7 @@ export default function AdminVisitorsPage() {
           <div className="flex flex-wrap gap-1.5 p-1 bg-muted/40 rounded-xl border border-border/50">
             {[
               { id: 'all', label: 'All Visitors', count: stats.total },
+              { id: 'pending', label: 'Pass Requests', count: stats.pending || 0, highlight: (stats.pending || 0) > 0 },
               { id: 'checked_in', label: 'Checked In', count: stats.checkedIn },
               { id: 'not_checked_in', label: 'Awaiting Check-in', count: stats.notCheckedIn },
               { id: 'virtual', label: 'Virtual Passes', count: stats.virtual }
@@ -468,12 +516,16 @@ export default function AdminVisitorsPage() {
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   activeTab === tab.id
                     ? 'bg-background text-foreground shadow-sm'
+                    : tab.highlight
+                    ? 'text-amber-600 dark:text-amber-400 hover:text-amber-700'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <span>{tab.label}</span>
                 {tab.count !== undefined && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    tab.highlight ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground'
+                  }`}>
                     {tab.count}
                   </span>
                 )}
@@ -634,24 +686,52 @@ export default function AdminVisitorsPage() {
                     {/* Actions */}
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleToggleCheckin(vis._id, vis.checkInStatus)}
-                          disabled={actionLoadingId === vis._id}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer ${
-                            vis.checkInStatus === 'checked_in'
-                              ? 'bg-secondary text-foreground hover:bg-secondary/80 border border-border'
-                              : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                          }`}
-                          title={vis.checkInStatus === 'checked_in' ? 'Undo Check-in' : 'Check In Visitor'}
-                        >
-                          {actionLoadingId === vis._id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : vis.checkInStatus === 'checked_in' ? (
-                            'Undo Check-in'
-                          ) : (
-                            'Check In'
-                          )}
-                        </button>
+                        {vis.registrationStatus === 'pending' ? (
+                          <>
+                            <button
+                              onClick={() => handleUpdateRegistrationStatus(vis._id, 'confirmed')}
+                              disabled={actionLoadingId === vis._id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                              title="Approve Pass Request & Generate QR Badge"
+                            >
+                              {actionLoadingId === vis._id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Approve Pass</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleUpdateRegistrationStatus(vis._id, 'cancelled')}
+                              disabled={actionLoadingId === vis._id}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white border border-rose-500/20 transition-all cursor-pointer disabled:opacity-60"
+                              title="Decline Pass Request"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleCheckin(vis._id, vis.checkInStatus)}
+                            disabled={actionLoadingId === vis._id || vis.registrationStatus === 'cancelled'}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 ${
+                              vis.checkInStatus === 'checked_in'
+                                ? 'bg-secondary text-foreground hover:bg-secondary/80 border border-border'
+                                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            }`}
+                            title={vis.checkInStatus === 'checked_in' ? 'Undo Check-in' : 'Check In Visitor'}
+                          >
+                            {actionLoadingId === vis._id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : vis.checkInStatus === 'checked_in' ? (
+                              'Undo Check-in'
+                            ) : (
+                              'Check In'
+                            )}
+                          </button>
+                        )}
 
                         <button
                           onClick={() => setSelectedVisitor(vis)}
@@ -756,23 +836,44 @@ export default function AdminVisitorsPage() {
 
             {/* Badge Footer Buttons */}
             <div className="p-4 border-t border-border bg-muted/20 flex items-center justify-between gap-3">
-              <button
-                onClick={() => window.print()}
-                className="flex-1 py-2 rounded-xl border border-border text-foreground hover:bg-secondary font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
-              >
-                <Printer className="h-3.5 w-3.5" /> Print Badge
-              </button>
+              {selectedVisitor.registrationStatus === 'pending' ? (
+                <>
+                  <button
+                    onClick={() => handleUpdateRegistrationStatus(selectedVisitor._id, 'cancelled')}
+                    disabled={actionLoadingId === selectedVisitor._id}
+                    className="flex-1 py-2 rounded-xl border border-rose-500/30 text-rose-600 hover:bg-rose-500/10 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" /> Reject Request
+                  </button>
+                  <button
+                    onClick={() => handleUpdateRegistrationStatus(selectedVisitor._id, 'confirmed')}
+                    disabled={actionLoadingId === selectedVisitor._id}
+                    className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-emerald-500 hover:bg-emerald-600 transition-all shadow flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Check className="h-3.5 w-3.5" /> Approve &amp; Issue Pass
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => window.print()}
+                    className="flex-1 py-2 rounded-xl border border-border text-foreground hover:bg-secondary font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Printer className="h-3.5 w-3.5" /> Print Badge
+                  </button>
 
-              <button
-                onClick={() => handleToggleCheckin(selectedVisitor._id, selectedVisitor.checkInStatus)}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold text-white transition-all shadow ${
-                  selectedVisitor.checkInStatus === 'checked_in'
-                    ? 'bg-amber-500 hover:bg-amber-600'
-                    : 'bg-emerald-500 hover:bg-emerald-600'
-                }`}
-              >
-                {selectedVisitor.checkInStatus === 'checked_in' ? 'Revert Check-in' : 'Admit Visitor'}
-              </button>
+                  <button
+                    onClick={() => handleToggleCheckin(selectedVisitor._id, selectedVisitor.checkInStatus)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold text-white transition-all shadow ${
+                      selectedVisitor.checkInStatus === 'checked_in'
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : 'bg-emerald-500 hover:bg-emerald-600'
+                    }`}
+                  >
+                    {selectedVisitor.checkInStatus === 'checked_in' ? 'Revert Check-in' : 'Admit Visitor'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

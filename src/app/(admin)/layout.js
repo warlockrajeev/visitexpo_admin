@@ -56,6 +56,7 @@ export default function AdminLayout({ children }) {
     pendingExhibitors: 0,
     pendingClaims: 0,
     pendingEvents: 0,
+    pendingPassRequests: 0,
     totalPending: 0
   });
   const pathname = usePathname();
@@ -225,10 +226,11 @@ export default function AdminLayout({ children }) {
       permission: 'exhibitors.view'
     },
     {
-      name: 'Visitors',
+      name: 'Visitors & Pass Requests',
       href: '/visitors',
       icon: Users,
-      badge: 'Live',
+      badge: pendingCounts.pendingPassRequests > 0 ? `${pendingCounts.pendingPassRequests} Requests` : 'Live',
+      badgeColor: pendingCounts.pendingPassRequests > 0 ? 'bg-amber-500 text-white animate-pulse' : undefined,
       permission: 'visitors.view'
     },
     { name: 'Event Categories', href: '/categories', icon: Layers, permission: 'categories.view' },
