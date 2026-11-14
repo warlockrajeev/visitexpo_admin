@@ -183,6 +183,12 @@ export default function AdminLayout({ children }) {
       permission: 'venues.manage'
     },
     {
+      name: 'Event Reports',
+      href: '/event-reports',
+      icon: Flag,
+      permission: 'events.view'
+    },
+    {
       name: 'Organizers',
       href: '/organizers',
       icon: CalendarDays,
@@ -332,6 +338,7 @@ export default function AdminLayout({ children }) {
     if (path === '/reports') return 'Expo Reports & Multi-Format Data Export';
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
     if (path === '/venue-reports') return 'Venue Information Reports';
+    if (path === '/event-reports') return 'Event Issue Reports';
     if (path === '/organizers') return 'Organizers & Events Directory';
     if (path === '/chat-organizers') return 'Live Chat Organizers & Inquiries Control';
     if (path === '/organizer-support') return 'Organizer Support Chat';
