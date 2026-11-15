@@ -7,7 +7,7 @@
  * and automatic two-way synchronization with WordPress (visitexpo.in).
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
@@ -233,11 +233,14 @@ export default function AdminEventsPage() {
 
   // Filters & Controls
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [currentPage, setCurrentPage] = useState(1);
+  const [paginationInfo, setPaginationInfo] = useState({ total: 0, pages: 1 });
   const itemsPerPage = 10;
+  const fetchRequestIdRef = useRef(0);
 
   // Edit Drawer state
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -253,72 +256,114 @@ export default function AdminEventsPage() {
   // Delete Modal state
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, event: null, isDeleting: false });
 
-  // Fetch events list with instant sessionStorage caching
-  const fetchEvents = async (silent = false) => {
-    if (!silent && events.length === 0) setLoading(true);
+  // Debounce search input cleanly so server-side query runs across all platform events
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch events list via server-side pagination, search & filters across ALL events in database
+  const fetchEvents = useCallback(async (silent = false, useCacheForInstantPaint = false) => {
+    if (!accessToken) return;
+    const reqId = ++fetchRequestIdRef.current;
+    let paintedFromCache = silent;
+
+    if (useCacheForInstantPaint && currentPage === 1 && statusFilter === 'all' && categoryFilter === 'all' && !debouncedSearch) {
+      try {
+        if (typeof window !== 'undefined') {
+          const cached = sessionStorage.getItem('visitexpo_admin_events_cache');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed?.events) && parsed.events.length > 0 && parsed.events.length <= itemsPerPage) {
+              setEvents(parsed.events);
+              if (parsed.stats) setStats(parsed.stats);
+              if (parsed.pagination) {
+                setPaginationInfo({
+                  total: parsed.pagination.total ?? parsed.stats?.totalEvents ?? parsed.events.length,
+                  pages: Math.max(1, parsed.pagination.pages || 1)
+                });
+              }
+              setLoading(false);
+              paintedFromCache = true;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read admin events cache:', e);
+      }
+    }
+
+    if (!paintedFromCache) setLoading(true);
     setRefreshing(true);
     try {
-      const res = await axios.get(`${API_URL}/admin/events?limit=200`, {
+      const res = await axios.get(`${API_URL}/admin/events`, {
+        params: {
+          page: currentPage,
+          limit: itemsPerPage,
+          status: statusFilter,
+          category: categoryFilter,
+          search: debouncedSearch
+        },
         headers: { Authorization: `Bearer ${accessToken}` }
       });
+      if (reqId !== fetchRequestIdRef.current) return;
       if (res.data?.success && res.data?.data) {
         const freshEvents = res.data.data.events || [];
+        const freshPagination = res.data.data.pagination || {
+          total: freshEvents.length,
+          pages: 1
+        };
         setEvents(freshEvents);
+        setPaginationInfo({
+          total: typeof freshPagination.total === 'number' ? freshPagination.total : freshEvents.length,
+          pages: Math.max(1, freshPagination.pages || 1)
+        });
         if (res.data.data.stats) {
           setStats(res.data.data.stats);
         }
-        try {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem('visitexpo_admin_events_cache', JSON.stringify({
-              events: freshEvents,
-              stats: res.data.data.stats
-            }));
+        // Only cache the default unfiltered first page in sessionStorage
+        if (currentPage === 1 && statusFilter === 'all' && categoryFilter === 'all' && !debouncedSearch) {
+          try {
+            if (typeof window !== 'undefined') {
+              sessionStorage.setItem('visitexpo_admin_events_cache', JSON.stringify({
+                events: freshEvents,
+                stats: res.data.data.stats,
+                pagination: freshPagination
+              }));
+            }
+          } catch (e) {
+            console.warn('Could not cache admin events:', e);
           }
-        } catch (e) {
-          console.warn('Could not cache admin events:', e);
         }
       }
     } catch (err) {
+      if (reqId !== fetchRequestIdRef.current) return;
       console.error('Error fetching admin events:', err);
-      if (events.length === 0) {
-        setFeedback({
-          type: 'error',
-          message: err.response?.data?.error || 'Failed to load events from server.'
-        });
-      }
+      setFeedback({
+        type: 'error',
+        message: err.response?.data?.error || 'Failed to load events from server.'
+      });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (reqId === fetchRequestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  };
+  }, [accessToken, currentPage, itemsPerPage, statusFilter, categoryFilter, debouncedSearch]);
 
   useEffect(() => {
-    let hasCachedEvents = false;
-    try {
-      if (typeof window !== 'undefined') {
-        const cached = sessionStorage.getItem('visitexpo_admin_events_cache');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed?.events) && parsed.events.length > 0) {
-            setEvents(parsed.events);
-            if (parsed.stats) setStats(parsed.stats);
-            setLoading(false);
-            hasCachedEvents = true;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Could not read admin events cache:', e);
-    }
-
     if (authLoading) return;
-    if (!accessToken) {
-      setLoading(false);
-      return;
-    }
-
-    fetchEvents(hasCachedEvents);
-  }, [accessToken, authLoading]);
+    const timer = setTimeout(() => {
+      if (!accessToken) {
+        setLoading(false);
+        return;
+      }
+      fetchEvents(false, true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [accessToken, authLoading, fetchEvents]);
 
   // Dismiss feedback
   useEffect(() => {
@@ -327,41 +372,6 @@ export default function AdminEventsPage() {
       return () => clearTimeout(timer);
     }
   }, [feedback]);
-
-  // Filtered & searched events
-  const filteredEvents = useMemo(() => {
-    return events.filter(ev => {
-      // Status filter
-      if (statusFilter !== 'all' && ev.status !== statusFilter) {
-        return false;
-      }
-      // Category filter
-      if (categoryFilter !== 'all') {
-        const cats = Array.isArray(ev.categories) ? ev.categories : [ev.categories];
-        if (!cats.some(c => c && c.toLowerCase().includes(categoryFilter.toLowerCase()))) {
-          return false;
-        }
-      }
-      // Search query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const titleMatch = (ev.title || '').toLowerCase().includes(q);
-        const cityMatch = (ev.city || '').toLowerCase().includes(q);
-        const venueMatch = (ev.venue || '').toLowerCase().includes(q);
-        const orgMatch = (ev.orgName || ev.organizer?.name || '').toLowerCase().includes(q);
-        const slugMatch = (ev.slug || '').toLowerCase().includes(q);
-        return titleMatch || cityMatch || venueMatch || orgMatch || slugMatch;
-      }
-      return true;
-    });
-  }, [events, statusFilter, categoryFilter, searchQuery]);
-
-  // Paginated events
-  const totalPages = Math.ceil(filteredEvents.length / itemsPerPage) || 1;
-  const paginatedEvents = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredEvents.slice(start, start + itemsPerPage);
-  }, [filteredEvents, currentPage]);
 
   // Open Edit Drawer
   const handleOpenEdit = (event) => {
@@ -561,6 +571,7 @@ export default function AdminEventsPage() {
           message: `🗑️ Event "${deleteModal.event.title}" permanently deleted.`
         });
         setDeleteModal({ isOpen: false, event: null, isDeleting: false });
+        fetchEvents(true);
       }
     } catch (err) {
       console.error('Error deleting event:', err);
@@ -721,7 +732,10 @@ export default function AdminEventsPage() {
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
                 className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -753,7 +767,7 @@ export default function AdminEventsPage() {
         <div className="flex items-center justify-between border-t border-border/60 pt-3">
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: 'all', label: 'All Events', count: events.length },
+              { id: 'all', label: 'All Events', count: stats.totalEvents },
               { id: 'published', label: 'Published (Live)', count: stats.publishedCount },
               { id: 'draft', label: 'Drafts / In Review', count: stats.draftCount },
               { id: 'cancelled', label: 'Cancelled', count: stats.cancelledCount }
@@ -781,7 +795,7 @@ export default function AdminEventsPage() {
           </div>
 
           <span className="text-xs text-muted-foreground font-medium">
-            Showing <strong className="text-foreground">{filteredEvents.length}</strong> matching events
+            Showing <strong className="text-foreground">{paginationInfo.total.toLocaleString()}</strong> matching events
           </span>
         </div>
       </div>
@@ -793,14 +807,14 @@ export default function AdminEventsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-xs font-semibold">Loading organizer events from database...</p>
           </div>
-        ) : filteredEvents.length === 0 ? (
+        ) : events.length === 0 ? (
           <div className="text-center py-16 px-4 space-y-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground mx-auto">
               <Calendar className="h-6 w-6" />
             </div>
             <h3 className="text-sm font-bold text-foreground">No events found</h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              No events matched your current search and filter criteria. Try clearing search keywords or selecting "All Events".
+              No events matched your current search and filter criteria. Try clearing search keywords or selecting &quot;All Events&quot;.
             </p>
           </div>
         ) : (
@@ -818,7 +832,7 @@ export default function AdminEventsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {paginatedEvents.map(event => {
+                {events.map(event => {
                   const isSyncing = syncingWpId === event._id;
                   const hasWpSync = !!event.wpPostId;
 
@@ -996,8 +1010,8 @@ export default function AdminEventsPage() {
         {/* Pagination Footer */}
         <Pagination
           currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredEvents.length}
+          totalPages={paginationInfo.pages}
+          totalItems={paginationInfo.total}
           itemsPerPage={itemsPerPage}
           itemLabel="events"
           onPageChange={setCurrentPage}
@@ -1629,7 +1643,7 @@ export default function AdminEventsPage() {
                 Permanently Delete Event?
               </h3>
               <p className="text-xs text-muted-foreground">
-                Are you sure you want to delete <strong className="text-foreground">"{deleteModal.event.title}"</strong>? This will remove the event across the platform and WordPress directory.
+                Are you sure you want to delete <strong className="text-foreground">&quot;{deleteModal.event.title}&quot;</strong>? This will remove the event across the platform and WordPress directory.
               </p>
             </div>
 
