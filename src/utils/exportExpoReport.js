@@ -95,7 +95,7 @@ export function buildMasterExpoRow(item, index = 0) {
     'Start Date': formatDate(e.startDate),
     'End Date': formatDate(e.endDate),
     'Timings': e.timings || '09:00 AM - 06:00 PM',
-    'Organizer Name': e.orgName || 'VisitExpo Verified Organizer',
+    'Organizer Name': e.orgName || 'Organizer',
     'Organizer Email': e.orgEmail || 'N/A',
     'Organizer Phone': e.orgPhone || 'N/A',
     'Website': e.website || e.orgWebsite || 'N/A',
@@ -735,7 +735,7 @@ export function exportExpoReportsToPDF(reports = [], modules = {}) {
           </div>
           <div class="info-box">
             <div class="info-box-title">Organizer Contact Details</div>
-            <div class="info-row"><span class="info-label">Organizer:</span><span class="info-value">${escapeHtml(e.orgName || 'VisitExpo Verified Organizer')}</span></div>
+            <div class="info-row"><span class="info-label">Organizer:</span><span class="info-value">${escapeHtml(e.orgName || 'Organizer')}</span></div>
             <div class="info-row"><span class="info-label">Email:</span><span class="info-value">${escapeHtml(e.orgEmail || 'N/A')}</span></div>
             <div class="info-row"><span class="info-label">Phone:</span><span class="info-value">${escapeHtml(e.orgPhone || 'N/A')}</span></div>
             <div class="info-row"><span class="info-label">Website:</span><span class="info-value">${escapeHtml(e.website || e.orgWebsite || e.wpUrl || 'N/A')}</span></div>
