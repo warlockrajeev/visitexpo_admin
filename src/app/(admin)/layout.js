@@ -41,7 +41,8 @@ import {
   Send,
   Flag,
   FileSpreadsheet,
-  Mic
+  Mic,
+  Activity
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -237,6 +238,7 @@ export default function AdminLayout({ children }) {
     { name: 'Attendees & Followers', href: '/attendees', icon: Users, permission: 'attendees.view' },
     { name: 'Our Sponsors', href: '/sponsors', icon: Award, permission: 'sponsors.manage' },
     { name: 'User Management', href: '/users', icon: Users, permission: 'users.view' },
+    { name: 'Activity Monitor', href: '/activity-monitor', icon: Activity, badge: 'Live', badgeColor: 'bg-emerald-500 text-white', permission: 'activity.view' },
     {
       name: 'Rapid Creation',
       href: '/rapid-creation',
@@ -349,6 +351,7 @@ export default function AdminLayout({ children }) {
     if (path === '/categories') return 'Event Categories & Events Directory';
     if (path === '/attendees') return 'Event Attendees & Followers Directory';
     if (path === '/sponsors') return 'Our Sponsors & Exhibitor Partners';
+    if (path === '/activity-monitor') return 'Platform User Activity Monitor';
     if (path === '/contacts') return 'Landing Page Contact Inquiries';
     if (path === '/booth-requests') return 'Booth Request Queries';
     if (path === '/event-requests') return 'Speaker, Delegation & Travel Requests';
