@@ -7,7 +7,7 @@
  * Clicking any table row opens a comprehensive User Details Dossier slide-over.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
 import {
@@ -95,6 +95,35 @@ function formatRelative(dateString) {
   }
 }
 
+function formatRegistrationDate(dateString) {
+  if (!dateString) return 'Not recorded';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'Invalid date';
+    return d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  } catch {
+    return String(dateString);
+  }
+}
+
+function formatRegistrationTime(dateString) {
+  if (!dateString) return '';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '';
+  }
+}
+
 export default function UsersManagementPage() {
   const { accessToken, user: currentUser } = useAuth();
   const currentUserId = currentUser?._id || currentUser?.id;
@@ -176,17 +205,50 @@ export default function UsersManagementPage() {
     }
   };
 
-  const fetchUsers = async (requestedPage = currentPage, filterOverrides = {}) => {
+  const fetchUsers = useCallback(async (requestedPage = currentPage, filterOverrides = {}, useCache = false) => {
     if (!accessToken) return;
-    if (users.length === 0) setLoading(true);
+    const effectiveSearch = filterOverrides.search ?? searchTerm;
+    const effectiveRole = filterOverrides.role ?? roleFilter;
+    const effectiveStatus = filterOverrides.status ?? statusFilter;
+    const effectiveVerification = filterOverrides.verification ?? verificationFilter;
+
+    let paintedFromCache = false;
+    if (
+      useCache &&
+      typeof window !== 'undefined' &&
+      !effectiveSearch &&
+      effectiveRole === 'all' &&
+      effectiveStatus === 'all' &&
+      effectiveVerification === 'all' &&
+      requestedPage === 1
+    ) {
+      try {
+        const cached = sessionStorage.getItem('visitexpo_admin_users_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed?.docs) && parsed.docs.length > 0) {
+            setUsers(parsed.docs);
+            setResultCount(parsed.total ?? parsed.docs.length);
+            if (parsed.pages) setTotalPages(parsed.pages);
+            if (parsed.stats) setStats(parsed.stats);
+            setLoading(false);
+            paintedFromCache = true;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read admin users cache:', e);
+      }
+    }
+
+    if (!paintedFromCache && users.length === 0) setLoading(true);
     setError('');
     try {
       const res = await axios.get(`${API_URL}/admin/users`, {
         params: {
-          search: filterOverrides.search ?? searchTerm,
-          role: filterOverrides.role ?? roleFilter,
-          status: filterOverrides.status ?? statusFilter,
-          verification: filterOverrides.verification ?? verificationFilter,
+          search: effectiveSearch,
+          role: effectiveRole,
+          status: effectiveStatus,
+          verification: effectiveVerification,
           page: requestedPage,
           limit: pageSize
         },
@@ -206,7 +268,7 @@ export default function UsersManagementPage() {
         };
         setStats(newStats);
 
-        if (!searchTerm && roleFilter === 'all' && statusFilter === 'all' && verificationFilter === 'all' && requestedPage === 1) {
+        if (!effectiveSearch && effectiveRole === 'all' && effectiveStatus === 'all' && effectiveVerification === 'all' && requestedPage === 1) {
           try {
             if (typeof window !== 'undefined') {
               sessionStorage.setItem('visitexpo_admin_users_cache', JSON.stringify({
@@ -229,28 +291,14 @@ export default function UsersManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, currentPage, pageSize, roleFilter, searchTerm, statusFilter, users.length, verificationFilter]);
 
   useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && !searchTerm && roleFilter === 'all' && statusFilter === 'all' && verificationFilter === 'all' && currentPage === 1) {
-        const cached = sessionStorage.getItem('visitexpo_admin_users_cache');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed?.docs) && parsed.docs.length > 0) {
-            setUsers(parsed.docs);
-            setResultCount(parsed.total ?? parsed.docs.length);
-            if (parsed.pages) setTotalPages(parsed.pages);
-            if (parsed.stats) setStats(parsed.stats);
-            setLoading(false);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Could not read admin users cache:', e);
-    }
-
-    fetchUsers();
+    const timer = setTimeout(() => {
+      fetchUsers(currentPage, {}, true);
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, roleFilter, statusFilter, verificationFilter, currentPage, pageSize]);
 
   // Trigger search on submit
@@ -505,105 +553,106 @@ export default function UsersManagementPage() {
   const activeActivity = detailData?.activity || {};
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 w-full max-w-full">
       {/* Toast Notification Banner */}
       {feedback && (
         <div
-          className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-200 ${
+          className={`flex items-center justify-between p-3 rounded-xl border transition-all duration-200 ${
             feedback.type === 'success'
               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600'
               : 'bg-rose-500/10 border-rose-500/30 text-rose-600'
           }`}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {feedback.type === 'success' ? (
-              <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500" />
+              <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
             ) : (
-              <AlertCircle className="h-5 w-5 shrink-0 text-rose-500" />
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-500" />
             )}
-            <span className="text-sm font-medium">{feedback.message}</span>
+            <span className="text-xs font-medium">{feedback.message}</span>
           </div>
           <button
             type="button"
             onClick={() => setFeedback(null)}
             className="p-1 hover:bg-black/5 rounded-lg transition-colors cursor-pointer"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
       {/* Header Panel with KPI Stats Chips */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between bg-card p-4 rounded-xl border border-border shadow-sm">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            <Users className="h-6 w-6 text-primary" /> User Directory &amp; Access Control
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between bg-card p-3 sm:p-3.5 rounded-xl border border-border shadow-sm">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary shrink-0" />
+            <span className="truncate">User Directory &amp; Access Control</span>
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-0.5">
             Click on any user entry to inspect their complete dossier, contact details, organization, and registered activity.
           </p>
         </div>
 
         {/* Quick Stats Chips */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-border bg-background shadow-2xs">
-            <span className="text-xs font-semibold text-muted-foreground">Total Users:</span>
-            <span className="text-sm font-bold text-foreground">{stats.total}</span>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-background shadow-2xs">
+            <span className="text-[11px] font-semibold text-muted-foreground">Total Users:</span>
+            <span className="text-xs font-bold text-foreground">{stats.total}</span>
           </div>
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-xs font-semibold text-emerald-700">Active:</span>
-            <span className="text-sm font-bold text-emerald-700">{stats.active}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="text-[11px] font-semibold text-emerald-700">Active:</span>
+            <span className="text-xs font-bold text-emerald-700">{stats.active}</span>
           </div>
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-rose-500/20 bg-rose-500/5 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
-            <span className="text-xs font-semibold text-rose-700">Suspended:</span>
-            <span className="text-sm font-bold text-rose-700">{stats.suspended}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-500/20 bg-rose-500/5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+            <span className="text-[11px] font-semibold text-rose-700">Suspended:</span>
+            <span className="text-xs font-bold text-rose-700">{stats.suspended}</span>
           </div>
           <button
             type="button"
             onClick={() => fetchUsers(currentPage)}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
             title="Refresh user directory"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
       </div>
 
       {/* Control Filters */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between bg-card p-3 rounded-xl border border-border">
+      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between bg-card p-2.5 sm:p-3 rounded-xl border border-border">
         {/* Search Input */}
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 lg:max-w-md flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-muted-foreground" />
+        <form onSubmit={handleSearchSubmit} className="relative w-full xl:max-w-sm flex gap-1.5">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search by name, email, phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full rounded-lg border border-border bg-background py-1.5 pl-8 pr-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-secondary hover:bg-secondary/80 border border-border px-3 py-1.5 text-xs font-semibold text-foreground cursor-pointer transition-colors"
+            className="rounded-lg bg-secondary hover:bg-secondary/80 border border-border px-3 py-1.5 text-xs font-semibold text-foreground cursor-pointer transition-colors shrink-0"
           >
             Search
           </button>
         </form>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:flex-wrap items-center gap-2">
           {/* Status Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">Status:</span>
+          <div className="flex items-center justify-between sm:justify-start gap-1.5">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase shrink-0">Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              className="w-full sm:w-auto rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               <option value="all">All Accounts</option>
               <option value="active">Active Only</option>
@@ -612,12 +661,12 @@ export default function UsersManagementPage() {
           </div>
 
           {/* Role Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">Role:</span>
+          <div className="flex items-center justify-between sm:justify-start gap-1.5">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase shrink-0">Role:</span>
             <select
               value={roleFilter}
               onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-              className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              className="w-full sm:w-auto rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               <option value="all">All Roles</option>
               <option value="super_admin">Super Admin</option>
@@ -629,12 +678,12 @@ export default function UsersManagementPage() {
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">Verification:</span>
+          <div className="flex items-center justify-between sm:justify-start gap-1.5">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase shrink-0">Verification:</span>
             <select
               value={verificationFilter}
               onChange={(e) => { setVerificationFilter(e.target.value); setCurrentPage(1); }}
-              className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              className="w-full sm:w-auto rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               <option value="all">All Verification</option>
               <option value="email_verified">Email Verified</option>
@@ -662,7 +711,7 @@ export default function UsersManagementPage() {
                   fetchUsers(1, { search: '', role: 'all', status: 'all', verification: 'all' });
                 }
               }}
-              className="px-2.5 py-1.5 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground cursor-pointer transition-colors"
+              className="px-2 py-1 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground cursor-pointer transition-colors"
             >
               Reset
             </button>
@@ -670,283 +719,449 @@ export default function UsersManagementPage() {
         </div>
       </div>
 
-      {/* Users Table */}
+      {/* Users Table & Responsive Mobile Cards */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm font-medium">Fetching user directory...</p>
+          <div className="flex flex-col items-center justify-center py-16 gap-2.5 text-muted-foreground">
+            <Loader2 className="h-7 w-7 animate-spin text-primary" />
+            <p className="text-xs font-medium">Fetching user directory...</p>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-20 px-4 text-center text-muted-foreground gap-3">
-            <AlertCircle className="h-10 w-10 text-destructive" />
-            <h3 className="font-semibold text-foreground">Error Connecting</h3>
-            <p className="text-sm max-w-md">{error}</p>
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center text-muted-foreground gap-2.5">
+            <AlertCircle className="h-8 w-8 text-destructive" />
+            <h3 className="text-sm font-semibold text-foreground">Error Connecting</h3>
+            <p className="text-xs max-w-md">{error}</p>
           </div>
         ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center text-muted-foreground">
-            <Users className="h-12 w-12 text-muted-foreground/40 mx-auto mb-2" />
+          <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+            <Users className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
             <p className="text-xs font-semibold">No registered users matched query filters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <th className="px-4 py-2.5">Actions</th>
-                  <th className="px-4 py-2.5">User Profile &amp; Contact</th>
-                  <th className="px-4 py-2.5">Tenant / Org</th>
-                  <th className="px-4 py-2.5">Account Status</th>
-                  <th className="px-4 py-2.5">Verification</th>
-                  <th className="px-4 py-2.5">System Role</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {users.map((u) => {
-                  const isSuspended = Boolean(u.isSuspended || u.status === 'suspended');
-                  const selfUser = isSelf(u);
-                  const rootAdminUser = isRootAdmin(u);
-                  const isSelected = selectedUser && selectedUser._id === u._id;
+          <>
+            {/* Mobile Responsive Card View (< md) */}
+            <div className="md:hidden divide-y divide-border">
+              {users.map((u) => {
+                const isSuspended = Boolean(u.isSuspended || u.status === 'suspended');
+                const selfUser = isSelf(u);
+                const rootAdminUser = isRootAdmin(u);
+                const isSelected = selectedUser && selectedUser._id === u._id;
 
-                  return (
-                    <tr
-                      key={u._id}
-                      onClick={() => handleOpenDetails(u)}
-                      className={`cursor-pointer transition-all group ${
-                        isSelected
-                          ? 'bg-primary/10 border-l-4 border-l-primary'
-                          : isSuspended
-                          ? 'bg-rose-500/[0.02] hover:bg-rose-500/5 hover:border-l-4 hover:border-l-rose-500'
-                          : 'hover:bg-primary/[0.04] hover:border-l-4 hover:border-l-primary'
-                      }`}
-                    >
-                      {/* Actions */}
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-1">
-                          {/* Inspect Dossier Action */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenDetails(u);
-                            }}
-                            className="p-1.5 hover:bg-primary/10 rounded-lg text-primary border border-transparent hover:border-primary/20 transition-colors cursor-pointer"
-                            title="View full user dossier"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-
-                          {/* Suspend / Reactivate Action */}
-                          {isSuspended ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openSuspendModal(u);
-                              }}
-                              disabled={selfUser || rootAdminUser}
-                              className={`p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-500/10 border border-emerald-500/20 transition-colors cursor-pointer ${
-                                selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''
-                              }`}
-                              title={
-                                selfUser
-                                  ? 'Cannot modify your own account'
-                                  : rootAdminUser
-                                  ? 'Root admin account cannot be suspended'
-                                  : 'Reactivate user account'
-                              }
-                            >
-                              <UserCheck className="h-4 w-4" />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openSuspendModal(u);
-                              }}
-                              disabled={selfUser || rootAdminUser}
-                              className={`p-1.5 rounded-lg text-amber-600 hover:bg-amber-500/10 border border-amber-500/20 transition-colors cursor-pointer ${
-                                selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''
-                              }`}
-                              title={
-                                selfUser
-                                  ? 'Cannot suspend your own account'
-                                  : rootAdminUser
-                                  ? 'Root admin account cannot be suspended'
-                                  : 'Suspend user account'
-                              }
-                            >
-                              <UserX className="h-4 w-4" />
-                            </button>
-                          )}
-
-                          {/* Edit Details Action */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(u);
-                            }}
-                            className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors cursor-pointer"
-                            title="Edit user profile & privileges"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-
-                          {/* Delete User Action */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDeleteModal(u);
-                            }}
-                            disabled={selfUser || rootAdminUser}
-                            className={`p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-colors cursor-pointer ${
-                              selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''
-                            }`}
-                            title={
-                              selfUser
-                                ? 'Cannot delete your own account'
-                                : rootAdminUser
-                                ? 'Root admin account cannot be deleted'
-                                : 'Permanently delete user'
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                return (
+                  <div
+                    key={u._id}
+                    onClick={() => handleOpenDetails(u)}
+                    className={`p-3 space-y-2.5 cursor-pointer transition-colors ${
+                      isSelected ? 'bg-primary/10' : 'hover:bg-muted/30'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase shrink-0 ${
+                            isSuspended
+                              ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                              : u.role === 'super_admin'
+                              ? 'bg-red-100 text-red-700 border border-red-200'
+                              : u.role === 'organizer'
+                              ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                              : u.role === 'exhibitor'
+                              ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                              : 'bg-primary/10 text-primary border border-primary/20'
+                          }`}
+                        >
+                          {(u.name || u.email || 'U').charAt(0)}
                         </div>
-                      </td>
-
-                      {/* User Profile & Contact */}
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm uppercase shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
-                              isSuspended
-                                ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                                : u.role === 'super_admin'
-                                ? 'bg-red-100 text-red-700 border border-red-200'
-                                : u.role === 'organizer'
-                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                : u.role === 'exhibitor'
-                                ? 'bg-purple-100 text-purple-700 border border-purple-200'
-                                : 'bg-primary/10 text-primary border border-primary/20'
-                            }`}
-                          >
-                            {(u.name || u.email || 'U').charAt(0)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
-                                {u.name || 'Unnamed User'}
-                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                              </p>
-                              {selfUser && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-sm bg-blue-100 text-blue-700">
-                                  You
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                              <span>{u.email}</span>
-                              {u.phone && (
-                                <span className="text-[11px] text-zinc-500 flex items-center gap-1">
-                                  • <Phone className="h-2.5 w-2.5" /> {u.phone}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Tenant Association */}
-                      <td className="px-4 py-2.5 text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <Building className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
-                          <span className="font-medium text-foreground truncate max-w-[170px]" title={u.organization?.name || u.company || 'Platform (Root)'}>
-                            {u.organization?.name || u.company || 'Platform Root'}
-                          </span>
-                        </div>
-                        {u.designation && (
-                          <span className="text-[11px] text-muted-foreground block truncate max-w-[170px]">
-                            {u.designation}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Account Status Badge */}
-                      <td className="px-4 py-2.5">
-                        {isSuspended ? (
-                          <div className="inline-flex flex-col">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-600">
-                              <Ban className="h-3 w-3" /> Suspended
-                            </span>
-                            {u.suspendReason && (
-                              <span className="text-[10px] text-muted-foreground mt-0.5 max-w-[150px] truncate" title={u.suspendReason}>
-                                {u.suspendReason}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-xs text-foreground truncate">
+                              {u.name || 'Unnamed User'}
+                            </p>
+                            {selfUser && (
+                              <span className="text-[9px] font-bold px-1 py-0.2 rounded-sm bg-blue-100 text-blue-700 shrink-0">
+                                You
                               </span>
                             )}
                           </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-600">
-                            <CheckCircle className="h-3 w-3" /> Active
-                          </span>
-                        )}
-                      </td>
+                          <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                          {u.phone && (
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Phone className="h-2.5 w-2.5" /> {u.phone}
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-                      {/* Verification Status */}
-                      <td className="px-4 py-2.5">
-                        <div className="space-y-0.5">
-                          {u.isVerified ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
-                              <CheckCircle className="h-3 w-3" /> Email
+                      <span
+                        className={`inline-flex rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                          u.role === 'super_admin'
+                            ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                            : u.role === 'organizer'
+                            ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                            : u.role === 'exhibitor'
+                            ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
+                            : 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
+                        }`}
+                      >
+                        {u.role?.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted text-foreground font-medium">
+                        <Building className="h-2.5 w-2.5 text-muted-foreground" />
+                        {u.organization?.name || u.company || 'Platform Root'}
+                      </span>
+                      {isSuspended ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 font-bold text-rose-600">
+                          <Ban className="h-2.5 w-2.5" /> Suspended
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 font-semibold text-emerald-600">
+                          <CheckCircle className="h-2.5 w-2.5" /> Active
+                        </span>
+                      )}
+                      {u.isVerified ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600">
+                          <CheckCircle className="h-2.5 w-2.5" /> Email
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 font-medium text-zinc-500">
+                          <Clock className="h-2.5 w-2.5" /> Unverified
+                        </span>
+                      )}
+                      {u.isPhoneVerified && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600">
+                          <Smartphone className="h-2.5 w-2.5" /> Phone
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-border/60 text-[11px] text-muted-foreground">
+                      <span className="flex items-center gap-1" title={formatFullDate(u.createdAt)}>
+                        <Calendar className="h-3 w-3 text-muted-foreground/70" />
+                        <span>Registered: <strong className="text-foreground font-medium">{formatRegistrationDate(u.createdAt)}</strong></span>
+                        {formatRelative(u.createdAt) && <span>({formatRelative(u.createdAt)})</span>}
+                      </span>
+
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDetails(u)}
+                          className="p-1 hover:bg-primary/10 rounded text-primary"
+                          title="View dossier"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openSuspendModal(u)}
+                          disabled={selfUser || rootAdminUser}
+                          className={`p-1 rounded ${
+                            isSuspended ? 'text-emerald-600' : 'text-amber-600'
+                          } ${selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''}`}
+                          title={isSuspended ? 'Reactivate' : 'Suspend'}
+                        >
+                          {isSuspended ? <UserCheck className="h-3.5 w-3.5" /> : <UserX className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(u)}
+                          className="p-1 hover:bg-secondary rounded text-muted-foreground hover:text-foreground"
+                          title="Edit"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteModal(u)}
+                          disabled={selfUser || rootAdminUser}
+                          className={`p-1 rounded text-rose-500 ${
+                            selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''
+                          }`}
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Compact Desktop / Tablet Table (All 7 Columns Visible at Once) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/20 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <th className="px-2.5 py-2 whitespace-nowrap">Actions</th>
+                    <th className="px-2.5 py-2 whitespace-nowrap">User Profile &amp; Contact</th>
+                    <th className="px-2.5 py-2 whitespace-nowrap">Tenant / Org</th>
+                    <th className="px-2.5 py-2 whitespace-nowrap">Account Status</th>
+                    <th className="px-2.5 py-2 whitespace-nowrap">Verification</th>
+                    <th className="px-2.5 py-2 whitespace-nowrap">System Role</th>
+                    <th className="px-2.5 py-2 whitespace-nowrap">Registered On</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {users.map((u) => {
+                    const isSuspended = Boolean(u.isSuspended || u.status === 'suspended');
+                    const selfUser = isSelf(u);
+                    const rootAdminUser = isRootAdmin(u);
+                    const isSelected = selectedUser && selectedUser._id === u._id;
+
+                    return (
+                      <tr
+                        key={u._id}
+                        onClick={() => handleOpenDetails(u)}
+                        className={`cursor-pointer transition-all group ${
+                          isSelected
+                            ? 'bg-primary/10 border-l-4 border-l-primary'
+                            : isSuspended
+                            ? 'bg-rose-500/[0.02] hover:bg-rose-500/5 hover:border-l-4 hover:border-l-rose-500'
+                            : 'hover:bg-primary/[0.04] hover:border-l-4 hover:border-l-primary'
+                        }`}
+                      >
+                        {/* Actions */}
+                        <td className="px-2.5 py-2 whitespace-nowrap">
+                          <div className="flex items-center gap-0.5">
+                            {/* Inspect Dossier Action */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDetails(u);
+                              }}
+                              className="p-1 hover:bg-primary/10 rounded-md text-primary border border-transparent hover:border-primary/20 transition-colors cursor-pointer"
+                              title="View full user dossier"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+
+                            {/* Suspend / Reactivate Action */}
+                            {isSuspended ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openSuspendModal(u);
+                                }}
+                                disabled={selfUser || rootAdminUser}
+                                className={`p-1 rounded-md text-emerald-600 hover:bg-emerald-500/10 border border-emerald-500/20 transition-colors cursor-pointer ${
+                                  selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''
+                                }`}
+                                title={
+                                  selfUser
+                                    ? 'Cannot modify your own account'
+                                    : rootAdminUser
+                                    ? 'Root admin account cannot be suspended'
+                                    : 'Reactivate user account'
+                                }
+                              >
+                                <UserCheck className="h-3.5 w-3.5" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openSuspendModal(u);
+                                }}
+                                disabled={selfUser || rootAdminUser}
+                                className={`p-1 rounded-md text-amber-600 hover:bg-amber-500/10 border border-amber-500/20 transition-colors cursor-pointer ${
+                                  selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''
+                                }`}
+                                title={
+                                  selfUser
+                                    ? 'Cannot suspend your own account'
+                                    : rootAdminUser
+                                    ? 'Root admin account cannot be suspended'
+                                    : 'Suspend user account'
+                                }
+                              >
+                                <UserX className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+
+                            {/* Edit Details Action */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(u);
+                              }}
+                              className="p-1 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors cursor-pointer"
+                              title="Edit user profile & privileges"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+
+                            {/* Delete User Action */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDeleteModal(u);
+                              }}
+                              disabled={selfUser || rootAdminUser}
+                              className={`p-1 rounded-md text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-colors cursor-pointer ${
+                                selfUser || rootAdminUser ? 'opacity-30 cursor-not-allowed' : ''
+                              }`}
+                              title={
+                                selfUser
+                                  ? 'Cannot delete your own account'
+                                  : rootAdminUser
+                                  ? 'Root admin account cannot be deleted'
+                                  : 'Permanently delete user'
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* User Profile & Contact */}
+                        <td className="px-2.5 py-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs uppercase shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
+                                isSuspended
+                                  ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                                  : u.role === 'super_admin'
+                                  ? 'bg-red-100 text-red-700 border border-red-200'
+                                  : u.role === 'organizer'
+                                  ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                  : u.role === 'exhibitor'
+                                  ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                  : 'bg-primary/10 text-primary border border-primary/20'
+                              }`}
+                            >
+                              {(u.name || u.email || 'U').charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1">
+                                <p className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors flex items-center gap-1 truncate max-w-[145px] xl:max-w-[195px]" title={u.name || 'Unnamed User'}>
+                                  <span className="truncate">{u.name || 'Unnamed User'}</span>
+                                  <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                                </p>
+                                {selfUser && (
+                                  <span className="text-[9px] font-bold px-1 py-0.2 rounded-sm bg-blue-100 text-blue-700 shrink-0">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+                                <span className="truncate max-w-[160px] xl:max-w-[210px]" title={u.email}>{u.email}</span>
+                                {u.phone && (
+                                  <span className="text-[10px] text-zinc-500 flex items-center gap-0.5 whitespace-nowrap">
+                                    • <Phone className="h-2.5 w-2.5" /> {u.phone}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Tenant Association */}
+                        <td className="px-2.5 py-2 text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Building className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                            <span className="font-medium text-xs text-foreground truncate max-w-[115px] xl:max-w-[150px]" title={u.organization?.name || u.company || 'Platform (Root)'}>
+                              {u.organization?.name || u.company || 'Platform Root'}
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
-                              <Clock className="h-3 w-3" /> Email Unverified
+                          </div>
+                          {u.designation && (
+                            <span className="text-[10px] text-muted-foreground block truncate max-w-[115px] xl:max-w-[150px]">
+                              {u.designation}
                             </span>
                           )}
+                        </td>
 
-                          <div>
-                            {u.isPhoneVerified ? (
-                              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600">
-                                <Smartphone className="h-3 w-3" /> Phone Verified
+                        {/* Account Status Badge */}
+                        <td className="px-2.5 py-2 whitespace-nowrap">
+                          {isSuspended ? (
+                            <div className="inline-flex flex-col">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+                                <Ban className="h-2.5 w-2.5" /> Suspended
                               </span>
-                            ) : u.phone ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600">
-                                <Smartphone className="h-3 w-3" /> Phone Unverified
+                              {u.suspendReason && (
+                                <span className="text-[9px] text-muted-foreground mt-0.5 max-w-[110px] truncate" title={u.suspendReason}>
+                                  {u.suspendReason}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                              <CheckCircle className="h-2.5 w-2.5" /> Active
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Verification Status */}
+                        <td className="px-2.5 py-2 whitespace-nowrap">
+                          <div className="space-y-0.5">
+                            {u.isVerified ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
+                                <CheckCircle className="h-2.5 w-2.5" /> Email
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+                                <Clock className="h-2.5 w-2.5" /> Email Unverified
+                              </span>
+                            )}
+
+                            <div>
+                              {u.isPhoneVerified ? (
+                                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
+                                  <Smartphone className="h-2.5 w-2.5" /> Phone Verified
+                                </span>
+                              ) : u.phone ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
+                                  <Smartphone className="h-2.5 w-2.5" /> Phone Unverified
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* System Role */}
-                      <td className="px-4 py-2.5 capitalize font-medium text-foreground">
-                        <span
-                          className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
-                            u.role === 'super_admin'
-                              ? 'bg-red-500/10 text-red-600 border border-red-500/20'
-                              : u.role === 'organizer'
-                              ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                              : u.role === 'exhibitor'
-                              ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
-                              : u.role === 'visitor'
-                              ? 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
-                              : 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
-                          }`}
-                        >
-                          {u.role?.replace('_', ' ')}
-                        </span>
-                      </td>
+                        {/* System Role */}
+                        <td className="px-2.5 py-2 capitalize font-medium text-foreground whitespace-nowrap">
+                          <span
+                            className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                              u.role === 'super_admin'
+                                ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                                : u.role === 'organizer'
+                                ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                                : u.role === 'exhibitor'
+                                ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20'
+                                : u.role === 'visitor'
+                                ? 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
+                                : 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
+                            }`}
+                          >
+                            {u.role?.replace('_', ' ')}
+                          </span>
+                        </td>
 
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        {/* Registration Date */}
+                        <td className="px-2.5 py-2 whitespace-nowrap" title={formatFullDate(u.createdAt)}>
+                          <div className="flex items-center gap-1 text-[11px] font-semibold text-foreground">
+                            <Calendar className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                            <span>{formatRegistrationDate(u.createdAt)}</span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground pl-4">
+                            {formatRegistrationTime(u.createdAt)}
+                            {formatRelative(u.createdAt) ? ` • ${formatRelative(u.createdAt)}` : ''}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 
