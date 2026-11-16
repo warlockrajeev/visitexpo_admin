@@ -185,6 +185,11 @@ export default function UsersManagementPage() {
   const [targetDeleteUser, setTargetDeleteUser] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
+  // Bulk Delete Users State & Modal
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteSubmitting, setBulkDeleteSubmitting] = useState(false);
+
   // Auto-dismiss feedback message after 5 seconds
   useEffect(() => {
     if (feedback) {
@@ -532,10 +537,16 @@ export default function UsersManagementPage() {
           message: `User account "${targetDeleteUser.name}" (${targetDeleteUser.email}) permanently deleted.`
         });
         setIsDeleteModalOpen(false);
+        setSelectedUserIds(prev => prev.filter(id => id !== String(targetDeleteUser._id)));
         if (selectedUser && selectedUser._id === targetDeleteUser._id) {
           setIsDetailOpen(false);
           setSelectedUser(null);
         }
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('visitexpo_admin_users_cache');
+          }
+        } catch {}
         fetchUsers();
       }
     } catch (err) {
@@ -546,6 +557,95 @@ export default function UsersManagementPage() {
       setDeleteSubmitting(false);
     }
   };
+
+  // ==========================================
+  // BULK SELECTION & BULK DELETE HANDLERS
+  // ==========================================
+  const deletableUsersOnPage = users.filter((u) => !isSelf(u) && !isRootAdmin(u));
+  const allPageSelected =
+    deletableUsersOnPage.length > 0 &&
+    deletableUsersOnPage.every((u) => selectedUserIds.includes(String(u._id)));
+  const somePageSelected =
+    deletableUsersOnPage.some((u) => selectedUserIds.includes(String(u._id))) && !allPageSelected;
+
+  const toggleSelectUser = (user, e) => {
+    if (e) e.stopPropagation();
+    if (!user || isSelf(user) || isRootAdmin(user)) return;
+    const uid = String(user._id);
+    setSelectedUserIds((prev) =>
+      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
+    );
+  };
+
+  const toggleSelectAllOnPage = () => {
+    const pageIds = deletableUsersOnPage.map((u) => String(u._id));
+    if (pageIds.length === 0) return;
+    if (allPageSelected) {
+      const pageIdSet = new Set(pageIds);
+      setSelectedUserIds((prev) => prev.filter((id) => !pageIdSet.has(id)));
+    } else {
+      setSelectedUserIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedUserIds([]);
+  };
+
+  const openBulkDeleteModal = () => {
+    if (selectedUserIds.length === 0) {
+      setFeedback({ type: 'error', message: 'Please select at least one user to bulk delete.' });
+      return;
+    }
+    setIsBulkDeleteModalOpen(true);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedUserIds.length === 0) return;
+    setBulkDeleteSubmitting(true);
+    try {
+      const res = await axios.post(
+        `${API_URL}/admin/users/bulk-delete`,
+        { userIds: selectedUserIds },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+
+      if (res.data && res.data.success) {
+        const deletedIds = Array.isArray(res.data.deletedIds)
+          ? res.data.deletedIds.map(String)
+          : selectedUserIds;
+        setFeedback({
+          type: 'success',
+          message:
+            res.data.message ||
+            `Permanently deleted ${deletedIds.length} user account(s).`
+        });
+        setIsBulkDeleteModalOpen(false);
+        setSelectedUserIds((prev) => prev.filter((id) => !deletedIds.includes(id)));
+
+        if (selectedUser && deletedIds.includes(String(selectedUser._id))) {
+          setIsDetailOpen(false);
+          setSelectedUser(null);
+        }
+
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('visitexpo_admin_users_cache');
+          }
+        } catch {}
+
+        fetchUsers(currentPage);
+      }
+    } catch (err) {
+      console.error('Bulk delete users failed', err);
+      const errMsg = err.response?.data?.error || 'Failed to bulk delete selected users.';
+      setFeedback({ type: 'error', message: errMsg });
+    } finally {
+      setBulkDeleteSubmitting(false);
+    }
+  };
+
+  const selectedUsersPreview = users.filter((u) => selectedUserIds.includes(String(u._id)));
 
   // Active user to display in details
   const activeUser = selectedUser || {};
@@ -716,8 +816,70 @@ export default function UsersManagementPage() {
               Reset
             </button>
           )}
+
+          {/* Quick Select Page / Bulk Delete Button */}
+          {deletableUsersOnPage.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleSelectAllOnPage}
+              className="px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-secondary text-xs font-semibold text-foreground cursor-pointer transition-colors"
+            >
+              {allPageSelected ? 'Deselect Page' : `Select Page (${deletableUsersOnPage.length})`}
+            </button>
+          )}
+
+          {selectedUserIds.length > 0 && (
+            <button
+              type="button"
+              onClick={openBulkDeleteModal}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Bulk Delete ({selectedUserIds.length})
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Bulk Selection Action Bar */}
+      {selectedUserIds.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 px-3.5 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 shadow-xs animate-in fade-in duration-150">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold">
+              <Check className="h-3.5 w-3.5" />
+              {selectedUserIds.length} {selectedUserIds.length === 1 ? 'User' : 'Users'} Selected
+            </span>
+            <span className="text-muted-foreground">
+              Select additional users across pages or proceed to bulk delete.
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleSelectAllOnPage}
+              className="px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
+            >
+              {allPageSelected ? 'Unselect Current Page' : 'Select All on Page'}
+            </button>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-2.5 py-1 rounded-lg border border-border bg-background hover:bg-secondary text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            >
+              Clear Selection
+            </button>
+            <button
+              type="button"
+              onClick={openBulkDeleteModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete Selected ({selectedUserIds.length})
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Users Table & Responsive Mobile Cards */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
@@ -746,17 +908,35 @@ export default function UsersManagementPage() {
                 const selfUser = isSelf(u);
                 const rootAdminUser = isRootAdmin(u);
                 const isSelected = selectedUser && selectedUser._id === u._id;
+                const isChecked = selectedUserIds.includes(String(u._id));
 
                 return (
                   <div
                     key={u._id}
                     onClick={() => handleOpenDetails(u)}
                     className={`p-3 space-y-2.5 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-primary/10' : 'hover:bg-muted/30'
+                      isChecked
+                        ? 'bg-rose-500/[0.06]'
+                        : isSelected
+                        ? 'bg-primary/10'
+                        : 'hover:bg-muted/30'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={selfUser || rootAdminUser}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => toggleSelectUser(u, e)}
+                          className="h-4 w-4 rounded border-border accent-rose-600 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                          title={
+                            selfUser || rootAdminUser
+                              ? 'Protected super admin account'
+                              : 'Select user for bulk delete'
+                          }
+                        />
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase shrink-0 ${
                             isSuspended
@@ -890,11 +1070,24 @@ export default function UsersManagementPage() {
               })}
             </div>
 
-            {/* Compact Desktop / Tablet Table (All 7 Columns Visible at Once) */}
+            {/* Compact Desktop / Tablet Table (All Columns Visible at Once) */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/20 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <th className="w-8 px-2.5 py-2 text-center whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={allPageSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = somePageSelected;
+                        }}
+                        disabled={deletableUsersOnPage.length === 0}
+                        onChange={toggleSelectAllOnPage}
+                        className="h-3.5 w-3.5 rounded border-border accent-rose-600 cursor-pointer disabled:opacity-30"
+                        title="Select or deselect all deletable users on this page"
+                      />
+                    </th>
                     <th className="px-2.5 py-2 whitespace-nowrap">Actions</th>
                     <th className="px-2.5 py-2 whitespace-nowrap">User Profile &amp; Contact</th>
                     <th className="px-2.5 py-2 whitespace-nowrap">Tenant / Org</th>
@@ -910,19 +1103,43 @@ export default function UsersManagementPage() {
                     const selfUser = isSelf(u);
                     const rootAdminUser = isRootAdmin(u);
                     const isSelected = selectedUser && selectedUser._id === u._id;
+                    const isChecked = selectedUserIds.includes(String(u._id));
 
                     return (
                       <tr
                         key={u._id}
                         onClick={() => handleOpenDetails(u)}
                         className={`cursor-pointer transition-all group ${
-                          isSelected
+                          isChecked
+                            ? 'bg-rose-500/[0.06] border-l-4 border-l-rose-500'
+                            : isSelected
                             ? 'bg-primary/10 border-l-4 border-l-primary'
                             : isSuspended
                             ? 'bg-rose-500/[0.02] hover:bg-rose-500/5 hover:border-l-4 hover:border-l-rose-500'
                             : 'hover:bg-primary/[0.04] hover:border-l-4 hover:border-l-primary'
                         }`}
                       >
+                        {/* Bulk Select Checkbox */}
+                        <td
+                          className="w-8 px-2.5 py-2 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={selfUser || rootAdminUser}
+                            onChange={(e) => toggleSelectUser(u, e)}
+                            className="h-3.5 w-3.5 rounded border-border accent-rose-600 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            title={
+                              selfUser
+                                ? 'Cannot delete your own account'
+                                : rootAdminUser
+                                ? 'Root admin account cannot be deleted'
+                                : 'Select user for bulk delete'
+                            }
+                          />
+                        </td>
+
                         {/* Actions */}
                         <td className="px-2.5 py-2 whitespace-nowrap">
                           <div className="flex items-center gap-0.5">
@@ -2090,6 +2307,106 @@ export default function UsersManagementPage() {
               >
                 {deleteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2B. BULK DELETE USERS CONFIRMATION MODAL                                  */}
+      {/* ========================================================================= */}
+      {isBulkDeleteModalOpen && selectedUserIds.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-4">
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteModalOpen(false)}
+              disabled={bulkDeleteSubmitting}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Modal Icon & Header */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">
+                  Bulk Delete {selectedUserIds.length} {selectedUserIds.length === 1 ? 'User' : 'Users'}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  This action permanently erases all selected accounts and cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Warning Body */}
+            <div className="p-3.5 bg-rose-500/5 rounded-xl border border-rose-500/20 text-xs text-muted-foreground space-y-2.5">
+              <p className="font-semibold text-rose-700">
+                Are you sure you want to permanently delete {selectedUserIds.length} selected user{' '}
+                {selectedUserIds.length === 1 ? 'account' : 'accounts'} and all associated platform data?
+              </p>
+
+              {selectedUsersPreview.length > 0 && (
+                <div className="bg-background/90 p-2.5 rounded-lg border border-border max-h-40 overflow-y-auto divide-y divide-border/60">
+                  {selectedUsersPreview.map((u) => (
+                    <div key={u._id} className="py-1.5 first:pt-0 last:pb-0 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-foreground font-bold truncate">{u.name || 'Unnamed User'}</p>
+                        <p className="text-muted-foreground font-mono text-[10px] truncate">{u.email}</p>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-muted text-foreground text-[10px] font-bold uppercase shrink-0">
+                        {u.role?.replace('_', ' ')}
+                      </span>
+                    </div>
+                  ))}
+                  {selectedUserIds.length > selectedUsersPreview.length && (
+                    <p className="pt-1.5 text-[11px] font-semibold text-muted-foreground">
+                      + {selectedUserIds.length - selectedUsersPreview.length} user(s) selected from other pages
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="text-[11px] text-zinc-500 space-y-1 pt-1">
+                <p className="font-semibold text-zinc-600 dark:text-zinc-400">
+                  All data across the entire platform for these accounts will be purged:
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>Attendee registrations &amp; event engagements</li>
+                  <li>Visitor passes, badges &amp; orders</li>
+                  <li>Exhibitor applications &amp; booth assignments</li>
+                  <li>Reviews, inquiries, leads &amp; support tickets</li>
+                  <li>Account credentials &amp; organization memberships</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-3 pt-3 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                disabled={bulkDeleteSubmitting}
+                className="rounded-lg border border-border hover:bg-secondary px-4 py-2 text-sm font-semibold text-foreground transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDeleteConfirm}
+                disabled={bulkDeleteSubmitting}
+                className="flex items-center gap-2 rounded-lg bg-destructive hover:bg-destructive/90 px-4 py-2 text-sm font-bold text-destructive-foreground shadow-md transition-colors cursor-pointer"
+              >
+                {bulkDeleteSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Delete {selectedUserIds.length} {selectedUserIds.length === 1 ? 'User' : 'Users'} Permanently
               </button>
             </div>
           </div>

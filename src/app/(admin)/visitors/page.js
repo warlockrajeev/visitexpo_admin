@@ -36,7 +36,13 @@ import {
   Download,
   Ticket,
   ShieldCheck,
-  Printer
+  Printer,
+  FileSpreadsheet,
+  Copy,
+  Building2,
+  Share2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -53,7 +59,8 @@ export default function AdminVisitorsPage() {
     notCheckedIn: 0,
     virtual: 0,
     confirmed: 0,
-    pending: 0
+    pending: 0,
+    eventBreakdown: []
   });
 
   const [loading, setLoading] = useState(true);
@@ -67,6 +74,16 @@ export default function AdminVisitorsPage() {
   const [selectedEventId, setSelectedEventId] = useState('all');
   const [page, setPage] = useState(1);
   const itemsPerPage = 15;
+
+  // Event-Wise Pass Request Report States
+  const [eventReportSearch, setEventReportSearch] = useState('');
+  const [selectedReportEventId, setSelectedReportEventId] = useState(null);
+  const [copiedEventId, setCopiedEventId] = useState(null);
+  const [showEventReportsSection, setShowEventReportsSection] = useState(true);
+  const [reportPage, setReportPage] = useState(1);
+  const [reportsPerPage, setReportsPerPage] = useState(5);
+  const [modalUserPage, setModalUserPage] = useState(1);
+  const [modalUsersPerPage, setModalUsersPerPage] = useState(10);
 
   // Selected Visitor for Digital Pass Modal
   const [selectedVisitor, setSelectedVisitor] = useState(null);
@@ -148,37 +165,45 @@ export default function AdminVisitorsPage() {
   };
 
   useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const cachedMeta = sessionStorage.getItem('visitexpo_admin_visitors_meta');
-        if (cachedMeta) {
-          const parsed = JSON.parse(cachedMeta);
-          if (parsed?.stats) setStats(parsed.stats);
-          if (Array.isArray(parsed?.events)) setEvents(parsed.events);
-        }
-        const cachedList = sessionStorage.getItem('visitexpo_admin_visitors_list');
-        if (cachedList) {
-          const parsedList = JSON.parse(cachedList);
-          if (Array.isArray(parsedList) && parsedList.length > 0) {
-            setVisitors(parsedList);
-            setLoading(false);
+    const timer = setTimeout(() => {
+      try {
+        if (typeof window !== 'undefined') {
+          const cachedMeta = sessionStorage.getItem('visitexpo_admin_visitors_meta');
+          if (cachedMeta) {
+            const parsed = JSON.parse(cachedMeta);
+            if (parsed?.stats) setStats(parsed.stats);
+            if (Array.isArray(parsed?.events)) setEvents(parsed.events);
+          }
+          const cachedList = sessionStorage.getItem('visitexpo_admin_visitors_list');
+          if (cachedList) {
+            const parsedList = JSON.parse(cachedList);
+            if (Array.isArray(parsedList) && parsedList.length > 0) {
+              setVisitors(parsedList);
+              setLoading(false);
+            }
           }
         }
+      } catch (e) {
+        console.warn('Could not read visitors cache:', e);
       }
-    } catch (e) {
-      console.warn('Could not read visitors cache:', e);
-    }
 
-    if (!authLoading) {
-      fetchAuxiliaryData();
-    }
+      if (!authLoading) {
+        fetchAuxiliaryData();
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, authLoading]);
 
   useEffect(() => {
     if (!authLoading) {
-      fetchVisitors();
-      setPage(1);
+      const timer = setTimeout(() => {
+        fetchVisitors();
+        setPage(1);
+      }, 0);
+      return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, authLoading, selectedEventId, searchQuery, activeTab]);
 
   // Handle Toggle Check-in
@@ -320,40 +345,407 @@ export default function AdminVisitorsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `visitexpo_visitors_${Date.now()}.csv`);
+    link.setAttribute('download', `visitexpo_visitors_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Filtered & Paginated Visitors
-  const filteredVisitors = useMemo(() => {
-    return visitors.filter(v => {
-      const matchesSearch =
-        !searchQuery.trim() ||
-        v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.phone?.includes(searchQuery) ||
-        v.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.event?.title?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Event-Wise Pass Request Reports (combining server stats.eventBreakdown + live visitors state)
+  const eventPassReports = useMemo(() => {
+    const visitorById = new Map(visitors.map(v => [String(v._id), v]));
 
-      const matchesEvent = selectedEventId === 'all' || v.event?._id === selectedEventId || v.event === selectedEventId;
+    if (Array.isArray(stats.eventBreakdown) && stats.eventBreakdown.length > 0) {
+      return stats.eventBreakdown.map(item => {
+        const syncedVisitors = (item.visitors || []).map(v => {
+          const live = visitorById.get(String(v._id));
+          return live
+            ? {
+                ...v,
+                registrationStatus: live.registrationStatus || v.registrationStatus,
+                checkInStatus: live.checkInStatus || v.checkInStatus,
+                checkInTime: live.checkInTime || v.checkInTime,
+                qrCode: live.qrCode || v.qrCode
+              }
+            : v;
+        });
 
-      let matchesTab = true;
-      if (activeTab === 'pending') matchesTab = v.registrationStatus === 'pending';
-      else if (activeTab === 'checked_in') matchesTab = v.checkInStatus === 'checked_in';
-      else if (activeTab === 'not_checked_in') matchesTab = v.checkInStatus !== 'checked_in';
-      else if (activeTab === 'virtual') matchesTab = v.attendanceType === 'virtual';
+        const pendingCount = syncedVisitors.filter(v => v.registrationStatus === 'pending').length;
+        const confirmedCount = syncedVisitors.filter(
+          v => v.registrationStatus === 'confirmed' || v.registrationStatus === 'expired'
+        ).length;
+        const checkedInCount = syncedVisitors.filter(v => v.checkInStatus === 'checked_in').length;
+        const cancelledCount = syncedVisitors.filter(v => v.registrationStatus === 'cancelled').length;
 
-      return matchesSearch && matchesEvent && matchesTab;
+        return {
+          ...item,
+          totalRequests: syncedVisitors.length,
+          allRecordsCount: syncedVisitors.length,
+          pendingCount,
+          confirmedCount,
+          checkedInCount,
+          cancelledCount,
+          visitors: syncedVisitors
+        };
+      });
+    }
+
+    // Fallback: group from visitors state if stats.eventBreakdown hasn't loaded yet
+    const grouped = new Map();
+    visitors.forEach(v => {
+      const ev = v.event && typeof v.event === 'object' ? v.event : null;
+      const eventId = String(ev?._id || v.event || 'unknown');
+      if (!grouped.has(eventId)) {
+        grouped.set(eventId, {
+          eventId,
+          eventTitle: ev?.title || 'Unlinked Event',
+          eventSlug: ev?.slug || '',
+          city: ev?.city || '',
+          venue: ev?.venue || '',
+          startDate: ev?.startDate || null,
+          endDate: ev?.endDate || null,
+          organizerName: ev?.orgName || 'Event Organizer',
+          organizerEmail: ev?.orgEmail || '',
+          totalRequests: 0,
+          allRecordsCount: 0,
+          pendingCount: 0,
+          confirmedCount: 0,
+          checkedInCount: 0,
+          cancelledCount: 0,
+          latestRequestAt: v.createdAt || null,
+          visitors: []
+        });
+      }
+      const entry = grouped.get(eventId);
+      entry.allRecordsCount += 1;
+      entry.totalRequests += 1;
+      if (v.registrationStatus === 'pending') entry.pendingCount += 1;
+      if (v.registrationStatus === 'confirmed' || v.registrationStatus === 'expired') entry.confirmedCount += 1;
+      if (v.checkInStatus === 'checked_in') entry.checkedInCount += 1;
+      if (v.registrationStatus === 'cancelled') entry.cancelledCount += 1;
+      if (v.createdAt && (!entry.latestRequestAt || new Date(v.createdAt) > new Date(entry.latestRequestAt))) {
+        entry.latestRequestAt = v.createdAt;
+      }
+      entry.visitors.push({
+        _id: v._id,
+        name: v.name || '',
+        email: v.email || '',
+        phone: v.phone || '',
+        company: v.company || '',
+        designation: v.designation || '',
+        country: v.country || '',
+        attendanceType: v.attendanceType || 'in_person',
+        registrationStatus: v.registrationStatus || 'pending',
+        checkInStatus: v.checkInStatus || 'not_checked_in',
+        checkInTime: v.checkInTime || null,
+        qrCode: v.qrCode || '',
+        createdAt: v.createdAt || null
+      });
     });
-  }, [visitors, searchQuery, selectedEventId, activeTab]);
+
+    return Array.from(grouped.values()).sort(
+      (a, b) => b.totalRequests - a.totalRequests || new Date(b.latestRequestAt || 0) - new Date(a.latestRequestAt || 0)
+    );
+  }, [stats.eventBreakdown, visitors]);
+
+  const filteredEventPassReports = useMemo(() => {
+    const q = eventReportSearch.trim().toLowerCase();
+    if (!q) return eventPassReports;
+    return eventPassReports.filter(
+      item =>
+        item.eventTitle?.toLowerCase().includes(q) ||
+        item.city?.toLowerCase().includes(q) ||
+        item.venue?.toLowerCase().includes(q) ||
+        item.organizerName?.toLowerCase().includes(q) ||
+        item.organizerEmail?.toLowerCase().includes(q)
+    );
+  }, [eventPassReports, eventReportSearch]);
+
+  const selectedReportEvent = useMemo(() => {
+    if (!selectedReportEventId) return null;
+    return eventPassReports.find(r => r.eventId === selectedReportEventId) || null;
+  }, [eventPassReports, selectedReportEventId]);
+
+  // Pagination for Event-Wise Pass Request Reports Table
+  const totalReportPages =
+    reportsPerPage === 'all'
+      ? 1
+      : Math.ceil(filteredEventPassReports.length / Number(reportsPerPage)) || 1;
+  const safeReportPage = Math.min(reportPage, totalReportPages);
+  const reportStartIdx =
+    reportsPerPage === 'all' ? 0 : (safeReportPage - 1) * Number(reportsPerPage);
+  const paginatedEventPassReports =
+    reportsPerPage === 'all'
+      ? filteredEventPassReports
+      : filteredEventPassReports.slice(reportStartIdx, reportStartIdx + Number(reportsPerPage));
+
+  // Pagination for Users inside Organizer Pass Request Report Modal
+  const modalAllVisitors = selectedReportEvent?.visitors || [];
+  const totalModalUserPages =
+    modalUsersPerPage === 'all'
+      ? 1
+      : Math.ceil(modalAllVisitors.length / Number(modalUsersPerPage)) || 1;
+  const safeModalUserPage = Math.min(modalUserPage, totalModalUserPages);
+  const modalUserStartIdx =
+    modalUsersPerPage === 'all' ? 0 : (safeModalUserPage - 1) * Number(modalUsersPerPage);
+  const paginatedModalVisitors =
+    modalUsersPerPage === 'all'
+      ? modalAllVisitors
+      : modalAllVisitors.slice(modalUserStartIdx, modalUserStartIdx + Number(modalUsersPerPage));
+
+  const eventSelectOptions = useMemo(() => {
+    const map = new Map();
+    eventPassReports.forEach(item => {
+      if (item.eventId && item.eventId !== 'unknown') {
+        map.set(String(item.eventId), {
+          _id: String(item.eventId),
+          title: `${item.eventTitle} (${item.totalRequests} pass req)`
+        });
+      }
+    });
+    events.forEach(ev => {
+      const id = String(ev._id);
+      if (!map.has(id)) {
+        map.set(id, { _id: id, title: ev.title });
+      }
+    });
+    return Array.from(map.values());
+  }, [eventPassReports, events]);
+
+  // Export Event-Specific Organizer Pass Request Report CSV
+  const handleExportEventReportCSV = (report) => {
+    if (!report || !Array.isArray(report.visitors) || report.visitors.length === 0) {
+      setToast({ type: 'error', message: 'No pass request records found for this event.' });
+      return;
+    }
+
+    const escapeCsv = val => `"${String(val ?? '').replace(/"/g, '""')}"`;
+    const headers = [
+      'S.No',
+      'Event Title',
+      'Venue / City',
+      'Organizer Name',
+      'Organizer Email',
+      'Visitor Name',
+      'Company / Organization',
+      'Designation',
+      'Email Address',
+      'Mobile / Phone',
+      'Country',
+      'Attendance Mode',
+      'Pass Request Status',
+      'Venue Check-in Status',
+      'Pass / Badge Code',
+      'Requested Date & Time'
+    ];
+
+    const rows = report.visitors.map((v, idx) => [
+      escapeCsv(idx + 1),
+      escapeCsv(report.eventTitle || ''),
+      escapeCsv([report.venue, report.city].filter(Boolean).join(', ') || 'TBA'),
+      escapeCsv(report.organizerName || 'Event Organizer'),
+      escapeCsv(report.organizerEmail || ''),
+      escapeCsv(v.name || ''),
+      escapeCsv(v.company || 'Not Specified'),
+      escapeCsv(v.designation || ''),
+      escapeCsv(v.email || ''),
+      escapeCsv(v.phone || ''),
+      escapeCsv(v.country || 'India'),
+      escapeCsv(v.attendanceType === 'virtual' ? 'Virtual' : 'In-Person'),
+      escapeCsv(
+        v.registrationStatus === 'confirmed'
+          ? 'Approved (Pass Issued)'
+          : v.registrationStatus === 'expired'
+          ? 'Approved (Past Event)'
+          : v.registrationStatus === 'pending'
+          ? 'Pending Pass Request'
+          : 'Declined / Cancelled'
+      ),
+      escapeCsv(v.checkInStatus === 'checked_in' ? 'Checked In' : 'Not Checked In'),
+      escapeCsv(v.qrCode || 'Pending Assignment'),
+      escapeCsv(v.createdAt ? new Date(v.createdAt).toLocaleString('en-IN') : '')
+    ]);
+
+    const csvBody = [headers.map(escapeCsv).join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csvBody], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const safeSlug = (report.eventTitle || 'event')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_|_$/g, '');
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `organizer_pass_requests_${safeSlug}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setToast({
+      type: 'success',
+      message: `Exported Organizer Pass Request Report CSV for "${report.eventTitle}" (${report.visitors.length} users).`
+    });
+  };
+
+  // Copy Formatted Organizer Pass Request Report Summary to Clipboard
+  const handleCopyOrganizerReport = async (report) => {
+    if (!report || !Array.isArray(report.visitors)) return;
+
+    const lines = [
+      `============================================================`,
+      `VISITEXPO — ORGANIZER PASS REQUEST REPORT`,
+      `============================================================`,
+      `Event: ${report.eventTitle || 'Event'}`,
+      `Location: ${[report.venue, report.city].filter(Boolean).join(', ') || 'TBA'}`,
+      `Organizer: ${report.organizerName || 'Event Organizer'}${report.organizerEmail ? ` (${report.organizerEmail})` : ''}`,
+      `Report Generated: ${new Date().toLocaleString('en-IN')}`,
+      `------------------------------------------------------------`,
+      `PASS REQUEST SUMMARY:`,
+      `• Total Pass Requests: ${report.totalRequests}`,
+      `• Approved / Passes Issued: ${report.confirmedCount}`,
+      `• Pending Approval: ${report.pendingCount}`,
+      `• Checked In at Venue: ${report.checkedInCount}`,
+      `------------------------------------------------------------`,
+      `USERS WHO REQUESTED VISITOR PASS (${report.visitors.length}):`,
+      ...report.visitors.map((v, idx) => {
+        const statusLabel =
+          v.registrationStatus === 'confirmed' || v.registrationStatus === 'expired'
+            ? 'APPROVED'
+            : v.registrationStatus === 'pending'
+            ? 'PENDING REQUEST'
+            : 'DECLINED';
+        const reqDate = v.createdAt
+          ? new Date(v.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+          : 'N/A';
+        return `${idx + 1}. ${v.name || 'Visitor'} | Company: ${v.company || 'N/A'}${v.designation ? ` (${v.designation})` : ''} | Email: ${v.email || 'N/A'} | Phone: ${v.phone || 'N/A'} | Status: ${statusLabel} | Requested: ${reqDate}`;
+      }),
+      `============================================================`
+    ];
+
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      setCopiedEventId(report.eventId);
+      setTimeout(() => setCopiedEventId(null), 2500);
+      setToast({
+        type: 'success',
+        message: `Organizer Pass Request Report for "${report.eventTitle}" copied to clipboard!`
+      });
+    } catch (e) {
+      console.error('Failed to copy organizer report', e);
+      setToast({ type: 'error', message: 'Could not copy report to clipboard.' });
+    }
+  };
+
+  // Print / Save as PDF Organizer Report for an Event
+  const handlePrintEventReport = (report) => {
+    if (!report || typeof window === 'undefined') return;
+    const printWin = window.open('', '_blank', 'width=1000,height=750');
+    if (!printWin) {
+      setToast({ type: 'error', message: 'Please allow popups to print or save PDF reports.' });
+      return;
+    }
+
+    const rowsHtml = (report.visitors || [])
+      .map(
+        (v, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td><strong>${v.name || '-'}</strong></td>
+          <td>${v.company || '-'}${v.designation ? `<br/><small style="color:#64748b">${v.designation}</small>` : ''}</td>
+          <td>${v.email || '-'}<br/>${v.phone || '-'}</td>
+          <td>${v.attendanceType === 'virtual' ? 'Virtual' : 'In-Person'}</td>
+          <td>${
+            v.registrationStatus === 'confirmed' || v.registrationStatus === 'expired'
+              ? '<span style="color:#059669;font-weight:700">Approved</span>'
+              : v.registrationStatus === 'pending'
+              ? '<span style="color:#d97706;font-weight:700">Pending Request</span>'
+              : '<span style="color:#e11d48;font-weight:700">Cancelled</span>'
+          }</td>
+          <td>${v.createdAt ? new Date(v.createdAt).toLocaleString('en-IN') : '-'}</td>
+        </tr>`
+      )
+      .join('');
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Pass Request Report - ${report.eventTitle || 'Event'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #0f172a; margin: 28px; }
+            .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 14px; margin-bottom: 18px; }
+            h1 { font-size: 20px; margin: 0 0 6px 0; }
+            .meta { font-size: 12px; color: #475569; line-height: 1.6; }
+            .kpis { display: flex; gap: 12px; margin-bottom: 18px; }
+            .kpi { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; min-width: 120px; }
+            .kpi-label { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+            .kpi-val { font-size: 20px; font-weight: 800; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }
+            th { background: #f8fafc; font-size: 11px; text-transform: uppercase; color: #334155; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>VisitExpo — Event Pass Requests Report for Organizer</h1>
+            <div class="meta">
+              <strong>Event:</strong> ${report.eventTitle || '-'} &nbsp;|&nbsp;
+              <strong>Location:</strong> ${[report.venue, report.city].filter(Boolean).join(', ') || 'TBA'}<br/>
+              <strong>Organizer:</strong> ${report.organizerName || 'Event Organizer'} ${report.organizerEmail ? `(${report.organizerEmail})` : ''} &nbsp;|&nbsp;
+              <strong>Generated On:</strong> ${new Date().toLocaleString('en-IN')}
+            </div>
+          </div>
+          <div class="kpis">
+            <div class="kpi"><div class="kpi-label">Total Pass Requests</div><div class="kpi-val">${report.totalRequests}</div></div>
+            <div class="kpi"><div class="kpi-label">Pending Approval</div><div class="kpi-val">${report.pendingCount}</div></div>
+            <div class="kpi"><div class="kpi-label">Approved Passes</div><div class="kpi-val">${report.confirmedCount}</div></div>
+            <div class="kpi"><div class="kpi-label">Checked In</div><div class="kpi-val">${report.checkedInCount}</div></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Visitor Name</th>
+                <th>Company & Designation</th>
+                <th>Contact (Email / Phone)</th>
+                <th>Mode</th>
+                <th>Pass Status</th>
+                <th>Requested On</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+          <script>window.onload = function() { window.print(); };</script>
+        </body>
+      </html>
+    `);
+    printWin.document.close();
+  };
+
+  // Filtered & Paginated Visitors
+  const filteredVisitors = visitors.filter(v => {
+    const matchesSearch =
+      !searchQuery.trim() ||
+      v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.phone?.includes(searchQuery) ||
+      v.company?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.event?.title?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesEvent = selectedEventId === 'all' || v.event?._id === selectedEventId || v.event === selectedEventId;
+
+    let matchesTab = true;
+    if (activeTab === 'pending') matchesTab = v.registrationStatus === 'pending';
+    else if (activeTab === 'checked_in') matchesTab = v.checkInStatus === 'checked_in';
+    else if (activeTab === 'not_checked_in') matchesTab = v.checkInStatus !== 'checked_in';
+    else if (activeTab === 'virtual') matchesTab = v.attendanceType === 'virtual';
+
+    return matchesSearch && matchesEvent && matchesTab;
+  });
 
   const totalPages = Math.ceil(filteredVisitors.length / itemsPerPage) || 1;
-  const paginatedVisitors = useMemo(() => {
-    const start = (page - 1) * itemsPerPage;
-    return filteredVisitors.slice(start, start + itemsPerPage);
-  }, [filteredVisitors, page]);
+  const startIdx = (page - 1) * itemsPerPage;
+  const paginatedVisitors = filteredVisitors.slice(startIdx, startIdx + itemsPerPage);
 
   return (
     <div className="space-y-6 pb-12">
@@ -498,6 +890,315 @@ export default function AdminVisitorsPage() {
         </div>
       </div>
 
+      {/* Event-Wise Pass Requests & Organizer Reports Section */}
+      <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-border bg-muted/15 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-bold text-foreground">
+                  Event-Wise Pass Requests &amp; Organizer Reports
+                </h2>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  {eventPassReports.length} {eventPassReports.length === 1 ? 'Event' : 'Events'}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  {eventPassReports.reduce((acc, r) => acc + (r.totalRequests || 0), 0)} Total Pass Requests
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                View pass request counts per event and export or copy the complete list of requesting users to share directly with the event organizer.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-[220px] flex-1 sm:flex-initial">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search event or organizer..."
+                value={eventReportSearch}
+                onChange={e => {
+                  setEventReportSearch(e.target.value);
+                  setReportPage(1);
+                }}
+                className="w-full pl-9 pr-7 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {eventReportSearch && (
+                <button
+                  onClick={() => {
+                    setEventReportSearch('');
+                    setReportPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowEventReportsSection(prev => !prev)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
+            >
+              {showEventReportsSection ? (
+                <>
+                  <ChevronUp className="h-3.5 w-3.5" /> Hide Section
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-3.5 w-3.5" /> Show Section ({eventPassReports.length})
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {showEventReportsSection && (
+          <div className="divide-y divide-border">
+            {filteredEventPassReports.length === 0 ? (
+              <div className="p-8 text-center">
+                <Ticket className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-foreground">No event pass requests found</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {eventReportSearch
+                    ? 'No events matched your search query.'
+                    : 'As visitors request event passes across the platform, each event and its requesting users will appear here.'}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/25 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <th className="py-3 px-4">Event Details</th>
+                      <th className="py-3 px-4">Organizer</th>
+                      <th className="py-3 px-4 text-center">Pass Requests</th>
+                      <th className="py-3 px-4">Request Breakdown</th>
+                      <th className="py-3 px-4">Recent Requesters</th>
+                      <th className="py-3 px-4 text-right">Organizer Report Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border text-xs">
+                    {paginatedEventPassReports.map(item => {
+                      const isFilteredToEvent = selectedEventId === String(item.eventId);
+                      const isCopied = copiedEventId === item.eventId;
+                      return (
+                        <tr
+                          key={item.eventId}
+                          className={`hover:bg-muted/20 transition-colors ${
+                            isFilteredToEvent ? 'bg-blue-500/5' : ''
+                          }`}
+                        >
+                          {/* Event Details */}
+                          <td className="py-3.5 px-4 max-w-[260px]">
+                            <p className="font-bold text-foreground truncate" title={item.eventTitle}>
+                              {item.eventTitle || 'Untitled Event'}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                              {(item.venue || item.city) && (
+                                <span className="inline-flex items-center gap-1 truncate">
+                                  <MapPin className="h-3 w-3 text-blue-500 shrink-0" />
+                                  {[item.venue, item.city].filter(Boolean).join(', ')}
+                                </span>
+                              )}
+                              {item.startDate && (
+                                <span className="inline-flex items-center gap-1">
+                                  <Calendar className="h-3 w-3 text-amber-500 shrink-0" />
+                                  {new Date(item.startDate).toLocaleDateString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  })}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Organizer */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="truncate max-w-[160px]" title={item.organizerName}>
+                                {item.organizerName || 'Event Organizer'}
+                              </span>
+                            </div>
+                            {item.organizerEmail && (
+                              <p className="text-[11px] text-muted-foreground truncate max-w-[180px] mt-0.5">
+                                {item.organizerEmail}
+                              </p>
+                            )}
+                          </td>
+
+                          {/* Total Pass Requests */}
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="inline-flex flex-col items-center px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                              <span className="text-base font-extrabold text-amber-600 dark:text-amber-400 leading-none">
+                                {item.totalRequests}
+                              </span>
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+                                {item.totalRequests === 1 ? 'Pass Req' : 'Pass Reqs'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Breakdown Pills */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                <Clock className="h-2.5 w-2.5" /> {item.pendingCount} Pending
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                <CheckCircle2 className="h-2.5 w-2.5" /> {item.confirmedCount} Approved
+                              </span>
+                              {item.checkedInCount > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                  <UserCheck className="h-2.5 w-2.5" /> {item.checkedInCount} Checked In
+                                </span>
+                              )}
+                              {item.cancelledCount > 0 && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                  <XCircle className="h-2.5 w-2.5" /> {item.cancelledCount} Declined
+                                </span>
+                              )}
+                            </div>
+                            {item.latestRequestAt && (
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                Latest request:{' '}
+                                {new Date(item.latestRequestAt).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </p>
+                            )}
+                          </td>
+
+                          {/* Recent Requesters Preview */}
+                          <td className="py-3.5 px-4">
+                            <div className="space-y-0.5 max-w-[210px]">
+                              {(item.visitors || []).slice(0, 2).map(u => (
+                                <div key={u._id} className="text-[11px] truncate text-foreground">
+                                  <span className="font-semibold">{u.name}</span>
+                                  {u.company ? (
+                                    <span className="text-muted-foreground"> • {u.company}</span>
+                                  ) : null}
+                                </div>
+                              ))}
+                              {(item.visitors || []).length > 2 && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedReportEventId(item.eventId);
+                                    setModalUserPage(1);
+                                  }}
+                                  className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                >
+                                  +{item.visitors.length - 2} more users — View all
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Organizer Report Actions */}
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              <button
+                                onClick={() => {
+                                  setSelectedReportEventId(item.eventId);
+                                  setModalUserPage(1);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer"
+                                title="View all users who requested a pass for this event and share report with organizer"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                View Users ({item.visitors?.length || 0})
+                              </button>
+
+                              <button
+                                onClick={() => handleExportEventReportCSV(item)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-bold text-[11px] transition-all cursor-pointer"
+                                title="Download CSV Report of all pass requests for this event to share with the organizer"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                CSV Report
+                              </button>
+
+                              <button
+                                onClick={() => handleCopyOrganizerReport(item)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-foreground font-semibold text-[11px] transition-all cursor-pointer"
+                                title="Copy formatted pass request report summary to send to the organizer via email or WhatsApp"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                    Copied
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-3.5 w-3.5" />
+                                    Copy Summary
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={() => handlePrintEventReport(item)}
+                                className="inline-flex items-center gap-1 p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+                                title="Print or Save as PDF Report for Organizer"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  setSelectedEventId(isFilteredToEvent ? 'all' : String(item.eventId))
+                                }
+                                className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer ${
+                                  isFilteredToEvent
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground'
+                                }`}
+                                title="Filter main visitor table below by this event"
+                              >
+                                <Filter className="h-3 w-3" />
+                                {isFilteredToEvent ? 'Filtered' : 'Filter'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Event-Wise Reports Pagination */}
+            {filteredEventPassReports.length > 0 && (
+              <Pagination
+                currentPage={safeReportPage}
+                totalPages={totalReportPages}
+                totalItems={filteredEventPassReports.length}
+                itemsPerPage={reportsPerPage}
+                pageSizeOptions={[5, 10, 20, 50]}
+                itemLabel="event reports"
+                pageSizeLabel="Reports per page"
+                alwaysVisible={true}
+                onPageChange={setReportPage}
+                onPageSizeChange={size => {
+                  setReportsPerPage(size);
+                  setReportPage(1);
+                }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Filter Tabs & Search Bar */}
       <div className="bg-card border border-border rounded-2xl p-4 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
@@ -557,10 +1258,10 @@ export default function AdminVisitorsPage() {
             <select
               value={selectedEventId}
               onChange={e => setSelectedEventId(e.target.value)}
-              className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[200px] cursor-pointer"
+              className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary max-w-[220px] cursor-pointer"
             >
-              <option value="all">All Events ({events.length})</option>
-              {events.map(ev => (
+              <option value="all">All Events ({eventSelectOptions.length})</option>
+              {eventSelectOptions.map(ev => (
                 <option key={ev._id} value={ev._id}>
                   {ev.title}
                 </option>
@@ -874,6 +1575,270 @@ export default function AdminVisitorsPage() {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Pass Request Report Modal (For Sharing with Organizer) */}
+      {selectedReportEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-5xl max-h-[90vh] flex flex-col rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-border bg-muted/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    <Share2 className="h-3 w-3" /> Organizer Pass Request Report
+                  </span>
+                  <span className="text-xs font-bold text-muted-foreground">
+                    • {selectedReportEvent.totalRequests} Active Pass Requests
+                  </span>
+                </div>
+                <h3 className="text-lg font-extrabold text-foreground mt-1">
+                  {selectedReportEvent.eventTitle || 'Event Pass Requests'}
+                </h3>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                  {(selectedReportEvent.venue || selectedReportEvent.city) && (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                      {[selectedReportEvent.venue, selectedReportEvent.city].filter(Boolean).join(', ')}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1">
+                    <Building2 className="h-3.5 w-3.5 text-amber-500" />
+                    Organizer: <strong className="text-foreground">{selectedReportEvent.organizerName || 'Event Organizer'}</strong>
+                    {selectedReportEvent.organizerEmail ? ` (${selectedReportEvent.organizerEmail})` : ''}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => handleExportEventReportCSV(selectedReportEvent)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export CSV for Organizer
+                </button>
+                <button
+                  onClick={() => handleCopyOrganizerReport(selectedReportEvent)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-secondary text-foreground text-xs font-bold transition-all cursor-pointer"
+                >
+                  {copiedEventId === selectedReportEvent.eventId ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-500" /> Copied Report!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" /> Copy Report Summary
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => handlePrintEventReport(selectedReportEvent)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-secondary text-foreground text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print / Save PDF
+                </button>
+                <button
+                  onClick={() => setSelectedReportEventId(null)}
+                  className="p-1.5 rounded-xl border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Event Report KPI Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 border-b border-border bg-muted/10">
+              <div className="p-3 rounded-xl bg-card border border-border">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Total Pass Requests
+                </span>
+                <p className="text-xl font-extrabold text-foreground mt-0.5">
+                  {selectedReportEvent.totalRequests}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Pending Approval
+                </span>
+                <p className="text-xl font-extrabold text-amber-500 mt-0.5">
+                  {selectedReportEvent.pendingCount}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  Approved &amp; Pass Issued
+                </span>
+                <p className="text-xl font-extrabold text-emerald-500 mt-0.5">
+                  {selectedReportEvent.confirmedCount}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  Checked In at Venue
+                </span>
+                <p className="text-xl font-extrabold text-blue-500 mt-0.5">
+                  {selectedReportEvent.checkedInCount}
+                </p>
+              </div>
+            </div>
+
+            {/* Users Table */}
+            <div className="flex-1 overflow-y-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-card border-b border-border z-10">
+                  <tr className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30">
+                    <th className="py-3 px-4">#</th>
+                    <th className="py-3 px-4">Visitor Profile</th>
+                    <th className="py-3 px-4">Company &amp; Designation</th>
+                    <th className="py-3 px-4">Contact Info</th>
+                    <th className="py-3 px-4">Mode</th>
+                    <th className="py-3 px-4">Pass Status</th>
+                    <th className="py-3 px-4">Requested Date</th>
+                    <th className="py-3 px-4 text-right">Quick Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border text-xs">
+                  {paginatedModalVisitors.map((u, idx) => {
+                    const rowNum = modalUserStartIdx + idx + 1;
+                    return (
+                    <tr key={u._id || idx} className="hover:bg-muted/20 transition-colors">
+                      <td className="py-3 px-4 font-bold text-muted-foreground">{rowNum}</td>
+                      <td className="py-3 px-4">
+                        <p className="font-bold text-foreground">{u.name || 'Visitor'}</p>
+                        {u.country && (
+                          <p className="text-[10px] text-muted-foreground">{u.country}</p>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="font-semibold text-foreground">{u.company || 'Not Specified'}</p>
+                        {u.designation && (
+                          <p className="text-[11px] text-muted-foreground">{u.designation}</p>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="space-y-0.5">
+                          <p className="text-foreground font-medium flex items-center gap-1">
+                            <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span>{u.email || '-'}</span>
+                          </p>
+                          {u.phone && (
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                              <Phone className="h-3 w-3 shrink-0" />
+                              <span>{u.phone}</span>
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-muted text-foreground">
+                          {u.attendanceType === 'virtual' ? 'Virtual' : 'In-Person'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {u.registrationStatus === 'confirmed' || u.registrationStatus === 'expired' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            <CheckCircle2 className="h-3 w-3" />{' '}
+                            {u.registrationStatus === 'expired' ? 'Approved (Past)' : 'Approved'}
+                          </span>
+                        ) : u.registrationStatus === 'pending' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <Clock className="h-3 w-3" /> Pending Request
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                            <XCircle className="h-3 w-3" /> Declined
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-[11px] text-muted-foreground whitespace-nowrap">
+                        {u.createdAt
+                          ? new Date(u.createdAt).toLocaleString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                          : '-'}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {u.registrationStatus === 'pending' ? (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() => handleUpdateRegistrationStatus(u._id, 'confirmed')}
+                              disabled={actionLoadingId === u._id}
+                              className="px-2 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold transition-all cursor-pointer"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleUpdateRegistrationStatus(u._id, 'cancelled')}
+                              disabled={actionLoadingId === u._id}
+                              className="px-2 py-1 rounded-lg border border-rose-500/30 text-rose-600 hover:bg-rose-500/10 text-[10px] font-bold transition-all cursor-pointer"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            {u.qrCode || 'Processed'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Pagination */}
+            {modalAllVisitors.length > 0 && (
+              <Pagination
+                currentPage={safeModalUserPage}
+                totalPages={totalModalUserPages}
+                totalItems={modalAllVisitors.length}
+                itemsPerPage={modalUsersPerPage}
+                pageSizeOptions={[5, 10, 25, 50]}
+                itemLabel="users"
+                pageSizeLabel="Users per page"
+                alwaysVisible={true}
+                onPageChange={setModalUserPage}
+                onPageSizeChange={size => {
+                  setModalUsersPerPage(size);
+                  setModalUserPage(1);
+                }}
+              />
+            )}
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border bg-muted/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                Showing all <strong>{selectedReportEvent.visitors?.length || 0}</strong> pass request records for{' '}
+                <strong className="text-foreground">{selectedReportEvent.eventTitle}</strong>.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedEventId(String(selectedReportEvent.eventId));
+                    setSelectedReportEventId(null);
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-border bg-background hover:bg-secondary text-foreground font-semibold transition-colors cursor-pointer"
+                >
+                  Filter Main Table by This Event
+                </button>
+                <button
+                  onClick={() => setSelectedReportEventId(null)}
+                  className="px-4 py-1.5 rounded-xl bg-primary text-primary-foreground font-bold transition-colors cursor-pointer"
+                >
+                  Close Report
+                </button>
+              </div>
             </div>
           </div>
         </div>
