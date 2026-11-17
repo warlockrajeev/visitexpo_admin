@@ -48,7 +48,10 @@ import {
   ChevronLeft,
   Smartphone,
   Layers,
-  Database
+  Database,
+  UserPlus,
+  CalendarDays,
+  TrendingUp
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -134,13 +137,22 @@ export default function UsersManagementPage() {
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: '' }
 
   // Stats
-  const [stats, setStats] = useState({ total: 0, active: 0, suspended: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    totalUsers: 0,
+    active: 0,
+    suspended: 0,
+    registeredToday: 0,
+    registeredThisWeek: 0,
+    registeredThisMonth: 0
+  });
 
   // Filtering & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [verificationFilter, setVerificationFilter] = useState('all');
+  const [dateRangeFilter, setDateRangeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [resultCount, setResultCount] = useState(0);
@@ -216,6 +228,7 @@ export default function UsersManagementPage() {
     const effectiveRole = filterOverrides.role ?? roleFilter;
     const effectiveStatus = filterOverrides.status ?? statusFilter;
     const effectiveVerification = filterOverrides.verification ?? verificationFilter;
+    const effectiveDateRange = filterOverrides.dateRange ?? dateRangeFilter;
 
     let paintedFromCache = false;
     if (
@@ -225,6 +238,7 @@ export default function UsersManagementPage() {
       effectiveRole === 'all' &&
       effectiveStatus === 'all' &&
       effectiveVerification === 'all' &&
+      effectiveDateRange === 'all' &&
       requestedPage === 1
     ) {
       try {
@@ -254,6 +268,7 @@ export default function UsersManagementPage() {
           role: effectiveRole,
           status: effectiveStatus,
           verification: effectiveVerification,
+          dateRange: effectiveDateRange,
           page: requestedPage,
           limit: pageSize
         },
@@ -268,12 +283,23 @@ export default function UsersManagementPage() {
         if (requestedPage > fetchedPages) setCurrentPage(fetchedPages);
         const newStats = {
           total: res.data.data.total ?? fetchedDocs.length,
+          totalUsers: res.data.data.totalUsers ?? res.data.data.total ?? fetchedDocs.length,
           active: res.data.data.totalActive ?? fetchedDocs.filter(u => !u.isSuspended && u.status !== 'suspended').length,
-          suspended: res.data.data.totalSuspended ?? fetchedDocs.filter(u => u.isSuspended || u.status === 'suspended').length
+          suspended: res.data.data.totalSuspended ?? fetchedDocs.filter(u => u.isSuspended || u.status === 'suspended').length,
+          registeredToday: res.data.data.registeredToday ?? 0,
+          registeredThisWeek: res.data.data.registeredThisWeek ?? 0,
+          registeredThisMonth: res.data.data.registeredThisMonth ?? 0
         };
         setStats(newStats);
 
-        if (!effectiveSearch && effectiveRole === 'all' && effectiveStatus === 'all' && effectiveVerification === 'all' && requestedPage === 1) {
+        if (
+          !effectiveSearch &&
+          effectiveRole === 'all' &&
+          effectiveStatus === 'all' &&
+          effectiveVerification === 'all' &&
+          effectiveDateRange === 'all' &&
+          requestedPage === 1
+        ) {
           try {
             if (typeof window !== 'undefined') {
               sessionStorage.setItem('visitexpo_admin_users_cache', JSON.stringify({
@@ -296,7 +322,7 @@ export default function UsersManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, currentPage, pageSize, roleFilter, searchTerm, statusFilter, users.length, verificationFilter]);
+  }, [accessToken, currentPage, dateRangeFilter, pageSize, roleFilter, searchTerm, statusFilter, users.length, verificationFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -304,7 +330,7 @@ export default function UsersManagementPage() {
     }, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accessToken, roleFilter, statusFilter, verificationFilter, currentPage, pageSize]);
+  }, [accessToken, roleFilter, statusFilter, verificationFilter, dateRangeFilter, currentPage, pageSize]);
 
   // Trigger search on submit
   const handleSearchSubmit = (e) => {
@@ -681,6 +707,98 @@ export default function UsersManagementPage() {
         </div>
       )}
 
+      {/* 4 Registration & User Summary Tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          {
+            key: 'today',
+            label: 'Registered Today',
+            value: stats.registeredToday ?? 0,
+            subtitle: 'Joined since 12:00 AM today',
+            icon: UserPlus,
+            iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+            activeBorder: 'border-emerald-500 ring-2 ring-emerald-500/20',
+            onClick: () => {
+              setDateRangeFilter((prev) => (prev === 'today' ? 'all' : 'today'));
+              setCurrentPage(1);
+            }
+          },
+          {
+            key: 'week',
+            label: 'This Week',
+            value: stats.registeredThisWeek ?? 0,
+            subtitle: 'Joined since Monday',
+            icon: TrendingUp,
+            iconBg: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+            activeBorder: 'border-sky-500 ring-2 ring-sky-500/20',
+            onClick: () => {
+              setDateRangeFilter((prev) => (prev === 'week' ? 'all' : 'week'));
+              setCurrentPage(1);
+            }
+          },
+          {
+            key: 'month',
+            label: 'This Month',
+            value: stats.registeredThisMonth ?? 0,
+            subtitle: 'Joined this calendar month',
+            icon: CalendarDays,
+            iconBg: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+            activeBorder: 'border-violet-500 ring-2 ring-violet-500/20',
+            onClick: () => {
+              setDateRangeFilter((prev) => (prev === 'month' ? 'all' : 'month'));
+              setCurrentPage(1);
+            }
+          },
+          {
+            key: 'all',
+            label: 'Total Users',
+            value: stats.totalUsers || stats.total || 0,
+            subtitle: `${stats.active} Active · ${stats.suspended} Suspended`,
+            icon: Users,
+            iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+            activeBorder: 'border-amber-500/60',
+            onClick: () => {
+              setDateRangeFilter('all');
+              setCurrentPage(1);
+            }
+          }
+        ].map((tile) => {
+          const Icon = tile.icon;
+          const isActive = tile.key !== 'all' && dateRangeFilter === tile.key;
+          return (
+            <button
+              key={tile.key}
+              type="button"
+              onClick={tile.onClick}
+              title={tile.key === 'all' ? 'Show all registered users' : `Filter users: ${tile.label}`}
+              className={`text-left bg-card p-3.5 rounded-xl border shadow-sm transition-all cursor-pointer hover:border-primary/50 ${
+                isActive ? tile.activeBorder : 'border-border'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {tile.label}
+                </span>
+                <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${tile.iconBg}`}>
+                  <Icon className="w-4 h-4" />
+                </span>
+              </div>
+              <div className="mt-2 flex items-baseline justify-between gap-2">
+                <span className="text-2xl font-bold tracking-tight text-foreground">
+                  {Number(tile.value || 0).toLocaleString()}
+                </span>
+                {isActive && (
+                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                    Filtered
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">{tile.subtitle}</p>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Header Panel with KPI Stats Chips */}
       <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between bg-card p-3 sm:p-3.5 rounded-xl border border-border shadow-sm">
         <div className="min-w-0">
@@ -697,7 +815,7 @@ export default function UsersManagementPage() {
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border bg-background shadow-2xs">
             <span className="text-[11px] font-semibold text-muted-foreground">Total Users:</span>
-            <span className="text-xs font-bold text-foreground">{stats.total}</span>
+            <span className="text-xs font-bold text-foreground">{stats.totalUsers || stats.total}</span>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/5 shadow-2xs">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -793,7 +911,7 @@ export default function UsersManagementPage() {
             </select>
           </div>
 
-          {(searchTerm || roleFilter !== 'all' || statusFilter !== 'all' || verificationFilter !== 'all') && (
+          {(searchTerm || roleFilter !== 'all' || statusFilter !== 'all' || verificationFilter !== 'all' || dateRangeFilter !== 'all') && (
             <button
               type="button"
               onClick={() => {
@@ -801,14 +919,16 @@ export default function UsersManagementPage() {
                 setRoleFilter('all');
                 setStatusFilter('all');
                 setVerificationFilter('all');
+                setDateRangeFilter('all');
                 setCurrentPage(1);
                 if (
                   roleFilter === 'all' &&
                   statusFilter === 'all' &&
                   verificationFilter === 'all' &&
+                  dateRangeFilter === 'all' &&
                   currentPage === 1
                 ) {
-                  fetchUsers(1, { search: '', role: 'all', status: 'all', verification: 'all' });
+                  fetchUsers(1, { search: '', role: 'all', status: 'all', verification: 'all', dateRange: 'all' });
                 }
               }}
               className="px-2 py-1 rounded-lg border border-border text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground cursor-pointer transition-colors"
