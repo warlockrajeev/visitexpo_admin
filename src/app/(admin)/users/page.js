@@ -56,6 +56,8 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+const isGoogleEmailVerified = (u) => u?.authProvider === 'google';
+
 // Date formatters
 function formatFullDate(dateString) {
   if (!dateString) return 'Not recorded';
@@ -175,6 +177,7 @@ export default function UsersManagementPage() {
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
+    workEmail: '',
     role: '',
     phone: '',
     city: '',
@@ -403,6 +406,7 @@ export default function UsersManagementPage() {
     setEditForm({
       name: user.name || '',
       email: user.email || '',
+      workEmail: user.workEmail || '',
       role: user.role || 'visitor',
       phone: user.phone || '',
       city: user.city || '',
@@ -424,12 +428,12 @@ export default function UsersManagementPage() {
       const payload = {
         name: editForm.name.trim(),
         email: editForm.email.trim().toLowerCase(),
+        workEmail: editForm.workEmail.trim().toLowerCase(),
         role: editForm.role,
         phone: editForm.phone.trim(),
         city: editForm.city.trim(),
         company: editForm.company.trim(),
         designation: editForm.designation.trim(),
-        isVerified: editForm.isVerified,
         isPhoneVerified: editForm.isPhoneVerified,
         isSuspended: editForm.isSuspended,
         status: editForm.isSuspended ? 'suspended' : 'active',
@@ -449,11 +453,12 @@ export default function UsersManagementPage() {
         });
         setIsEditModalOpen(false);
 
+        const serverUser = res.data.user || payload;
         // Update active drawer if open
         if (selectedUser && selectedUser._id === editingUser._id) {
-          const updatedUser = { ...selectedUser, ...payload };
+          const updatedUser = { ...selectedUser, ...payload, ...serverUser };
           setSelectedUser(updatedUser);
-          setDetailData(prev => prev ? { ...prev, user: { ...prev.user, ...payload } } : null);
+          setDetailData(prev => prev ? { ...prev, user: { ...prev.user, ...payload, ...serverUser } } : null);
         }
 
         fetchUsers();
@@ -904,7 +909,7 @@ export default function UsersManagementPage() {
               className="w-full sm:w-auto rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               <option value="all">All Verification</option>
-              <option value="email_verified">Email Verified</option>
+              <option value="email_verified">Email Verified (Google Auth)</option>
               <option value="email_unverified">Email Unverified</option>
               <option value="phone_verified">Phone Verified</option>
               <option value="phone_unverified">Phone Unverified</option>
@@ -1084,6 +1089,11 @@ export default function UsersManagementPage() {
                             )}
                           </div>
                           <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                          {u.workEmail && (
+                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium truncate flex items-center gap-1 mt-0.5">
+                              <Briefcase className="h-2.5 w-2.5 shrink-0" /> Work: {u.workEmail}
+                            </p>
+                          )}
                           {u.phone && (
                             <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
                               <Phone className="h-2.5 w-2.5" /> {u.phone}
@@ -1121,13 +1131,13 @@ export default function UsersManagementPage() {
                           <CheckCircle className="h-2.5 w-2.5" /> Active
                         </span>
                       )}
-                      {u.isVerified ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600">
-                          <CheckCircle className="h-2.5 w-2.5" /> Email
+                      {isGoogleEmailVerified(u) ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600" title="Email verified via Google Auth">
+                          <CheckCircle className="h-2.5 w-2.5" /> Email Verified
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 font-medium text-zinc-500">
-                          <Clock className="h-2.5 w-2.5" /> Unverified
+                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 font-medium text-zinc-500" title="Signed up without Google Auth">
+                          <Clock className="h-2.5 w-2.5" /> Email Unverified
                         </span>
                       )}
                       {u.isPhoneVerified && (
@@ -1438,12 +1448,12 @@ export default function UsersManagementPage() {
                         {/* Verification Status */}
                         <td className="px-2.5 py-2 whitespace-nowrap">
                           <div className="space-y-0.5">
-                            {u.isVerified ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
-                                <CheckCircle className="h-2.5 w-2.5" /> Email
+                            {isGoogleEmailVerified(u) ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600" title="Email verified via Google Auth">
+                                <CheckCircle className="h-2.5 w-2.5" /> Email Verified
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500" title="Signed up without Google Auth">
                                 <Clock className="h-2.5 w-2.5" /> Email Unverified
                               </span>
                             )}
@@ -1673,6 +1683,23 @@ export default function UsersManagementPage() {
                         </button>
                       </span>
 
+                      {activeUser.workEmail && (
+                        <span className="flex items-center gap-1 font-medium text-indigo-600 dark:text-indigo-400">
+                          <Briefcase className="h-3.5 w-3.5 shrink-0" />
+                          <a href={`mailto:${activeUser.workEmail}`} className="hover:underline">
+                            Work: {activeUser.workEmail}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(activeUser.workEmail, 'workEmail-hero')}
+                            className="hover:text-primary ml-0.5 cursor-pointer"
+                            title="Copy work email"
+                          >
+                            {copiedKey === 'workEmail-hero' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                          </button>
+                        </span>
+                      )}
+
                       {activeUser.phone ? (
                         <span className="flex items-center gap-1 font-medium text-foreground">
                           <Phone className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1722,14 +1749,14 @@ export default function UsersManagementPage() {
                         </span>
                       )}
 
-                      {/* Email Verified Pill */}
-                      {activeUser.isVerified ? (
-                        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/10 text-emerald-700">
-                          <CheckCircle className="h-3 w-3" /> Email Verified
+                      {/* Email Verified Pill (Google Auth only) */}
+                      {isGoogleEmailVerified(activeUser) ? (
+                        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/10 text-emerald-700" title="Email verified via Google Auth">
+                          <CheckCircle className="h-3 w-3" /> Email Verified (Google Auth)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/10 text-zinc-600">
-                          <Clock className="h-3 w-3" /> Email Pending
+                        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/10 text-zinc-600" title="Registered without Google Auth">
+                          <Clock className="h-3 w-3" /> Email Unverified
                         </span>
                       )}
 
@@ -1879,6 +1906,34 @@ export default function UsersManagementPage() {
                         </p>
                       </div>
 
+                      {(activeUser.role === 'organizer' || activeUser.workEmail) && (
+                        <div className="space-y-1">
+                          <span className="text-muted-foreground font-semibold">Work Email (Corporate / Official):</span>
+                          {activeUser.workEmail ? (
+                            <div className="space-y-0.5">
+                              <p className="text-foreground font-medium flex items-center gap-1.5 flex-wrap">
+                                <a href={`mailto:${activeUser.workEmail}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                  {activeUser.workEmail}
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopy(activeUser.workEmail, 'workEmail-card')}
+                                  className="hover:text-primary cursor-pointer"
+                                  title="Copy work email"
+                                >
+                                  {copiedKey === 'workEmail-card' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                </button>
+                              </p>
+                              <span className={`text-[10px] font-bold inline-block ${activeUser.emailType === 'corporate' || activeUser.workEmailVerified ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                                {activeUser.workEmailVerified ? '✓ Verified Work Email' : activeUser.emailType === 'corporate' ? '✓ Corporate Domain' : 'Business Work Email'}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="text-muted-foreground italic">Not specified</p>
+                          )}
+                        </div>
+                      )}
+
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Mobile Phone:</span>
                         <p className="text-foreground font-medium flex items-center gap-1.5">
@@ -1968,7 +2023,9 @@ export default function UsersManagementPage() {
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Email Verification Status:</span>
                         <p className="text-foreground font-medium">
-                          {activeUser.isVerified ? '✓ Confirmed and Verified' : '⚠️ Pending Email Verification'}
+                          {isGoogleEmailVerified(activeUser)
+                            ? '✓ Email Verified (Logged in via Google Auth)'
+                            : 'Email Unverified (Google Auth not used)'}
                         </p>
                       </div>
 
@@ -2564,15 +2621,27 @@ export default function UsersManagementPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={editForm.email}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">Work Email (Organizer / Corporate)</label>
+                  <input
+                    type="email"
+                    value={editForm.workEmail}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, workEmail: e.target.value }))}
+                    placeholder="name@company.com"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
               </div>
 
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
@@ -2638,28 +2707,16 @@ export default function UsersManagementPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">Email Verification</label>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">2Factor.in Phone Verification</label>
                   <select
-                    value={String(editForm.isVerified)}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, isVerified: e.target.value === 'true' }))}
+                    value={String(editForm.isPhoneVerified)}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, isPhoneVerified: e.target.value === 'true' }))}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium cursor-pointer"
                   >
-                    <option className="cursor-pointer" value="true">Verified Account</option>
-                    <option className="cursor-pointer" value="false">Pending Verification</option>
+                    <option className="cursor-pointer" value="true">Verified via SMS OTP</option>
+                    <option className="cursor-pointer" value="false">Unverified / Pending</option>
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">2Factor.in Phone Verification</label>
-                <select
-                  value={String(editForm.isPhoneVerified)}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, isPhoneVerified: e.target.value === 'true' }))}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium cursor-pointer"
-                >
-                  <option className="cursor-pointer" value="true">Verified via SMS OTP</option>
-                  <option className="cursor-pointer" value="false">Unverified / Pending</option>
-                </select>
               </div>
 
               {/* Account Suspension Control */}

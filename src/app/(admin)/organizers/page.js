@@ -75,8 +75,6 @@ export default function OrganizersPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: '' }
-  const [pendingOrganizers, setPendingOrganizers] = useState([]);
-  const [pendingActionLoading, setPendingActionLoading] = useState('');
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,15 +206,6 @@ export default function OrganizersPage() {
     else if (data.organizers.length === 0) setLoading(true);
 
     try {
-      // Fetch pending organizers for approval banner
-      if (accessToken) {
-        axios.get(`${API_URL}/admin/pending-organizers`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        }).then(res => {
-          if (res.data?.success) setPendingOrganizers(res.data.data || []);
-        }).catch(() => {});
-      }
-
       // 1. Direct authenticated Express backend endpoint
       if (accessToken) {
         try {
@@ -259,33 +248,6 @@ export default function OrganizersPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-  };
-
-  const handlePendingOrganizerAction = async (userId, action) => {
-    setPendingActionLoading(userId);
-    try {
-      const headers = { Authorization: `Bearer ${accessToken}` };
-      const res = await axios.put(
-        `${API_URL}/admin/organizers/${userId}/status`,
-        { action },
-        { headers }
-      );
-      if (res.data?.success) {
-        setFeedback({
-          type: 'success',
-          message: `Organizer account request set to ${action}d successfully!`
-        });
-        setPendingOrganizers(prev => prev.filter(u => u._id !== userId));
-        fetchOrganizers(true);
-      }
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: err.response?.data?.error || `Failed to ${action} organizer`
-      });
-    } finally {
-      setPendingActionLoading('');
     }
   };
 
@@ -361,7 +323,9 @@ export default function OrganizersPage() {
       list = list.filter((org) => {
         const nameMatch = (org.name || '').toLowerCase().includes(q);
         const scopeMatch = (org.scope || '').toLowerCase().includes(q);
-        const emailMatch = (org.email || '').toLowerCase().includes(q);
+        const emailMatch =
+          (org.email || '').toLowerCase().includes(q) ||
+          (org.workEmail || '').toLowerCase().includes(q);
         const phoneMatch = (org.phone || '').toLowerCase().includes(q);
         const eventMatch = (org.events || []).some(
           (e) =>
@@ -671,72 +635,6 @@ export default function OrganizersPage() {
           <p className="text-xs text-muted-foreground mt-1 font-medium">Matching search &amp; filter criteria</p>
         </div>
       </div>
-
-      {/* Pending Organizers Approval Section */}
-      {pendingOrganizers.length > 0 && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
-              <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
-                Pending Organizer Applications ({pendingOrganizers.length})
-              </h3>
-            </div>
-            <Link
-              href="/moderation"
-              className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
-            >
-              Open Approval System &rarr;
-            </Link>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {pendingOrganizers.map((orgUser) => (
-              <div
-                key={orgUser._id}
-                className="bg-card border border-border p-4 rounded-xl shadow-sm flex flex-col justify-between space-y-3"
-              >
-                <div>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-bold text-foreground text-sm">{orgUser.name}</p>
-                      <p className="text-xs text-primary font-medium">{orgUser.organization?.name || 'Organization'}</p>
-                    </div>
-                    <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                      Pending
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <Mail className="h-3 w-3" /> {orgUser.email}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <button
-                    onClick={() => handlePendingOrganizerAction(orgUser._id, 'approve')}
-                    disabled={pendingActionLoading === orgUser._id}
-                    className="flex-1 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition-all"
-                  >
-                    {pendingActionLoading === orgUser._id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Check className="h-3 w-3" />
-                    )}
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handlePendingOrganizerAction(orgUser._id, 'reject')}
-                    disabled={pendingActionLoading === orgUser._id}
-                    className="py-1.5 px-3 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 font-bold text-xs transition-all"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Filter & Search Bar */}
       <div className="p-5 rounded-2xl border border-border bg-card shadow-sm space-y-4">
@@ -1128,6 +1026,17 @@ export default function OrganizersPage() {
                       </a>
                     )}
 
+                    {org.workEmail && org.workEmail !== org.email && (
+                      <a
+                        href={`mailto:${org.workEmail}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        title={`Work Email: ${org.workEmail}`}
+                      >
+                        <Mail className="h-3 w-3" />
+                        <span>Work Email</span>
+                      </a>
+                    )}
+
                     {org.phone && (
                       <a
                         href={`tel:${org.phone}`}
@@ -1316,6 +1225,12 @@ export default function OrganizersPage() {
                             {org.email}
                           </p>
                         )}
+                        {org.workEmail && org.workEmail !== org.email && (
+                          <p className="text-indigo-600 dark:text-indigo-400 flex items-center gap-1 text-[10px] font-medium">
+                            <Mail className="h-2.5 w-2.5" />
+                            Work: {org.workEmail}
+                          </p>
+                        )}
                       </div>
                     </td>
 
@@ -1463,6 +1378,15 @@ export default function OrganizersPage() {
                       >
                         <Mail className="h-3.5 w-3.5" />
                         <span>{selectedOrganizer.email}</span>
+                      </a>
+                    )}
+                    {selectedOrganizer.workEmail && selectedOrganizer.workEmail !== selectedOrganizer.email && (
+                      <a
+                        href={`mailto:${selectedOrganizer.workEmail}`}
+                        className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline"
+                      >
+                        <Mail className="h-3.5 w-3.5" />
+                        <span>Work: {selectedOrganizer.workEmail}</span>
                       </a>
                     )}
                     {selectedOrganizer.phone && (

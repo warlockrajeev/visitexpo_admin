@@ -149,8 +149,7 @@ export default function AdminOverview() {
 
   const totalPending = loading
     ? 0
-    : (metrics?.kpis?.pendingOrganizers || 0) +
-      (metrics?.kpis?.pendingExhibitors || 0) +
+    : (metrics?.kpis?.pendingExhibitors || 0) +
       (metrics?.kpis?.pendingClaims || 0) +
       (metrics?.kpis?.pendingEvents || 0);
 

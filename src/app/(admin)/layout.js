@@ -194,7 +194,6 @@ export default function AdminLayout({ children }) {
       name: 'Organizers',
       href: '/organizers',
       icon: CalendarDays,
-      badge: pendingCounts.pendingOrganizers > 0 ? `${pendingCounts.pendingOrganizers} New` : null,
       permission: 'organizers.view'
     },
     {

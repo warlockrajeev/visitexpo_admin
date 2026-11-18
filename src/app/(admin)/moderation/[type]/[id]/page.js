@@ -240,12 +240,10 @@ export default function ModerationDetailPage() {
     );
   }
 
-  // Derive status
+  // Derive status (user accounts never await admin approval)
   const currentStatus =
     type === 'organizers'
-      ? data.isVerified
-        ? 'approved'
-        : 'pending'
+      ? 'approved'
       : data.status || 'pending';
   const organizerEvents = type === 'organizers' ? data.events || [] : [];
   const eventsTotalPages = Math.max(1, Math.ceil(organizerEvents.length / EVENTS_PER_PAGE));
@@ -347,45 +345,47 @@ export default function ModerationDetailPage() {
           </div>
         </div>
 
-        {/* Primary Approval Buttons */}
-        <div className="flex flex-wrap items-center gap-3">
-          {currentStatus === 'pending' ? (
-            <>
-              <button
-                onClick={() => handleAction('rejected')}
-                disabled={actionLoading}
-                className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all"
-              >
-                <X className="h-4 w-4" /> Reject Request
-              </button>
-              <button
-                onClick={() => handleAction('approved')}
-                disabled={actionLoading}
-                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
-              >
-                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Approve Application
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => handleAction('rejected')}
-                disabled={actionLoading}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all"
-              >
-                Revoke / Reject
-              </button>
-              <button
-                onClick={() => handleAction('pending')}
-                disabled={actionLoading}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold transition-all"
-              >
-                Revert to Pending
-              </button>
-            </>
-          )}
-        </div>
+        {/* Primary Approval Buttons (only for exhibitors, claims, and events — user accounts auto-approve) */}
+        {type !== 'organizers' && (
+          <div className="flex flex-wrap items-center gap-3">
+            {currentStatus === 'pending' ? (
+              <>
+                <button
+                  onClick={() => handleAction('rejected')}
+                  disabled={actionLoading}
+                  className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all"
+                >
+                  <X className="h-4 w-4" /> Reject Request
+                </button>
+                <button
+                  onClick={() => handleAction('approved')}
+                  disabled={actionLoading}
+                  className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all"
+                >
+                  {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Approve Application
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleAction('rejected')}
+                  disabled={actionLoading}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-bold transition-all"
+                >
+                  Revoke / Reject
+                </button>
+                <button
+                  onClick={() => handleAction('pending')}
+                  disabled={actionLoading}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-bold transition-all"
+                >
+                  Revert to Pending
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Dossier Grid */}
@@ -641,12 +641,8 @@ export default function ModerationDetailPage() {
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-border">
                   <span className="text-muted-foreground">Dashboard Access:</span>
-                  <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase ${
-                    data.associatedUser.isVerified
-                      ? 'bg-emerald-500/10 text-emerald-500'
-                      : 'bg-amber-500/10 text-amber-500'
-                  }`}>
-                    {data.associatedUser.isVerified ? 'Unlocked & Active' : 'Locked Pending Approval'}
+                  <span className="font-bold px-2 py-0.5 rounded text-[10px] uppercase bg-emerald-500/10 text-emerald-500">
+                    Unlocked &amp; Active
                   </span>
                 </div>
               </div>
