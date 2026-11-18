@@ -30,7 +30,6 @@ import {
   Calendar,
   Building2,
   Briefcase,
-  Sparkles,
   ExternalLink
 } from 'lucide-react';
 
@@ -209,7 +208,7 @@ export default function AdminEventRequestsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-2.5">
-            <Sparkles className="w-6 h-6 text-amber-500" />
+            <Mic className="w-6 h-6 text-amber-500" />
             Speaker, VIP Delegation &amp; Travel Requests
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -231,7 +230,7 @@ export default function AdminEventRequestsPage() {
         <div className="p-4 rounded-2xl bg-card border border-border">
           <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
             <span>Total</span>
-            <Sparkles className="w-4 h-4 text-zinc-400" />
+            <Briefcase className="w-4 h-4 text-zinc-400" />
           </div>
           <p className="text-2xl font-black text-foreground mt-2">{stats.total || 0}</p>
         </div>
@@ -353,7 +352,7 @@ export default function AdminEventRequestsPage() {
           </div>
         ) : requests.length === 0 ? (
           <div className="p-12 text-center space-y-2">
-            <Sparkles className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+            <Mic className="w-10 h-10 text-muted-foreground/40 mx-auto" />
             <p className="text-sm font-bold text-foreground">No requests found</p>
             <p className="text-xs text-muted-foreground">
               Speaker applications, corporate VIP delegations, and partner hotel/flight discount requests submitted on expo pages will appear here.
