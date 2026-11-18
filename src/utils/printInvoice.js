@@ -65,7 +65,7 @@ export function generateInvoiceHTML(invoice) {
   const orgEmail = invoice.organization?.email || 'billing@visitexpo.com';
   const paymentMethod = invoice.paymentMethod || 'Razorpay / Card';
   const amount = Number(invoice.amount) || 0;
-  const plan = invoice.plan || 'Organizer Enterprise Subscription';
+  const plan = invoice.plan || 'Organiser Enterprise Subscription';
   const billingCycle = invoice.billingCycle || 'Annual';
 
   const barcodeSvg = generateBarcodeSVG(invNum);
@@ -458,7 +458,7 @@ export function generateInvoiceHTML(invoice) {
             <td style="padding: 7px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; color: #64748b;">1</td>
             <td style="padding: 7px 10px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #0f172a;">
               ${plan}
-              <div style="font-size: 8.5px; font-weight: normal; color: #64748b; margin-top: 1px;">VisitExpo Platform Organizer Licensing & Service Package</div>
+              <div style="font-size: 8.5px; font-weight: normal; color: #64748b; margin-top: 1px;">VisitExpo Platform Organiser Licensing & Service Package</div>
             </td>
             <td style="padding: 7px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; color: #475569;">${billingCycle}</td>
             <td style="padding: 7px 10px; border-bottom: 1px solid #f1f5f9; text-align: center; font-family: monospace; font-weight: 700;">x1</td>

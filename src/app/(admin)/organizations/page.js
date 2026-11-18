@@ -236,7 +236,7 @@ export default function OrganizationsPage() {
             <Building2 className="h-6 w-6 text-primary" /> Business Tenants &amp; Organizations
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Oversee registered organizer corporations, edit contact metadata, manage subscription tiers, and delete organizations.
+            Oversee registered organiser corporations, edit contact metadata, manage subscription tiers, and delete organizations.
           </p>
         </div>
 

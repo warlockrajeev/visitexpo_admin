@@ -13,7 +13,7 @@ export async function DELETE(request, { params }) {
 
     const targetId = id || (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : null);
     if (!targetId) {
-      return NextResponse.json({ success: false, error: 'Organizer ID is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Organiser ID is required' }, { status: 400 });
     }
 
     const authHeader = request.headers.get('authorization') || '';
@@ -33,7 +33,7 @@ export async function DELETE(request, { params }) {
         return NextResponse.json(data);
       } else {
         return NextResponse.json(
-          { success: false, error: data.error || data.message || 'Failed to delete organizer from backend' },
+          { success: false, error: data.error || data.message || 'Failed to delete organiser from backend' },
           { status: res.status || 500 }
         );
       }

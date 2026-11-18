@@ -180,7 +180,7 @@ export default function AdminBannerSpotlightPage() {
         Swal.fire({
           icon: 'info',
           title: 'Request Returned / Rejected',
-          text: 'The organizer has been notified with your feedback in their dashboard.',
+          text: 'The organiser has been notified with your feedback in their dashboard.',
           confirmButtonColor: '#4f46e5'
         });
         fetchBanners();
@@ -312,7 +312,7 @@ export default function AdminBannerSpotlightPage() {
             Banner Spotlight Moderation
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
-            Review, curate, and approve organizer requests to feature flagship exhibitions directly on the public VisitExpo landing page carousel.
+            Review, curate, and approve organiser requests to feature flagship exhibitions directly on the public VisitExpo landing page carousel.
           </p>
         </div>
 
@@ -398,7 +398,7 @@ export default function AdminBannerSpotlightPage() {
             <XCircle className="h-4 w-4 text-red-400" />
           </div>
           <div className="text-3xl font-black text-red-400 mt-2">{stats.rejected || 0}</div>
-          <div className="text-[11px] text-muted-foreground mt-0.5">Returned to Organizer</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">Returned to Organiser</div>
         </div>
       </div>
 
@@ -440,7 +440,7 @@ export default function AdminBannerSpotlightPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search event, organizer, headline..."
+            placeholder="Search event, organiser, headline..."
             className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-secondary text-foreground text-xs border border-border focus:ring-1 focus:ring-primary focus:outline-none"
           />
         </div>
@@ -461,7 +461,7 @@ export default function AdminBannerSpotlightPage() {
             <h3 className="text-sm font-bold text-foreground">No Banner Requests in this View</h3>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
               {activeTab === 'pending'
-                ? 'All organizer banner spotlight submissions have been moderated.'
+                ? 'All organiser banner spotlight submissions have been moderated.'
                 : 'No banner spotlight records match the current filter criteria.'}
             </p>
           </div>
@@ -542,7 +542,7 @@ export default function AdminBannerSpotlightPage() {
                         <span>Exhibition: <strong className="text-foreground">{b.event?.title || 'Unknown Event'}</strong></span>
                         {b.event?.city && <span>&bull; 📍 {b.event.city}</span>}
                         {b.event?.dates && <span>&bull; 📅 {b.event.dates}</span>}
-                        <span>&bull; Organizer: <strong className="text-foreground">{b.organizer?.name || 'Organizer'}</strong> ({b.organizer?.email})</span>
+                        <span>• Organiser: <strong className="text-foreground">{b.organizer?.name || 'Organizer'}</strong> ({b.organizer?.email})</span>
                         {isGrowth && (
                           <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
                             ★ Growth Plan Verified
@@ -789,7 +789,7 @@ export default function AdminBannerSpotlightPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              Provide feedback to the organizer explaining why this banner request cannot be approved (e.g., image resolution too low, text watermark, incorrect category).
+              Provide feedback to the organiser explaining why this banner request cannot be approved (e.g., image resolution too low, text watermark, incorrect category).
             </p>
 
             <form onSubmit={handleRejectSubmit} className="space-y-4">

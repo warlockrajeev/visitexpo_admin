@@ -251,7 +251,7 @@ export default function AdminOverview() {
         return (
           <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-500 border border-amber-500/20">
             <Building2 className="h-3 w-3" />
-            Organizer
+            Organiser
           </span>
         );
       case 'Exhibitor':
@@ -394,7 +394,7 @@ export default function AdminOverview() {
                 {loading ? 'Analyzing moderation queues...' : `${metrics?.kpis?.pendingEvents || 0} Event Onboarding Submissions & ${metrics?.kpis?.pendingClaims || 0} Ownership Claims Awaiting Approval`}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Review organizer profiles, 1920x1080 banners, SEO score grades, and domain email verification documents.
+                Review organiser profiles, 1920x1080 banners, SEO score grades, and domain email verification documents.
               </p>
             </div>
           </div>
@@ -886,7 +886,7 @@ export default function AdminOverview() {
         <div className="p-6 border-b border-border flex items-center justify-between">
           <div>
             <h3 className="font-bold text-foreground">Recent Organization Tenants</h3>
-            <p className="text-xs text-muted-foreground">Live event organizations and registered organizer workspaces</p>
+            <p className="text-xs text-muted-foreground">Live event organizations and registered organiser workspaces</p>
           </div>
           <Link
             href="/organizations"
@@ -906,7 +906,7 @@ export default function AdminOverview() {
             <Building2 className="h-8 w-8 mx-auto text-muted-foreground/40" />
             <p className="font-semibold text-foreground">No organization tenants found</p>
             <p className="text-[11px] max-w-sm mx-auto">
-              New organizations and organizer accounts created on the platform will appear here live.
+              New organizations and organiser accounts created on the platform will appear here live.
             </p>
           </div>
         ) : (

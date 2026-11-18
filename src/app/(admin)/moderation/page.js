@@ -864,7 +864,7 @@ export default function ModerationPage() {
                           <p className="text-[11px] text-muted-foreground">{claim.venue || 'Exhibition Venue'}, {claim.city}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <p className="font-bold text-primary">{claim.claimedBy?.name || 'Organizer User'}</p>
+                          <p className="font-bold text-primary">{claim.claimedBy?.name || 'Organiser User'}</p>
                           <p className="text-[11px] text-muted-foreground">{claim.claimedBy?.email}</p>
                         </td>
                         <td className="px-6 py-4">
@@ -936,7 +936,7 @@ export default function ModerationPage() {
                   <thead>
                     <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
                       <th className="px-6 py-4">Event Title</th>
-                      <th className="px-6 py-4">Approved Organizer (Claimant)</th>
+                      <th className="px-6 py-4">Approved Organiser (Claimant)</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4 text-right">Approval Date</th>
                     </tr>
@@ -1143,7 +1143,7 @@ export default function ModerationPage() {
                         />
                       </th>
                       <th className="px-6 py-4">Event Details</th>
-                      <th className="px-6 py-4">Organizer</th>
+                      <th className="px-6 py-4">Organiser</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4 text-right">Approval Actions</th>
                     </tr>
@@ -1178,7 +1178,7 @@ export default function ModerationPage() {
                             </p>
                           </td>
                           <td className="px-6 py-4">
-                            <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organizer'}</p>
+                            <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organiser'}</p>
                             <p className="text-[11px] text-muted-foreground">{evt.organizer?.contact?.email || 'N/A'}</p>
                           </td>
                           <td className="px-6 py-4">
@@ -1259,7 +1259,7 @@ export default function ModerationPage() {
                   <thead>
                     <tr className="border-b border-border bg-muted/20 font-bold text-muted-foreground uppercase tracking-wider">
                       <th className="px-6 py-4">Event Details</th>
-                      <th className="px-6 py-4">Organizer</th>
+                      <th className="px-6 py-4">Organiser</th>
                       <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Moderation Date</th>
                       <th className="px-6 py-4 text-right">Action</th>
@@ -1280,7 +1280,7 @@ export default function ModerationPage() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organizer'}</p>
+                          <p className="font-bold text-foreground">{evt.organizer?.name || 'Onboarding Organiser'}</p>
                           <p className="text-[11px] text-muted-foreground">{evt.organizer?.contact?.email || 'N/A'}</p>
                         </td>
                         <td className="px-6 py-4">
@@ -1345,7 +1345,7 @@ export default function ModerationPage() {
                   Reason for {eventRejectionRequest.isBulk ? `rejecting ${eventRejectionRequest.eventIds.length} events` : 'rejection'}
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  The organizer will see this reason in their event management page.
+                  The organiser will see this reason in their event management page.
                 </p>
               </div>
             </div>
@@ -1463,7 +1463,7 @@ export default function ModerationPage() {
 
               {/* Organizer details */}
               <div className="space-y-2">
-                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Organizer Information</h4>
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Organiser Information</h4>
                 <div className="bg-card p-4 rounded-xl border border-border space-y-3">
                   <div className="flex items-center gap-3">
                     {selectedEvent.orgLogo ? (
@@ -1472,7 +1472,7 @@ export default function ModerationPage() {
                       <Building2 className="h-8 w-8 text-primary" />
                     )}
                     <div>
-                      <p className="font-bold text-foreground">{selectedEvent.orgName || selectedEvent.organizer?.name || 'Onboarding Organizer'}</p>
+                      <p className="font-bold text-foreground">{selectedEvent.orgName || selectedEvent.organizer?.name || 'Onboarding Organiser'}</p>
                       <p className="text-[10px] text-muted-foreground">{selectedEvent.orgEmail || selectedEvent.organizer?.contact?.email || 'N/A'}</p>
                     </div>
                   </div>
@@ -1699,7 +1699,7 @@ export default function ModerationPage() {
             <div className="p-3.5 rounded-xl bg-muted/40 border border-border/80 space-y-1 text-xs">
               <p className="font-bold text-foreground line-clamp-2">{eventToDelete.title}</p>
               <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground pt-1">
-                <span>Organizer: <strong className="text-foreground">{eventToDelete.organizer?.name || 'Organizer'}</strong></span>
+                <span>Organiser: <strong className="text-foreground">{eventToDelete.organizer?.name || 'Organizer'}</strong></span>
                 <span>•</span>
                 <span>Location: <strong className="text-foreground">{eventToDelete.city || 'India'}</strong></span>
               </div>

@@ -679,7 +679,7 @@ export default function AdminExpoReportsPage() {
                         type="text"
                         value={quickSearchText}
                         onChange={(e) => setQuickSearchText(e.target.value)}
-                        placeholder="Type expo name, city, or organizer..."
+                        placeholder="Type expo name, city, or organiser..."
                         className="w-full bg-transparent text-xs text-foreground focus:outline-none"
                         autoFocus
                       />
@@ -1054,7 +1054,7 @@ export default function AdminExpoReportsPage() {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search expo by title, city, venue, organizer, or slug..."
+              placeholder="Search expo by title, city, venue, organiser, or slug..."
               className="w-full rounded-xl border border-border bg-background pl-10 pr-9 py-2 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
             {searchQuery && (
@@ -1118,7 +1118,7 @@ export default function AdminExpoReportsPage() {
             <option value="with_data">Expos With Activity / Data</option>
             <option value="published">Published Only</option>
             <option value="draft">Draft Only</option>
-            <option value="claimed">Claimed by Organizer</option>
+            <option value="claimed">Claimed by Organiser</option>
           </select>
 
           {/* Sort Order */}
@@ -1288,7 +1288,7 @@ export default function AdminExpoReportsPage() {
                       </button>
                     </th>
                     <th className="px-4 py-3.5">Exhibition &amp; Venue</th>
-                    <th className="px-4 py-3.5">Organizer</th>
+                    <th className="px-4 py-3.5">Organiser</th>
                     <th className="px-3 py-3.5 text-center">Visitors</th>
                     <th className="px-3 py-3.5 text-center">Attendees &amp; Leads</th>
                     <th className="px-3 py-3.5 text-center">Exhibitors &amp; Sponsors</th>
@@ -1714,10 +1714,10 @@ export default function AdminExpoReportsPage() {
 
                         <div className="rounded-xl border border-border p-4 space-y-2.5">
                           <h4 className="font-extrabold uppercase text-[11px] text-primary">
-                            Organizer &amp; Platform Details
+                            Organiser & Platform Details
                           </h4>
                           <div className="grid grid-cols-3 gap-2">
-                            <span className="text-muted-foreground">Organizer:</span>
+                            <span className="text-muted-foreground">Organiser:</span>
                             <span className="col-span-2 font-semibold text-foreground">
                               {inspectedReport.expo?.orgName || 'Verified Organizer'}
                             </span>

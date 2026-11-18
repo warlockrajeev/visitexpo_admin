@@ -615,7 +615,7 @@ export default function ActivityMonitorPage() {
                               <span
                                 className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${roleBadge}`}
                               >
-                                {item.userRole || 'guest'}
+                                {item.userRole === 'organizer' ? 'organiser' : (item.userRole || 'guest')}
                               </span>
                               {item.userCompany && (
                                 <span className="text-[11px] text-slate-400 truncate max-w-[130px]">
@@ -817,7 +817,7 @@ export default function ActivityMonitorPage() {
                           ROLE_BADGE_MAP[selectedUserFilter.userRole] || ROLE_BADGE_MAP.guest
                         }`}
                       >
-                        {selectedUserFilter.userRole || 'guest'}
+                        {selectedUserFilter.userRole === 'organizer' ? 'organiser' : (selectedUserFilter.userRole || 'guest')}
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -896,7 +896,7 @@ export default function ActivityMonitorPage() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {isGuestMode
                     ? "Anonymous guest visitor sessions only. Click on any guest profile to view only that session's activity history."
-                    : "Registered platform accounts only (Visitors, Organizers, Exhibitors, and Admins). Click on any user profile to view only that user's activity history."}
+                    : "Registered platform accounts only (Visitors, Organisers, Exhibitors, and Admins). Click on any user profile to view only that user's activity history."}
                 </p>
               </div>
 
@@ -910,7 +910,7 @@ export default function ActivityMonitorPage() {
                   {[
                     { id: 'registered', label: 'All Logged-In' },
                     { id: 'visitor', label: 'Visitors' },
-                    { id: 'organizer', label: 'Organizers' },
+                    { id: 'organizer', label: 'Organisers' },
                     { id: 'exhibitor', label: 'Exhibitors' }
                   ].map((pill) => (
                     <button
@@ -997,7 +997,7 @@ export default function ActivityMonitorPage() {
                               <span
                                 className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${roleBadge}`}
                               >
-                                {u.userRole || 'guest'}
+                                {u.userRole === 'organizer' ? 'organiser' : (u.userRole || 'guest')}
                               </span>
                             </td>
                             <td className="py-3.5 px-4 text-center font-bold text-slate-900 dark:text-white">
@@ -1338,7 +1338,7 @@ export default function ActivityMonitorPage() {
               >
                 <option value="registered">All Logged-In Users</option>
                 <option value="visitor">Visitors</option>
-                <option value="organizer">Organizers</option>
+                <option value="organizer">Organisers</option>
                 <option value="exhibitor">Exhibitors</option>
                 <option value="admin">Admins</option>
                 <option value="super_admin">Super Admins</option>
@@ -1365,7 +1365,7 @@ export default function ActivityMonitorPage() {
                 <option value="all">All User Roles (incl. Guests)</option>
                 <option value="registered">Registered Accounts Only</option>
                 <option value="visitor">Visitors</option>
-                <option value="organizer">Organizers</option>
+                <option value="organizer">Organisers</option>
                 <option value="exhibitor">Exhibitors</option>
                 <option value="guest">Guest / Anonymous Visitors</option>
               </select>
@@ -1589,7 +1589,7 @@ export default function ActivityMonitorPage() {
                       ROLE_BADGE_MAP[inspectedActivity.userRole] || ROLE_BADGE_MAP.guest
                     }`}
                   >
-                    {inspectedActivity.userRole || 'guest'}
+                    {inspectedActivity.userRole === 'organizer' ? 'organiser' : (inspectedActivity.userRole || 'guest')}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300">

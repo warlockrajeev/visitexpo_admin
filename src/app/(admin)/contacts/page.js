@@ -234,7 +234,7 @@ export default function ContactInquiriesPage() {
         return (
           <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-500 border border-amber-500/20">
             <Building className="h-3 w-3" />
-            Organizer
+            Organiser
           </span>
         );
       case 'Exhibitor':
@@ -457,7 +457,7 @@ export default function ContactInquiriesPage() {
               className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
             >
               <option value="all">All Roles</option>
-              <option value="Organizer">Organizer</option>
+              <option value="Organizer">Organiser</option>
               <option value="Exhibitor">Exhibitor</option>
               <option value="Visitor">Visitor</option>
               <option value="Advertiser">Advertiser</option>

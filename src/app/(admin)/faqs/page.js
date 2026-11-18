@@ -35,7 +35,7 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-const DEFAULT_CATEGORIES = ['General', 'Organizers', 'Exhibitors', 'Visitors'];
+const DEFAULT_CATEGORIES = ['General', 'Organisers', 'Exhibitors', 'Visitors'];
 
 export default function AdminFaqsPage() {
   const { accessToken } = useAuth();
@@ -59,7 +59,7 @@ export default function AdminFaqsPage() {
     answer: '',
     contentType: 'faq',
     images: [],
-    category: 'Organizers',
+    category: 'Organisers',
     customCategory: '',
     order: 0,
     isActive: true
@@ -146,7 +146,7 @@ export default function AdminFaqsPage() {
       answer: '',
       contentType: 'faq',
       images: [],
-      category: 'Organizers',
+      category: 'Organisers',
       customCategory: '',
       order: faqs.length + 1,
       isActive: true
@@ -390,7 +390,7 @@ export default function AdminFaqsPage() {
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
             {searchQuery || selectedCategory !== 'All' || selectedStatus !== 'all'
               ? 'No questions match your filter criteria. Try resetting filters.'
-              : 'Add FAQs or step-by-step website guides for organizers.'}
+              : 'Add FAQs or step-by-step website guides for organisers.'}
           </p>
           <button
             onClick={handleOpenCreate}
@@ -420,7 +420,7 @@ export default function AdminFaqsPage() {
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-                          {faq.category || 'General'}
+                          {faq.category === 'Organizers' ? 'Organisers' : (faq.category || 'General')}
                         </span>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                           {faq.contentType === 'guide' ? 'Website Guide' : 'FAQ'}
@@ -628,7 +628,7 @@ export default function AdminFaqsPage() {
                     <option value="Custom">+ Custom Category...</option>
                   </select>
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    Use Organizers to show this content in the dashboard floating help icon.
+                    Use Organisers to show this content in the dashboard floating help icon.
                   </p>
                 </div>
 
@@ -729,7 +729,7 @@ export default function AdminFaqsPage() {
                 <div>
                   <p className="text-xs font-bold text-foreground">Make Active on Frontend</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Published content appears on the matching public FAQ or organizer help surface.
+                    Published content appears on the matching public FAQ or organiser help surface.
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">

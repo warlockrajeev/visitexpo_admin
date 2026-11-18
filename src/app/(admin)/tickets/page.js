@@ -354,7 +354,7 @@ export default function SupportTicketsPage() {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             {activeTab === 'support'
-              ? 'Review live support requests filed by organizers & exhibitors, reply to technical issues, and resolve tickets.'
+              ? 'Review live support requests filed by organisers & exhibitors, reply to technical issues, and resolve tickets.'
               : 'Inspect created event ticket pricing tiers, visitor capacities, and registration pass settings across all expos.'}
           </p>
         </div>

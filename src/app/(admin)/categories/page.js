@@ -1110,7 +1110,7 @@ export default function EventCategoriesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search event title, venue, organizer..."
+                placeholder="Search event title, venue, organiser..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);

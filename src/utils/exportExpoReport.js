@@ -148,13 +148,13 @@ export function exportExpoReportsToExcel(reports = [], modules = {}, customFileN
       { Field: 'Start Date', Value: formatDate(e.startDate) },
       { Field: 'End Date', Value: formatDate(e.endDate) },
       { Field: 'Daily Timings', Value: e.timings || '09:00 AM - 06:00 PM' },
-      { Field: 'Organizer Name', Value: e.orgName || '' },
-      { Field: 'Organizer Email', Value: e.orgEmail || '' },
-      { Field: 'Organizer Phone', Value: e.orgPhone || '' },
+      { Field: 'Organiser Name', Value: e.orgName || '' },
+      { Field: 'Organiser Email', Value: e.orgEmail || '' },
+      { Field: 'Organiser Phone', Value: e.orgPhone || '' },
       { Field: 'Official Website', Value: e.website || e.orgWebsite || '' },
       { Field: 'WordPress Listing URL', Value: e.wpUrl || '' },
       { Field: 'WordPress Post ID', Value: e.wpPostId || 'N/A' },
-      { Field: 'Claimed by Organizer', Value: e.isClaimed ? 'Yes (Verified)' : 'No (Directory Listing)' },
+      { Field: 'Claimed by Organiser', Value: e.isClaimed ? 'Yes (Verified)' : 'No (Directory Listing)' },
       { Field: 'Ticketing Mode', Value: e.isFreeEvent !== false ? 'Free Entry Pass' : `Paid Ticket (${e.currency || 'INR'} ${e.paidTicketPrice || 0})` },
       { Field: 'Registered Visitors', Value: m.visitorsCount || 0 },
       { Field: 'Checked-In Visitors', Value: m.checkedInCount || 0 },
@@ -734,8 +734,8 @@ export function exportExpoReportsToPDF(reports = [], modules = {}) {
             <div class="info-row"><span class="info-label">Ticketing:</span><span class="info-value">${e.isFreeEvent !== false ? 'Free Registration' : `Paid (${escapeHtml(e.currency || 'INR')} ${e.paidTicketPrice || 0})`}</span></div>
           </div>
           <div class="info-box">
-            <div class="info-box-title">Organizer Contact Details</div>
-            <div class="info-row"><span class="info-label">Organizer:</span><span class="info-value">${escapeHtml(e.orgName || 'Organizer')}</span></div>
+            <div class="info-box-title">Organiser Contact Details</div>
+            <div class="info-row"><span class="info-label">Organiser:</span><span class="info-value">${escapeHtml(e.orgName || 'Organizer')}</span></div>
             <div class="info-row"><span class="info-label">Email:</span><span class="info-value">${escapeHtml(e.orgEmail || 'N/A')}</span></div>
             <div class="info-row"><span class="info-label">Phone:</span><span class="info-value">${escapeHtml(e.orgPhone || 'N/A')}</span></div>
             <div class="info-row"><span class="info-label">Website:</span><span class="info-value">${escapeHtml(e.website || e.orgWebsite || e.wpUrl || 'N/A')}</span></div>
@@ -1062,7 +1062,7 @@ export function exportExpoReportsToPDF(reports = [], modules = {}) {
               <th>Category</th>
               <th>City &amp; Venue</th>
               <th>Dates</th>
-              <th>Organizer</th>
+              <th>Organiser</th>
               <th style="text-align: center;">Visitors</th>
               <th style="text-align: center;">Attendees</th>
               <th style="text-align: center;">Leads</th>

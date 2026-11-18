@@ -383,15 +383,15 @@ export default function RapidCreationPage() {
             Rapid User Creation
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-            Instantly spin up realistic dummy Organizers, Exhibitors, and Visitors with active verifications and organization profiles.
-            Launch directly into any created user&apos;s account dashboard with 1-click seamless session transfer.
+            Instantly spin up realistic dummy Organisers, Exhibitors, and Visitors with active verifications and organization profiles.
+            Launch directly into any created user's account dashboard with 1-click seamless session transfer.
           </p>
         </div>
 
         {/* Global Stats Pill Bar */}
         <div className="flex flex-wrap items-center gap-3 relative z-10">
           <div className="p-3.5 rounded-2xl bg-secondary/60 border border-border min-w-[110px] text-center shadow-xs">
-            <span className="block text-[11px] font-bold text-muted-foreground uppercase">Organizers</span>
+            <span className="block text-[11px] font-bold text-muted-foreground uppercase">Organisers</span>
             <span className="text-xl font-black text-primary">{counts.organizers}</span>
           </div>
           <div className="p-3.5 rounded-2xl bg-secondary/60 border border-border min-w-[110px] text-center shadow-xs">
@@ -487,7 +487,7 @@ export default function RapidCreationPage() {
               }`}
             >
               <div className="space-y-1">
-                <span className="text-xs font-bold text-foreground block">Organizer</span>
+                <span className="text-xs font-bold text-foreground block">Organiser</span>
                 <span className="text-[11px] text-muted-foreground block">Creates active Organization + Event Manager rights</span>
               </div>
               <Building2 className={`h-6 w-6 ${selectedRole === 'organizer' ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -714,12 +714,12 @@ export default function RapidCreationPage() {
               >
                 <div className="flex items-center justify-between w-full">
                   <span className="text-xs font-bold text-primary flex items-center gap-1.5 uppercase tracking-wider">
-                    <Building2 className="h-4 w-4" /> Organizers
+                    <Building2 className="h-4 w-4" /> Organisers
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/20 text-primary">Batch</span>
                 </div>
-                <span className="text-lg font-extrabold text-foreground">Generate 5 Organizers</span>
-                <span className="text-[11px] text-muted-foreground">Creates 5 active organizers with unique exhibition organizations</span>
+                <span className="text-lg font-extrabold text-foreground">Generate 5 Organisers</span>
+                <span className="text-[11px] text-muted-foreground">Creates 5 active organisers with unique exhibition organizations</span>
               </button>
 
               <button
@@ -767,7 +767,7 @@ export default function RapidCreationPage() {
                   onChange={(e) => setBulkRole(e.target.value)}
                   className="rounded-xl border border-border bg-background py-2 px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary min-w-[150px]"
                 >
-                  <option value="organizer">Organizer</option>
+                  <option value="organizer">Organiser</option>
                   <option value="exhibitor">Exhibitor</option>
                   <option value="visitor">Visitor</option>
                 </select>
@@ -840,7 +840,7 @@ export default function RapidCreationPage() {
             >
               <option value="all">All Roles</option>
               <option value="dummy">Only Dummy (@testexpo.in)</option>
-              <option value="organizer">Organizers Only</option>
+              <option value="organizer">Organisers Only</option>
               <option value="exhibitor">Exhibitors Only</option>
               <option value="visitor">Visitors Only</option>
             </select>
@@ -867,7 +867,7 @@ export default function RapidCreationPage() {
             <Users className="h-10 w-10 text-muted-foreground mx-auto opacity-40" />
             <h4 className="text-sm font-bold text-foreground">No Users Found</h4>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              No users matched your search criteria. Use the generator above to create test organizers, exhibitors, or visitors.
+              No users matched your search criteria. Use the generator above to create test organisers, exhibitors, or visitors.
             </p>
           </div>
         ) : (
@@ -938,7 +938,7 @@ export default function RapidCreationPage() {
                           {u.role === 'organizer' && <Building2 className="h-3 w-3" />}
                           {u.role === 'exhibitor' && <Building className="h-3 w-3" />}
                           {u.role === 'visitor' && <Ticket className="h-3 w-3" />}
-                          {u.role}
+                          {u.role === 'organizer' ? 'organiser' : u.role}
                         </span>
                       </td>
 

@@ -108,7 +108,7 @@ export default function AdminFeaturedOrganizersPage() {
     logoUrl: '',
     brandColor: '#002D62',
     accentColor: '#00A3E0',
-    badge: 'Featured Organizer',
+    badge: 'Featured Organiser',
     scope: '',
     category: 'Trade & Industry',
     eventsCount: 0,
@@ -129,7 +129,7 @@ export default function AdminFeaturedOrganizersPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch featured organizers:', err);
+      console.error('Failed to fetch featured organisers:', err);
     } finally {
       setLoading(false);
     }
@@ -182,7 +182,7 @@ export default function AdminFeaturedOrganizersPage() {
       logoUrl: '',
       brandColor: '#002D62',
       accentColor: '#00A3E0',
-      badge: 'Featured Organizer',
+      badge: 'Featured Organiser',
       scope: '',
       category: 'Trade & Industry',
       eventsCount: 0,
@@ -202,7 +202,7 @@ export default function AdminFeaturedOrganizersPage() {
       logoUrl: item.logoUrl || '',
       brandColor: item.brandColor || '#002D62',
       accentColor: item.accentColor || '#00A3E0',
-      badge: item.badge || 'Featured Organizer',
+      badge: item.badge || 'Featured Organiser',
       scope: item.scope || '',
       category: item.category || 'Trade & Industry',
       eventsCount: item.eventsCount || 0,
@@ -258,7 +258,7 @@ export default function AdminFeaturedOrganizersPage() {
   const handleSaveOrganizer = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      Swal.fire({ icon: 'error', title: 'Validation Error', text: 'Organizer name is required.' });
+      Swal.fire({ icon: 'error', title: 'Validation Error', text: 'Organiser name is required.' });
       return;
     }
 
@@ -273,7 +273,7 @@ export default function AdminFeaturedOrganizersPage() {
           Swal.fire({
             icon: 'success',
             title: 'Updated Successfully',
-            text: 'Featured organizer details updated.',
+            text: 'Featured organiser details updated.',
             timer: 1500,
             showConfirmButton: false
           });
@@ -289,7 +289,7 @@ export default function AdminFeaturedOrganizersPage() {
           Swal.fire({
             icon: 'success',
             title: 'Added Successfully',
-            text: 'Featured organizer added to directory.',
+            text: 'Featured organiser added to directory.',
             timer: 1500,
             showConfirmButton: false
           });
@@ -301,7 +301,7 @@ export default function AdminFeaturedOrganizersPage() {
       Swal.fire({
         icon: 'error',
         title: 'Error Saving',
-        text: err.response?.data?.error || 'Failed to save featured organizer.'
+        text: err.response?.data?.error || 'Failed to save featured organiser.'
       });
     } finally {
       setSavingItem(false);
@@ -333,8 +333,8 @@ export default function AdminFeaturedOrganizersPage() {
   // Delete Organizer
   const handleDeleteOrganizer = async (item) => {
     const confirm = await Swal.fire({
-      title: 'Delete Featured Organizer?',
-      text: `Remove "${item.name}" from featured organizers list? This will remove them from the homepage carousel.`,
+      title: 'Delete Featured Organiser?',
+      text: `Remove "${item.name}" from featured organisers list? This will remove them from the homepage carousel.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#DC2626',
@@ -353,7 +353,7 @@ export default function AdminFeaturedOrganizersPage() {
         Swal.fire({
           icon: 'success',
           title: 'Deleted',
-          text: 'Organizer removed from featured list.',
+          text: 'Organiser removed from featured list.',
           timer: 1500,
           showConfirmButton: false
         });
@@ -436,7 +436,7 @@ export default function AdminFeaturedOrganizersPage() {
         Swal.fire({
           icon: 'info',
           title: 'Application Status Updated',
-          text: 'The organizer has been notified with your feedback.',
+          text: 'The organiser has been notified with your feedback.',
           timer: 2000,
           showConfirmButton: false
         });
@@ -462,7 +462,7 @@ export default function AdminFeaturedOrganizersPage() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-2.5">
               <Award className="h-7 w-7 text-amber-500" />
-              Featured Organizers Management
+              Featured Organisers Management
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
               <Crown className="h-3 w-3" />
@@ -470,7 +470,7 @@ export default function AdminFeaturedOrganizersPage() {
             </span>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Curate homepage featured organizers, review applications from Enterprise partners, and manage live branding showcase.
+            Curate homepage featured organisers, review applications from Enterprise partners, and manage live branding showcase.
           </p>
         </div>
 
@@ -487,7 +487,7 @@ export default function AdminFeaturedOrganizersPage() {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-xs shadow-md transition-all cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Featured Organizer</span>
+            <span>Add Featured Organiser</span>
           </button>
         </div>
       </div>
@@ -591,7 +591,7 @@ export default function AdminFeaturedOrganizersPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search organizer..."
+              placeholder="Search organiser..."
               className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-border bg-card text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-hidden"
             />
           </div>
@@ -622,9 +622,9 @@ export default function AdminFeaturedOrganizersPage() {
             <Building2 className="h-7 w-7" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-foreground">No Featured Organizers Found</h3>
+            <h3 className="text-base font-bold text-foreground">No Featured Organisers Found</h3>
             <p className="text-xs text-muted-foreground mt-1">
-              {searchQuery ? 'Try clearing your search query or filters.' : 'Click "Add Featured Organizer" to create one directly.'}
+              {searchQuery ? 'Try clearing your search query or filters.' : 'Click "Add Featured Organiser" to create one directly.'}
             </p>
           </div>
           <button
@@ -632,7 +632,7 @@ export default function AdminFeaturedOrganizersPage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs"
           >
             <Plus className="h-4 w-4" />
-            Add First Organizer
+            Add First Organiser
           </button>
         </div>
       ) : (
@@ -643,7 +643,7 @@ export default function AdminFeaturedOrganizersPage() {
               <thead>
                 <tr className="border-b border-border bg-secondary/30 text-muted-foreground font-semibold">
                   <th className="py-3 px-4 w-12 text-center">Order</th>
-                  <th className="py-3 px-4">Organizer Card Preview</th>
+                  <th className="py-3 px-4">Organiser Card Preview</th>
                   <th className="py-3 px-4">Brand &amp; Details</th>
                   <th className="py-3 px-4">Badge &amp; Category</th>
                   <th className="py-3 px-4 text-center">Event Count</th>
@@ -842,7 +842,7 @@ export default function AdminFeaturedOrganizersPage() {
                               <button
                                 type="button"
                                 onClick={() => handleDeleteOrganizer(item)}
-                                title="Delete Organizer"
+                                title="Delete Organiser"
                                 className="h-8 w-8 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 flex items-center justify-center transition-colors cursor-pointer border border-rose-500/20"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -873,7 +873,7 @@ export default function AdminFeaturedOrganizersPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-foreground">
-                    {editingItem ? 'Edit Featured Organizer' : 'Add New Featured Organizer'}
+                    {editingItem ? 'Edit Featured Organiser' : 'Add New Featured Organiser'}
                   </h3>
                   <p className="text-xs text-muted-foreground">
                     Configure branding, badges, order, and live homepage card representation.
@@ -933,7 +933,7 @@ export default function AdminFeaturedOrganizersPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-foreground">
-                    Full Organizer Name <span className="text-rose-500">*</span>
+                    Full Organiser Name <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1125,7 +1125,7 @@ export default function AdminFeaturedOrganizersPage() {
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>{editingItem ? 'Save Changes' : 'Create Featured Organizer'}</span>
+                    <span>{editingItem ? 'Save Changes' : 'Create Featured Organiser'}</span>
                   )}
                 </button>
               </div>
@@ -1191,12 +1191,12 @@ export default function AdminFeaturedOrganizersPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground">Approval Note / Message to Organizer</label>
+                <label className="text-xs font-bold text-foreground">Approval Note / Message to Organiser</label>
                 <textarea
                   rows={2}
                   value={approvalNotes}
                   onChange={(e) => setApprovalNotes(e.target.value)}
-                  placeholder="Welcome to Featured Organizers on VisitExpo! Your corporate card is now live."
+                  placeholder="Welcome to Featured Organisers on VisitExpo! Your corporate card is now live."
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-secondary/30 text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-hidden"
                 />
               </div>

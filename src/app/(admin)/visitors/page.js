@@ -524,8 +524,8 @@ export default function AdminVisitorsPage() {
       'S.No',
       'Event Title',
       'Venue / City',
-      'Organizer Name',
-      'Organizer Email',
+      'Organiser Name',
+      'Organiser Email',
       'Visitor Name',
       'Company / Organization',
       'Designation',
@@ -543,7 +543,7 @@ export default function AdminVisitorsPage() {
       escapeCsv(idx + 1),
       escapeCsv(report.eventTitle || ''),
       escapeCsv([report.venue, report.city].filter(Boolean).join(', ') || 'TBA'),
-      escapeCsv(report.organizerName || 'Event Organizer'),
+      escapeCsv(report.organizerName || 'Event Organiser'),
       escapeCsv(report.organizerEmail || ''),
       escapeCsv(v.name || ''),
       escapeCsv(v.company || 'Not Specified'),
@@ -583,7 +583,7 @@ export default function AdminVisitorsPage() {
 
     setToast({
       type: 'success',
-      message: `Exported Organizer Pass Request Report CSV for "${report.eventTitle}" (${report.visitors.length} users).`
+      message: `Exported Organiser Pass Request Report CSV for "${report.eventTitle}" (${report.visitors.length} users).`
     });
   };
 
@@ -593,11 +593,11 @@ export default function AdminVisitorsPage() {
 
     const lines = [
       `============================================================`,
-      `VISITEXPO — ORGANIZER PASS REQUEST REPORT`,
+      `VISITEXPO — ORGANISER PASS REQUEST REPORT`,
       `============================================================`,
       `Event: ${report.eventTitle || 'Event'}`,
       `Location: ${[report.venue, report.city].filter(Boolean).join(', ') || 'TBA'}`,
-      `Organizer: ${report.organizerName || 'Event Organizer'}${report.organizerEmail ? ` (${report.organizerEmail})` : ''}`,
+      `Organiser: ${report.organizerName || 'Event Organiser'}${report.organizerEmail ? ` (${report.organizerEmail})` : ''}`,
       `Report Generated: ${new Date().toLocaleString('en-IN')}`,
       `------------------------------------------------------------`,
       `PASS REQUEST SUMMARY:`,
@@ -628,10 +628,10 @@ export default function AdminVisitorsPage() {
       setTimeout(() => setCopiedEventId(null), 2500);
       setToast({
         type: 'success',
-        message: `Organizer Pass Request Report for "${report.eventTitle}" copied to clipboard!`
+        message: `Organiser Pass Request Report for "${report.eventTitle}" copied to clipboard!`
       });
     } catch (e) {
-      console.error('Failed to copy organizer report', e);
+      console.error('Failed to copy organiser report', e);
       setToast({ type: 'error', message: 'Could not copy report to clipboard.' });
     }
   };
@@ -687,11 +687,11 @@ export default function AdminVisitorsPage() {
         </head>
         <body>
           <div class="header">
-            <h1>VisitExpo — Event Pass Requests Report for Organizer</h1>
+            <h1>VisitExpo — Event Pass Requests Report for Organiser</h1>
             <div class="meta">
               <strong>Event:</strong> ${report.eventTitle || '-'} &nbsp;|&nbsp;
               <strong>Location:</strong> ${[report.venue, report.city].filter(Boolean).join(', ') || 'TBA'}<br/>
-              <strong>Organizer:</strong> ${report.organizerName || 'Event Organizer'} ${report.organizerEmail ? `(${report.organizerEmail})` : ''} &nbsp;|&nbsp;
+              <strong>Organiser:</strong> ${report.organizerName || 'Event Organiser'} ${report.organizerEmail ? `(${report.organizerEmail})` : ''} &nbsp;|&nbsp;
               <strong>Generated On:</strong> ${new Date().toLocaleString('en-IN')}
             </div>
           </div>
@@ -900,7 +900,7 @@ export default function AdminVisitorsPage() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-bold text-foreground">
-                  Event-Wise Pass Requests &amp; Organizer Reports
+                  Event-Wise Pass Requests & Organiser Reports
                 </h2>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                   {eventPassReports.length} {eventPassReports.length === 1 ? 'Event' : 'Events'}
@@ -910,7 +910,7 @@ export default function AdminVisitorsPage() {
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                View pass request counts per event and export or copy the complete list of requesting users to share directly with the event organizer.
+                View pass request counts per event and export or copy the complete list of requesting users to share directly with the event organiser.
               </p>
             </div>
           </div>
@@ -920,7 +920,7 @@ export default function AdminVisitorsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search event or organizer..."
+                placeholder="Search event or organiser..."
                 value={eventReportSearch}
                 onChange={e => {
                   setEventReportSearch(e.target.value);
@@ -976,11 +976,11 @@ export default function AdminVisitorsPage() {
                   <thead>
                     <tr className="border-b border-border bg-muted/25 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       <th className="py-3 px-4">Event Details</th>
-                      <th className="py-3 px-4">Organizer</th>
+                      <th className="py-3 px-4">Organiser</th>
                       <th className="py-3 px-4 text-center">Pass Requests</th>
                       <th className="py-3 px-4">Request Breakdown</th>
                       <th className="py-3 px-4">Recent Requesters</th>
-                      <th className="py-3 px-4 text-right">Organizer Report Actions</th>
+                      <th className="py-3 px-4 text-right">Organiser Report Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border text-xs">
@@ -1024,7 +1024,7 @@ export default function AdminVisitorsPage() {
                             <div className="flex items-center gap-1.5 font-semibold text-foreground">
                               <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               <span className="truncate max-w-[160px]" title={item.organizerName}>
-                                {item.organizerName || 'Event Organizer'}
+                                {item.organizerName || 'Event Organiser'}
                               </span>
                             </div>
                             {item.organizerEmail && (
@@ -1112,7 +1112,7 @@ export default function AdminVisitorsPage() {
                                   setModalUserPage(1);
                                 }}
                                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer"
-                                title="View all users who requested a pass for this event and share report with organizer"
+                                title="View all users who requested a pass for this event and share report with organiser"
                               >
                                 <Eye className="h-3.5 w-3.5" />
                                 View Users ({item.visitors?.length || 0})
@@ -1121,7 +1121,7 @@ export default function AdminVisitorsPage() {
                               <button
                                 onClick={() => handleExportEventReportCSV(item)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-bold text-[11px] transition-all cursor-pointer"
-                                title="Download CSV Report of all pass requests for this event to share with the organizer"
+                                title="Download CSV Report of all pass requests for this event to share with the organiser"
                               >
                                 <Download className="h-3.5 w-3.5" />
                                 CSV Report
@@ -1130,7 +1130,7 @@ export default function AdminVisitorsPage() {
                               <button
                                 onClick={() => handleCopyOrganizerReport(item)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-foreground font-semibold text-[11px] transition-all cursor-pointer"
-                                title="Copy formatted pass request report summary to send to the organizer via email or WhatsApp"
+                                title="Copy formatted pass request report summary to send to the organiser via email or WhatsApp"
                               >
                                 {isCopied ? (
                                   <>
@@ -1148,7 +1148,7 @@ export default function AdminVisitorsPage() {
                               <button
                                 onClick={() => handlePrintEventReport(item)}
                                 className="inline-flex items-center gap-1 p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-muted-foreground hover:text-foreground transition-all cursor-pointer"
-                                title="Print or Save as PDF Report for Organizer"
+                                title="Print or Save as PDF Report for Organiser"
                               >
                                 <Printer className="h-3.5 w-3.5" />
                               </button>
@@ -1589,7 +1589,7 @@ export default function AdminVisitorsPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                    <Share2 className="h-3 w-3" /> Organizer Pass Request Report
+                    <Share2 className="h-3 w-3" /> Organiser Pass Request Report
                   </span>
                   <span className="text-xs font-bold text-muted-foreground">
                     • {selectedReportEvent.totalRequests} Active Pass Requests
@@ -1607,7 +1607,7 @@ export default function AdminVisitorsPage() {
                   )}
                   <span className="inline-flex items-center gap-1">
                     <Building2 className="h-3.5 w-3.5 text-amber-500" />
-                    Organizer: <strong className="text-foreground">{selectedReportEvent.organizerName || 'Event Organizer'}</strong>
+                    Organiser: <strong className="text-foreground">{selectedReportEvent.organizerName || 'Event Organiser'}</strong>
                     {selectedReportEvent.organizerEmail ? ` (${selectedReportEvent.organizerEmail})` : ''}
                   </span>
                 </div>
@@ -1619,7 +1619,7 @@ export default function AdminVisitorsPage() {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Export CSV for Organizer
+                  Export CSV for Organiser
                 </button>
                 <button
                   onClick={() => handleCopyOrganizerReport(selectedReportEvent)}

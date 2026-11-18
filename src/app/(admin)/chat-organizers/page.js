@@ -121,13 +121,13 @@ export default function ChatOrganizersPage() {
             }));
           }
         } catch (e) {
-          console.warn('Could not cache admin chat organizers:', e);
+          console.warn('Could not cache admin chat organisers:', e);
         }
       }
     } catch (err) {
-      console.error('Failed to load chat organizers:', err);
+      console.error('Failed to load chat organisers:', err);
       if (!isSilent && organizers.length === 0) {
-        showSweetError(err.response?.data?.message || 'Failed to load organizers chat data');
+        showSweetError(err.response?.data?.message || 'Failed to load organisers chat data');
       }
     } finally {
       setLoading(false);
@@ -149,7 +149,7 @@ export default function ChatOrganizersPage() {
         }
       }
     } catch (e) {
-      console.warn('Could not read chat organizers cache:', e);
+      console.warn('Could not read chat organisers cache:', e);
     }
 
     if (!authLoading) {
@@ -212,7 +212,7 @@ export default function ChatOrganizersPage() {
       }
     } catch (err) {
       console.error('Toggle failed:', err);
-      showSweetError(err.response?.data?.message || 'Failed to update organizer chat settings');
+      showSweetError(err.response?.data?.message || 'Failed to update organiser chat settings');
       // Revert optimistic update
       fetchData(true);
     } finally {
@@ -239,7 +239,7 @@ export default function ChatOrganizersPage() {
       }
     } catch (err) {
       console.error('Failed to load conversations:', err);
-      showSweetError('Failed to load conversation history for this organizer');
+      showSweetError('Failed to load conversation history for this organiser');
     } finally {
       setLoadingConversations(false);
     }
@@ -274,7 +274,7 @@ export default function ChatOrganizersPage() {
       );
 
       if (res.data?.success) {
-        showSweetSuccess('Organizer chat configuration saved successfully!');
+        showSweetSuccess('Organiser chat configuration saved successfully!');
         setEditingOrganizer(null);
         fetchData(true);
       }
@@ -348,13 +348,13 @@ export default function ChatOrganizersPage() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
-              <span>Organizer Live Communication Center</span>
+              <span>Organiser Live Communication Center</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
               Live Chat Feature Status & Inquiries
             </h1>
             <p className="text-sm md:text-base text-emerald-100/90 max-w-2xl leading-relaxed">
-              Track which exhibition organizers have enabled direct live chat desk for visitors &
+              Track which exhibition organisers have enabled direct live chat desk for visitors &
               exhibitors. Toggle live features, audit conversation threads, and adjust welcome
               greetings.
             </p>
@@ -375,7 +375,7 @@ export default function ChatOrganizersPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-white text-emerald-900 hover:bg-emerald-50 px-4 py-2.5 text-sm font-semibold shadow-md transition active:scale-95"
             >
               <Building2 className="h-4 w-4 text-emerald-700" />
-              <span>Full Organizers Directory</span>
+              <span>Full Organisers Directory</span>
             </Link>
           </div>
         </div>
@@ -386,7 +386,7 @@ export default function ChatOrganizersPage() {
         {/* Total Organizers */}
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm hover:border-primary/40 transition">
           <div className="flex items-center justify-between text-muted-foreground mb-2">
-            <span className="text-xs font-medium uppercase tracking-wider">Total Organizers</span>
+            <span className="text-xs font-medium uppercase tracking-wider">Total Organisers</span>
             <Building2 className="h-4 w-4 text-primary" />
           </div>
           <div className="text-2xl font-bold text-foreground">
@@ -415,7 +415,7 @@ export default function ChatOrganizersPage() {
           </div>
           <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 mt-1 font-medium">
             {stats.totalOrganizers > 0
-              ? `${Math.round((stats.chatEnabledCount / stats.totalOrganizers) * 100)}% of organizers`
+              ? `${Math.round((stats.chatEnabledCount / stats.totalOrganizers) * 100)}% of organisers`
               : '0%'}
           </div>
         </div>
@@ -496,7 +496,7 @@ export default function ChatOrganizersPage() {
             {stats.totalUnread}
           </div>
           <div className="text-[11px] text-rose-700/80 dark:text-rose-400/80 mt-1">
-            Awaiting organizer reply
+            Awaiting organiser reply
           </div>
         </div>
       </div>
@@ -514,7 +514,7 @@ export default function ChatOrganizersPage() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              All Organizers ({stats.totalOrganizers})
+              All Organisers ({stats.totalOrganizers})
             </button>
             <button
               onClick={() => setStatusTab('enabled')}
@@ -597,7 +597,7 @@ export default function ChatOrganizersPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search organizer name, email, phone, company, or organization..."
+              placeholder="Search organiser name, email, phone, company, or organization..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm rounded-xl border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition"
@@ -647,15 +647,15 @@ export default function ChatOrganizersPage() {
         <div className="rounded-2xl border border-border bg-card p-16 flex flex-col items-center justify-center space-y-4 shadow-sm">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           <p className="text-sm font-medium text-muted-foreground">
-            Loading organizer chat directory and metrics...
+            Loading organiser chat directory and metrics...
           </p>
         </div>
       ) : filteredOrganizers.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-16 text-center space-y-3">
           <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50" />
-          <h3 className="text-lg font-semibold text-foreground">No Organizers Found</h3>
+          <h3 className="text-lg font-semibold text-foreground">No Organisers Found</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            No organizers match the current search query or status filter. Try clearing filters or
+            No organisers match the current search query or status filter. Try clearing filters or
             searching for another name.
           </p>
           <button
@@ -675,7 +675,7 @@ export default function ChatOrganizersPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
                 <tr>
-                  <th className="py-3.5 px-4">Organizer</th>
+                  <th className="py-3.5 px-4">Organiser</th>
                   <th className="py-3.5 px-4">Company / Entity</th>
                   <th className="py-3.5 px-4 text-center">Expos Managed</th>
                   <th className="py-3.5 px-4 text-center">Chat Feature Status</th>
@@ -731,7 +731,7 @@ export default function ChatOrganizersPage() {
                               {org.isVerified && (
                                 <ShieldCheck
                                   className="h-4 w-4 text-emerald-500 flex-shrink-0"
-                                  title="Verified Organizer"
+                                  title="Verified Organiser"
                                 />
                               )}
                             </div>
@@ -955,7 +955,7 @@ export default function ChatOrganizersPage() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground font-medium">
-                          {org.company || org.organizationName || 'Independent Organizer'}
+                          {org.company || org.organizationName || 'Independent Organiser'}
                         </p>
                       </div>
                     </div>
@@ -1093,7 +1093,7 @@ export default function ChatOrganizersPage() {
                   <MessageSquare className="h-10 w-10 text-muted-foreground/40" />
                   <h4 className="font-semibold text-foreground text-sm">No Inquiries Yet</h4>
                   <p className="text-xs text-muted-foreground max-w-xs">
-                    This organizer has not received any direct chat inquiries from visitors or exhibitors yet.
+                    This organiser has not received any direct chat inquiries from visitors or exhibitors yet.
                   </p>
                 </div>
               ) : (
@@ -1190,7 +1190,7 @@ export default function ChatOrganizersPage() {
                                     }`}
                                   >
                                     <div className="flex items-center justify-between gap-3 text-[10px] opacity-75 mb-1">
-                                      <span className="font-semibold">{msg.senderName || (isOrg ? 'Organizer' : 'Visitor')}</span>
+                                      <span className="font-semibold">{msg.senderName || (isOrg ? 'Organiser' : 'Visitor')}</span>
                                       <span>
                                         {new Date(msg.timestamp).toLocaleTimeString([], {
                                           hour: '2-digit',
@@ -1355,7 +1355,7 @@ export default function ChatOrganizersPage() {
                     Automatic Out-of-Office Reply
                   </label>
                   <p className="text-xs text-muted-foreground">
-                    Send automated response when desk is offline or organizer is away
+                    Send automated response when desk is offline or organiser is away
                   </p>
                 </div>
 

@@ -67,7 +67,7 @@ const MATRIX_ROWS = [
   { label: 'Lead Export', free: 'Not Available', starter: 'Not Available', enterprise: 'Unlimited' },
   { label: 'Lead Search & Filtering', free: 'Basic', starter: 'Basic', enterprise: 'Advanced' },
   { label: 'Visitor / Exhibitor / Vendor Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
-  { label: 'Venue / Designer / Organizer Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics + Search Database' },
+  { label: 'Venue / Designer / Organiser Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics + Search Database' },
   { label: 'Ticket Platform / Expo Mgmt Leads', free: 'Masked', starter: 'Unlocked', enterprise: 'Full + analytics' },
   { label: 'Paid Ticket Selling', free: 'Not included (1/10 demand test)', starter: 'Unlocked', enterprise: 'Advanced / private gateway' },
   { label: 'Payment Gateway', free: 'Not included', starter: 'Ok', enterprise: 'Ok (Multi-gateway + Custom)' },
@@ -335,7 +335,7 @@ export default function PlansManagementPage() {
       });
       if (freeUsers.length > 0) {
         showSweetError(
-          `Growth Plan is an exclusive add-on for Starter and Enterprise organizers. The following user(s) currently have the Free plan and cannot take the Growth plan directly: ${freeUsers.map((u) => u.name || u.email).join(', ')}. Please assign a Starter or Enterprise base plan first.`
+          `Growth Plan is an exclusive add-on for Starter and Enterprise organisers. The following user(s) currently have the Free plan and cannot take the Growth plan directly: ${freeUsers.map((u) => u.name || u.email).join(', ')}. Please assign a Starter or Enterprise base plan first.`
         );
         return;
       }
@@ -496,7 +496,7 @@ export default function PlansManagementPage() {
     const confirmed = await showSweetConfirm({
       title: newNoCharge ? 'Enable No Charge for General Mail?' : 'Restore ₹1,499 General Mail Fee?',
       text: newNoCharge
-        ? 'Personal email domains (@gmail, @yahoo, etc) will be allowed to activate the Free Organizer Plan for 100% FREE (₹0).'
+        ? 'Personal email domains (@gmail, @yahoo, etc) will be allowed to activate the Free Organiser Plan for 100% FREE (₹0).'
         : 'Personal email domains (@gmail, @yahoo, etc) will be required to pay the standard ₹1,499 one-time registration verification fee.',
       confirmButtonText: newNoCharge ? 'Make General Mail Free (₹0)' : 'Set Fee to ₹1,499',
       isDanger: false
@@ -526,7 +526,7 @@ export default function PlansManagementPage() {
   const handleRestoreDefaults = async () => {
     const confirmed = await showSweetConfirm({
       title: 'Restore Official Pricing Defaults?',
-      text: 'This will reset Free Organizer, Starter, Enterprise, and Growth plans to the official specifications (Free corp/1499 gen, Starter 14,999/49,999, Enterprise 39,999/89,999, Proposed Research 4,999).',
+      text: 'This will reset Free Organiser, Starter, Enterprise, and Growth plans to the official specifications (Free corp/1499 gen, Starter 14,999/49,999, Enterprise 39,999/89,999, Proposed Research 4,999).',
       confirmButtonText: 'Reset to Defaults',
       isDanger: false
     });
@@ -797,11 +797,11 @@ export default function PlansManagementPage() {
               <Layers className="h-5 w-5" />
             </span>
             <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              Organizer Plans &amp; Pricing Management
+              Organiser Plans & Pricing Management
             </h2>
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Configure official organizer subscription packages, feature limits, prospective expo validation fees, and growth top-up promotional services.
+            Configure official organiser subscription packages, feature limits, prospective expo validation fees, and growth top-up promotional services.
           </p>
         </div>
 
@@ -855,7 +855,7 @@ export default function PlansManagementPage() {
           return (
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {starter?.name || 'Organizer Starter'}
+                {starter?.name || 'Organiser Starter'}
               </span>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="text-2xl font-extrabold text-foreground font-mono">
@@ -878,7 +878,7 @@ export default function PlansManagementPage() {
           return (
             <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {enterprise?.name || 'Organizer Enterprise'}
+                {enterprise?.name || 'Organiser Enterprise'}
               </span>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="text-2xl font-extrabold text-indigo-500 font-mono">
@@ -895,7 +895,7 @@ export default function PlansManagementPage() {
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            {plans.find((p) => p.planId === 'free')?.name || 'Free Organizer Tier'}
+            {plans.find((p) => p.planId === 'free')?.name || 'Free Organiser Tier'}
           </span>
           <div className="mt-2 flex items-baseline gap-1">
             <span className="text-2xl font-extrabold text-foreground">₹0</span>
@@ -910,7 +910,7 @@ export default function PlansManagementPage() {
 
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Organizer Inquiries
+            Organiser Inquiries
           </span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-extrabold text-primary font-mono">{stats.totalInquiries}</span>
@@ -930,7 +930,7 @@ export default function PlansManagementPage() {
           { id: 'plans', label: 'Official Pricing Tiers', icon: Layers, count: plans.length },
           { id: 'assign', label: 'Assign Plans to Users', icon: UserCheck, count: assignedSubs.length || undefined },
           { id: 'growth', label: 'Growth Top-Up Services', icon: Megaphone, count: growthServices.length },
-          { id: 'inquiries', label: 'Organizer Upgrade Inquiries', icon: MessageSquare, count: stats.totalInquiries },
+          { id: 'inquiries', label: 'Organiser Upgrade Inquiries', icon: MessageSquare, count: stats.totalInquiries },
           { id: 'matrix', label: 'Feature Comparison Matrix', icon: FileSpreadsheet }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -1159,7 +1159,7 @@ export default function PlansManagementPage() {
                 </h3>
               </div>
               <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-                Assign and activate any organizer plan (Free, Starter, Enterprise, Growth) for any user in the platform.
+                Assign and activate any organiser plan (Free, Starter, Enterprise, Growth) for any user in the platform.
                 Optionally apply <strong>&ldquo;No charge for general mail&rdquo;</strong> to waive the standard ₹1,499 personal email verification fee.
               </p>
             </div>
@@ -1219,7 +1219,7 @@ export default function PlansManagementPage() {
                     className="px-2.5 py-2 rounded-xl bg-secondary border border-border text-xs text-foreground focus:outline-none focus:border-primary"
                   >
                     <option value="all">All Roles</option>
-                    <option value="organizer">Organizers</option>
+                    <option value="organizer">Organisers</option>
                     <option value="exhibitor">Exhibitors</option>
                     <option value="visitor">Visitors</option>
                   </select>
@@ -1251,7 +1251,7 @@ export default function PlansManagementPage() {
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-foreground truncate">{u.name}</span>
                                 <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold capitalize bg-card border border-border text-muted-foreground">
-                                  {u.role}
+                                  {u.role === 'organizer' ? 'organiser' : u.role}
                                 </span>
                               </div>
                               <div className="text-[11px] text-muted-foreground truncate">{u.email}</div>
@@ -1289,7 +1289,7 @@ export default function PlansManagementPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-sm text-foreground truncate">{selectedUser.name}</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-primary text-black">
-                            {selectedUser.role}
+                            {selectedUser.role === 'organizer' ? 'organiser' : selectedUser.role}
                           </span>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
                             isCorporateEmail(selectedUser.email)
@@ -1441,22 +1441,22 @@ export default function PlansManagementPage() {
                     {[
                       {
                         id: 'free',
-                        label: plans.find((pl) => pl.planId === 'free')?.name || 'Free Organizer',
+                        label: plans.find((pl) => pl.planId === 'free')?.name || 'Free Organiser',
                         badge: plans.find((pl) => pl.planId === 'free')?.badge || 'Complimentary Tier'
                       },
                       {
                         id: 'starter',
-                        label: plans.find((pl) => pl.planId === 'starter')?.name || 'Organizer Starter',
+                        label: plans.find((pl) => pl.planId === 'starter')?.name || 'Organiser Starter',
                         badge: plans.find((pl) => pl.planId === 'starter')?.badge || `₹${(plans.find((pl) => pl.planId === 'starter')?.pricing?.quarterlyPrice ?? 14999).toLocaleString('en-IN')}/Qtr`
                       },
                       {
                         id: 'enterprise',
-                        label: plans.find((pl) => pl.planId === 'enterprise')?.name || 'Organizer Enterprise',
+                        label: plans.find((pl) => pl.planId === 'enterprise')?.name || 'Organiser Enterprise',
                         badge: plans.find((pl) => pl.planId === 'enterprise')?.badge || `₹${(plans.find((pl) => pl.planId === 'enterprise')?.pricing?.quarterlyPrice ?? 89999).toLocaleString('en-IN')}/Qtr`
                       },
                       {
                         id: 'growth',
-                        label: plans.find((pl) => pl.planId === 'growth')?.name || 'Organizer Growth',
+                        label: plans.find((pl) => pl.planId === 'growth')?.name || 'Organiser Growth',
                         badge: plans.find((pl) => pl.planId === 'growth')?.badge || 'Add-on (Starter/Enterprise only)'
                       }
                     ].map((p) => {
@@ -1483,7 +1483,7 @@ export default function PlansManagementPage() {
                     <div className="mt-2.5 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] leading-relaxed flex items-start gap-2">
                       <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                       <span>
-                        <strong>Growth Plan is an Add-on:</strong> Can only be assigned to organizers with an active <strong>Starter</strong> or <strong>Enterprise</strong> base plan. Users on the Free plan cannot take the Growth plan directly.
+                        <strong>Growth Plan is an Add-on:</strong> Can only be assigned to organisers with an active <strong>Starter</strong> or <strong>Enterprise</strong> base plan. Users on the Free plan cannot take the Growth plan directly.
                       </span>
                     </div>
                   )}
@@ -1636,7 +1636,7 @@ export default function PlansManagementPage() {
                       className="h-3.5 w-3.5 rounded accent-primary cursor-pointer"
                     />
                     <label htmlFor="upgradeRole" className="text-foreground cursor-pointer font-medium">
-                      Promote user role to &ldquo;Organizer&rdquo; (if visitor or exhibitor)
+                      Promote user role to “Organiser” (if visitor or exhibitor)
                     </label>
                   </div>
                 </div>
@@ -1702,10 +1702,10 @@ export default function PlansManagementPage() {
                 <div>
                   <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-primary" />
-                    <span>Active Organizer Subscriptions ({assignedSubs.length})</span>
+                    <span>Active Organiser Subscriptions ({assignedSubs.length})</span>
                   </h4>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    All organizers with assigned plans, payment statuses, and fee waivers.
+                    All organisers with assigned plans, payment statuses, and fee waivers.
                   </p>
                 </div>
 
@@ -2162,7 +2162,7 @@ export default function PlansManagementPage() {
                   <p className="text-sm font-semibold text-foreground">No inquiries found</p>
                   <p className="text-xs">
                     {inquiryFilter === 'all'
-                      ? 'Organizer inquiries submitted on the website will be displayed here in real time.'
+                      ? 'Organiser inquiries submitted on the website will be displayed here in real time.'
                       : `No inquiries with status "${inquiryFilter.replace('_', ' ')}".`}
                   </p>
                 </div>
@@ -2172,7 +2172,7 @@ export default function PlansManagementPage() {
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="border-b border-border bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          <th className="px-5 py-3.5">Organizer &amp; Company</th>
+                          <th className="px-5 py-3.5">Organiser & Company</th>
                           <th className="px-5 py-3.5">Plan Requested</th>
                           <th className="px-5 py-3.5">Contact Details</th>
                           <th className="px-5 py-3.5">Email Type</th>
@@ -2324,7 +2324,7 @@ export default function PlansManagementPage() {
                 Comprehensive Feature Comparison Matrix
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Side-by-side feature access across Free Organizer, Organizer Starter, and Organizer Enterprise.
+                Side-by-side feature access across Free Organiser, Organiser Starter, and Organiser Enterprise.
               </p>
             </div>
             <div className="relative w-full sm:w-64">
@@ -2360,7 +2360,7 @@ export default function PlansManagementPage() {
                     <thead>
                       <tr className="border-b border-border bg-muted/30">
                         <th className="px-6 py-4 font-bold text-foreground w-1/3">Feature / Capability</th>
-                        <th className="px-6 py-4 font-bold text-foreground w-1/5">Free Organizer</th>
+                        <th className="px-6 py-4 font-bold text-foreground w-1/5">Free Organiser</th>
                         <th className="px-6 py-4 font-bold text-primary w-1/5">Starter Plan</th>
                         <th className="px-6 py-4 font-bold text-indigo-400 w-1/5">Enterprise Plan</th>
                       </tr>
@@ -2453,7 +2453,7 @@ export default function PlansManagementPage() {
                   Edit Plan: {editingPlan.name}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Update plan pricing, badge, and allowances displayed to organizers.
+                  Update plan pricing, badge, and allowances displayed to organisers.
                 </p>
               </div>
               <button
@@ -2843,7 +2843,7 @@ export default function PlansManagementPage() {
                 )}
                 {activeInquiry.message && (
                   <div className="pt-1 mt-1 border-t border-border/60">
-                    <strong className="text-foreground">Notes from organizer: </strong>
+                    <strong className="text-foreground">Notes from organiser: </strong>
                     <p className="text-muted-foreground mt-0.5 italic">{activeInquiry.message}</p>
                   </div>
                 )}

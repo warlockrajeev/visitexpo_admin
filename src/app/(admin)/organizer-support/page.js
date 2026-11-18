@@ -72,7 +72,7 @@ export default function OrganizerSupportPage() {
           }
         } catch (e) {}
       } catch (requestError) {
-        if (mounted) setError(requestError.response?.data?.error || 'Could not load organizer conversations.');
+        if (mounted) setError(requestError.response?.data?.error || 'Could not load organiser conversations.');
       } finally {
         if (mounted) {
           setLoading(false);
@@ -161,8 +161,8 @@ export default function OrganizerSupportPage() {
     <div className="mx-auto flex h-[calc(100vh-7rem)] min-h-[520px] max-w-7xl flex-col gap-4 pb-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Organizer Support Chat</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Private conversations between organizers and VisitExpo administrators.</p>
+          <h2 className="text-xl font-bold text-foreground">Organiser Support Chat</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Private conversations between organisers and VisitExpo administrators.</p>
         </div>
         <button
           type="button"
@@ -188,8 +188,8 @@ export default function OrganizerSupportPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search organizers..."
-                aria-label="Search organizer conversations"
+                placeholder="Search organisers..."
+                aria-label="Search organiser conversations"
                 className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </label>
@@ -229,7 +229,7 @@ export default function OrganizerSupportPage() {
               <div className="flex flex-col items-center px-5 py-12 text-center">
                 <MessageSquare className="mb-2 h-7 w-7 text-muted-foreground/40" />
                 <p className="text-xs font-semibold text-foreground">{search ? 'No matches' : 'No conversations yet'}</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">Organizer messages will appear here.</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">Organiser messages will appear here.</p>
               </div>
             )}
           </div>
@@ -248,7 +248,7 @@ export default function OrganizerSupportPage() {
                   return (
                     <div key={message._id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${isAdmin ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm border border-border bg-card text-foreground'}`}>
-                        <p className="mb-1 text-[10px] font-bold opacity-75">{message.senderName || (isAdmin ? 'VisitExpo Support' : 'Organizer')}</p>
+                        <p className="mb-1 text-[10px] font-bold opacity-75">{message.senderName || (isAdmin ? 'VisitExpo Support' : 'Organiser')}</p>
                         <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">{message.text}</p>
                         <time className="mt-1.5 block text-right text-[9px] opacity-65">{formatConversationDate(message.timestamp)}</time>
                       </div>
@@ -264,7 +264,7 @@ export default function OrganizerSupportPage() {
                   maxLength={4000}
                   rows={2}
                   placeholder="Write a reply..."
-                  aria-label="Reply to organizer"
+                  aria-label="Reply to organiser"
                   className="max-h-28 min-h-10 flex-1 resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
                 <button
@@ -281,7 +281,7 @@ export default function OrganizerSupportPage() {
             <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
               <MessageSquare className="mb-3 h-9 w-9 text-muted-foreground/35" />
               <p className="text-sm font-bold text-foreground">Select a conversation</p>
-              <p className="mt-1 max-w-xs text-xs text-muted-foreground">Choose an organizer from the inbox to read and reply to their message.</p>
+              <p className="mt-1 max-w-xs text-xs text-muted-foreground">Choose an organiser from the inbox to read and reply to their message.</p>
             </div>
           )}
         </section>

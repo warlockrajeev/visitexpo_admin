@@ -57,6 +57,7 @@ import {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 const isGoogleEmailVerified = (u) => u?.authProvider === 'google';
+const formatRoleDisplay = (role) => (role === 'organizer' ? 'organiser' : String(role || '').replace('_', ' '));
 
 // Date formatters
 function formatFullDate(dateString) {
@@ -893,7 +894,7 @@ export default function UsersManagementPage() {
             >
               <option value="all">All Roles</option>
               <option value="super_admin">Super Admin</option>
-              <option value="organizer">Organizer</option>
+              <option value="organizer">Organiser</option>
               <option value="exhibitor">Exhibitor</option>
               <option value="visitor">Visitor</option>
               <option value="event_manager">Event Manager</option>
@@ -1113,7 +1114,7 @@ export default function UsersManagementPage() {
                             : 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
                         }`}
                       >
-                        {u.role?.replace('_', ' ')}
+                        {formatRoleDisplay(u.role)}
                       </span>
                     </div>
 
@@ -1487,7 +1488,7 @@ export default function UsersManagementPage() {
                                 : 'bg-zinc-500/10 text-zinc-600 border border-zinc-500/20'
                             }`}
                           >
-                            {u.role?.replace('_', ' ')}
+                            {formatRoleDisplay(u.role)}
                           </span>
                         </td>
 
@@ -1735,7 +1736,7 @@ export default function UsersManagementPage() {
                         }`}
                       >
                         <Shield className="h-3 w-3" />
-                        {activeUser.role?.replace('_', ' ')}
+                        {formatRoleDisplay(activeUser.role)}
                       </span>
 
                       {/* Status Pill */}
@@ -1992,7 +1993,7 @@ export default function UsersManagementPage() {
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">System RBAC Role:</span>
                         <p className="text-foreground font-bold capitalize">
-                          {activeUser.role?.replace('_', ' ')}
+                          {formatRoleDisplay(activeUser.role)}
                         </p>
                         <p className="text-[11px] text-muted-foreground">
                           {activeUser.role === 'super_admin'
@@ -2452,7 +2453,7 @@ export default function UsersManagementPage() {
               <div className="bg-background/80 p-2.5 rounded-lg border border-border space-y-1">
                 <p className="text-foreground font-bold">{targetDeleteUser.name}</p>
                 <p className="text-muted-foreground font-mono text-[11px]">{targetDeleteUser.email}</p>
-                <p className="text-muted-foreground capitalize">Role: {targetDeleteUser.role?.replace('_', ' ')}</p>
+                <p className="text-muted-foreground capitalize">Role: {formatRoleDisplay(targetDeleteUser.role)}</p>
               </div>
               <div className="text-[11px] text-zinc-500 space-y-1 pt-1">
                 <p className="font-semibold text-zinc-600 dark:text-zinc-400">All data across the entire platform will be purged:</p>
@@ -2536,7 +2537,7 @@ export default function UsersManagementPage() {
                         <p className="text-muted-foreground font-mono text-[10px] truncate">{u.email}</p>
                       </div>
                       <span className="px-2 py-0.5 rounded bg-muted text-foreground text-[10px] font-bold uppercase shrink-0">
-                        {u.role?.replace('_', ' ')}
+                        {formatRoleDisplay(u.role)}
                       </span>
                     </div>
                   ))}
@@ -2633,7 +2634,7 @@ export default function UsersManagementPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">Work Email (Organizer / Corporate)</label>
+                  <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">Work Email (Organiser / Corporate)</label>
                   <input
                     type="email"
                     value={editForm.workEmail}
@@ -2699,7 +2700,7 @@ export default function UsersManagementPage() {
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-semibold cursor-pointer"
                   >
                     <option className="cursor-pointer" value="super_admin">Super Admin</option>
-                    <option className="cursor-pointer" value="organizer">Organizer</option>
+                    <option className="cursor-pointer" value="organizer">Organiser</option>
                     <option className="cursor-pointer" value="exhibitor">Exhibitor</option>
                     <option className="cursor-pointer" value="visitor">Visitor</option>
                     <option className="cursor-pointer" value="event_manager">Event Manager</option>

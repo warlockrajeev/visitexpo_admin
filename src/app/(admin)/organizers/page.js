@@ -220,7 +220,7 @@ export default function OrganizersPage() {
                 sessionStorage.setItem('visitexpo_admin_organizers_cache', JSON.stringify(freshData));
               }
             } catch (e) {
-              console.warn('Could not cache admin organizers:', e);
+              console.warn('Could not cache admin organisers:', e);
             }
             return;
           }
@@ -239,12 +239,12 @@ export default function OrganizersPage() {
             sessionStorage.setItem('visitexpo_admin_organizers_cache', JSON.stringify(freshData));
           }
         } catch (e) {
-          console.warn('Could not cache admin organizers:', e);
+          console.warn('Could not cache admin organisers:', e);
         }
         return;
       }
     } catch (err) {
-      console.error('[OrganizersPage] All organizer API endpoints failed:', err.message);
+      console.error('[OrganizersPage] All organiser API endpoints failed:', err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -264,7 +264,7 @@ export default function OrganizersPage() {
         }
       }
     } catch (e) {
-      console.warn('Could not read admin organizers cache:', e);
+      console.warn('Could not read admin organisers cache:', e);
     }
 
     if (authLoading) return;
@@ -480,17 +480,17 @@ export default function OrganizersPage() {
 
         setFeedback({
           type: 'success',
-          message: respMessage || `Organizer "${targetDeleteOrg.name}" has been permanently deleted.`
+          message: respMessage || `Organiser "${targetDeleteOrg.name}" has been permanently deleted.`
         });
         setIsDeleteModalOpen(false);
         setTargetDeleteOrg(null);
       } else {
-        throw new Error('Could not complete organizer deletion request');
+        throw new Error('Could not complete organiser deletion request');
       }
     } catch (err) {
       setFeedback({
         type: 'error',
-        message: err.response?.data?.error || err.message || 'Failed to delete organizer'
+        message: err.response?.data?.error || err.message || 'Failed to delete organiser'
       });
     } finally {
       setDeleteSubmitting(false);
@@ -538,10 +538,10 @@ export default function OrganizersPage() {
             </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Organizers &amp; Events Portfolio
+            Organisers & Events Portfolio
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
-            Browse all {data.totalOrganizers || 520}+ verified trade fair corporations, international organizers, national apex bodies, and their complete event listings with administrative controls.
+            Browse all {data.totalOrganizers || 520}+ verified trade fair corporations, international organisers, national apex bodies, and their complete event listings with administrative controls.
           </p>
         </div>
 
@@ -567,7 +567,7 @@ export default function OrganizersPage() {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs font-bold transition-colors shadow-sm"
           >
             <Award className="h-3.5 w-3.5 text-amber-500" />
-            <span>Featured Organizers</span>
+            <span>Featured Organisers</span>
           </Link>
           <a
             href="https://visitexpo.in"
@@ -585,7 +585,7 @@ export default function OrganizersPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-bold uppercase tracking-wider">
-            <span>Total Organizers</span>
+            <span>Total Organisers</span>
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
               <Building2 className="w-5 h-5" />
             </div>
@@ -606,7 +606,7 @@ export default function OrganizersPage() {
           <p className="text-3xl font-black text-foreground mt-3 tracking-tight">
             {(data.totalEvents || 1929).toLocaleString()}
           </p>
-          <p className="text-xs text-muted-foreground mt-1 font-medium">Mapped to organizer profiles</p>
+          <p className="text-xs text-muted-foreground mt-1 font-medium">Mapped to organiser profiles</p>
         </div>
 
         <div className="p-5 rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all">
@@ -624,7 +624,7 @@ export default function OrganizersPage() {
 
         <div className="p-5 rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-bold uppercase tracking-wider">
-            <span>Filtered Organizers</span>
+            <span>Filtered Organisers</span>
             <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
               <Filter className="w-5 h-5" />
             </div>
@@ -644,7 +644,7 @@ export default function OrganizersPage() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search by organizer name, event title, city, email, or keywords..."
+              placeholder="Search by organiser name, event title, city, email, or keywords..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -810,7 +810,7 @@ export default function OrganizersPage() {
             >
               <option value="events_desc">Most Events First</option>
               <option value="events_asc">Fewest Events First</option>
-              <option value="name_asc">Organizer Name (A-Z)</option>
+              <option value="name_asc">Organiser Name (A-Z)</option>
             </select>
 
             {/* View Mode Toggle */}
@@ -850,7 +850,7 @@ export default function OrganizersPage() {
             Filter Type:
           </span>
           {[
-            { id: 'all', label: 'All Organizers' },
+            { id: 'all', label: 'All Organisers' },
             { id: 'international', label: 'International Fairs' },
             { id: 'national', label: 'National & Apex Bodies' },
             { id: 'high_volume', label: 'High Volume (5+ Events)' },
@@ -905,9 +905,9 @@ export default function OrganizersPage() {
           <div className="inline-flex p-3.5 rounded-full bg-primary/10 text-primary mb-3">
             <Building2 className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-bold text-foreground">No organizers found</h3>
+          <h3 className="text-lg font-bold text-foreground">No organisers found</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-            No organizers or events match the current filter &quot;{searchQuery}&quot;. Try adjusting your search query or reset filters.
+            No organisers or events match the current filter "{searchQuery}&quot;. Try adjusting your search query or reset filters.
           </p>
           <button
             type="button"
@@ -967,7 +967,7 @@ export default function OrganizersPage() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                            {org.badge || (org.type === 'international' ? 'Global Leader' : 'Trade Organizer')}
+                            {org.badge || (org.type === 'international' ? 'Global Leader' : 'Trade Organiser')}
                           </span>
                         </div>
                       </div>
@@ -984,7 +984,7 @@ export default function OrganizersPage() {
                           setIsDeleteModalOpen(true);
                         }}
                         className="p-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-xs"
-                        title={`Delete organizer ${org.name}`}
+                        title={`Delete organiser ${org.name}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -996,7 +996,7 @@ export default function OrganizersPage() {
 
                   {/* Scope / Description */}
                   <p className="text-xs text-muted-foreground line-clamp-2 mt-2 leading-relaxed">
-                    {org.scope || 'Leading exhibition and commercial convention organizer with nationwide trade fairs.'}
+                    {org.scope || 'Leading exhibition and commercial convention organiser with nationwide trade fairs.'}
                   </p>
 
                   {/* Contact Info Chips */}
@@ -1155,7 +1155,7 @@ export default function OrganizersPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-muted/60 border-b border-border text-muted-foreground uppercase font-bold tracking-wider text-[10px]">
                 <tr>
-                  <th className="py-3.5 px-4">Organizer / Brand</th>
+                  <th className="py-3.5 px-4">Organiser / Brand</th>
                   <th className="py-3.5 px-4">Type &amp; Badge</th>
                   <th className="py-3.5 px-4">Website &amp; Contact</th>
                   <th className="py-3.5 px-4">Events Portfolio</th>
@@ -1189,7 +1189,7 @@ export default function OrganizersPage() {
                         <div>
                           <p className="font-bold text-foreground text-xs">{org.name}</p>
                           <p className="text-[10px] text-muted-foreground line-clamp-1 max-w-xs">
-                            {org.scope || 'Verified commercial trade fair organizer.'}
+                            {org.scope || 'Verified commercial trade fair organiser.'}
                           </p>
                         </div>
                       </div>
@@ -1197,7 +1197,7 @@ export default function OrganizersPage() {
 
                     <td className="py-3 px-4">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                        {org.badge || (org.type === 'international' ? 'Global Leader' : 'Trade Organizer')}
+                        {org.badge || (org.type === 'international' ? 'Global Leader' : 'Trade Organiser')}
                       </span>
                     </td>
 
@@ -1267,7 +1267,7 @@ export default function OrganizersPage() {
                             setIsDeleteModalOpen(true);
                           }}
                           className="p-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-xs"
-                          title="Delete Organizer"
+                          title="Delete Organiser"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -1312,7 +1312,7 @@ export default function OrganizersPage() {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white transition-all text-xs font-bold shadow-xs"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  <span>Delete Organizer</span>
+                  <span>Delete Organiser</span>
                 </button>
                 <button
                   type="button"
@@ -1347,7 +1347,7 @@ export default function OrganizersPage() {
                       {selectedOrganizer.name}
                     </h2>
                     <span className="text-[10px] uppercase font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                      {selectedOrganizer.badge || 'Trade Organizer'}
+                      {selectedOrganizer.badge || 'Trade Organiser'}
                     </span>
                     <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-secondary text-foreground border border-border">
                       {selectedOrganizer.count} Events Portfolio
@@ -1355,7 +1355,7 @@ export default function OrganizersPage() {
                   </div>
 
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                    {selectedOrganizer.scope || 'Verified commercial trade fair organizer.'}
+                    {selectedOrganizer.scope || 'Verified commercial trade fair organiser.'}
                   </p>
 
                   <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground mt-2 flex-wrap">
@@ -1408,7 +1408,7 @@ export default function OrganizersPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <input
                     type="text"
-                    placeholder="Search events within this organizer..."
+                    placeholder="Search events within this organiser..."
                     value={portfolioSearch}
                     onChange={(e) => setPortfolioSearch(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -1540,7 +1540,7 @@ export default function OrganizersPage() {
 
             <div className="space-y-2 text-xs divide-y divide-border/60">
               <div className="py-2 flex items-center justify-between">
-                <span className="text-muted-foreground font-medium">Organizer:</span>
+                <span className="text-muted-foreground font-medium">Organiser:</span>
                 <span className="font-bold text-foreground">{selectedEvent.organizer}</span>
               </div>
               <div className="py-2 flex items-center justify-between">
@@ -1612,7 +1612,7 @@ export default function OrganizersPage() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-foreground">
-                  Permanently Delete Organizer?
+                  Permanently Delete Organiser?
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
                   Are you sure you want to permanently delete{' '}
@@ -1623,11 +1623,11 @@ export default function OrganizersPage() {
 
             <div className="p-3.5 rounded-xl bg-red-500/5 border border-red-500/20 text-xs text-red-700 dark:text-red-300 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="font-bold">Organizer Portfolio:</span>
+                <span className="font-bold">Organiser Portfolio:</span>
                 <span>{targetDeleteOrg.count} total organized events</span>
               </div>
               <p className="text-[11px] leading-relaxed">
-                This will remove the organizer profile from the global directory, persist the exclusion, and unlink associated tenant records in the database.
+                This will remove the organiser profile from the global directory, persist the exclusion, and unlink associated tenant records in the database.
               </p>
             </div>
 
@@ -1674,7 +1674,7 @@ export default function OrganizersPage() {
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4" />
-                    <span>Delete Organizer</span>
+                    <span>Delete Organiser</span>
                   </>
                 )}
               </button>
@@ -1703,8 +1703,8 @@ export default function OrganizersPage() {
 
             <div className="p-3.5 rounded-xl bg-red-500/5 border border-red-500/20 text-xs text-red-700 dark:text-red-300 space-y-1">
               <div className="flex items-center gap-2">
-                <span className="font-bold">Organizer:</span>
-                <span>{eventToDelete.organizer || 'Exhibition Organizer'}</span>
+                <span className="font-bold">Organiser:</span>
+                <span>{eventToDelete.organizer || 'Exhibition Organiser'}</span>
               </div>
               <div className="flex items-center gap-2 text-[11px]">
                 <span className="font-bold">Dates:</span>
@@ -1713,7 +1713,7 @@ export default function OrganizersPage() {
             </div>
 
             <p className="text-xs text-muted-foreground leading-relaxed">
-              This will remove the event from this organizer&apos;s portfolio, purge the listing from the live directory, and blacklist it across all category breakdowns.
+              This will remove the event from this organiser's portfolio, purge the listing from the live directory, and blacklist it across all category breakdowns.
             </p>
 
             <div className="flex items-center gap-2.5 pt-2">

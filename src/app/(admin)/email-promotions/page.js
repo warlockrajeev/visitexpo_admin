@@ -203,14 +203,14 @@ export default function AdminEmailPromotionsPage() {
               <Mail className="h-5 w-5" />
             </div>
             <h1 className="text-2xl font-black text-foreground tracking-tight">
-              Organizer Email Promotions Report
+              Organiser Email Promotions Report
             </h1>
             <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
               Growth Plan Feature
             </span>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Audit, inspect, and monitor promotional email broadcasts sent by organizers to verified leads, trade visitors, followers, and interested users.
+            Audit, inspect, and monitor promotional email broadcasts sent by organisers to verified leads, trade visitors, followers, and interested users.
           </p>
         </div>
 
@@ -264,7 +264,7 @@ export default function AdminEmailPromotionsPage() {
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="Active SMTP Host" />
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Host: <strong>nexus.herosite.pro:465</strong> (cPanel SSL Relay) &bull; Reserved exclusively for Organizers with the <strong>Growth Plan</strong>.
+              Host: <strong>nexus.herosite.pro:465</strong> (cPanel SSL Relay) • Reserved exclusively for Organisers with the <strong>Growth Plan</strong>.
             </p>
           </div>
         </div>
@@ -288,7 +288,7 @@ export default function AdminEmailPromotionsPage() {
             {stats.totalCampaigns}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            {stats.uniqueOrganizers} unique organizers
+            {stats.uniqueOrganizers} unique organisers
           </div>
         </div>
 
@@ -320,7 +320,7 @@ export default function AdminEmailPromotionsPage() {
 
         <div className="bg-card border border-border p-5 rounded-2xl shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold">Growth Organizers</span>
+            <span className="text-xs font-semibold">Growth Organisers</span>
             <Award className="h-4 w-4 text-amber-500" />
           </div>
           <div className="text-2xl font-black text-amber-500">
@@ -374,7 +374,7 @@ export default function AdminEmailPromotionsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search campaigns by title, subject, organizer, or exhibition..."
+            placeholder="Search campaigns by title, subject, organiser, or exhibition..."
             className="w-full bg-secondary/60 border border-border rounded-xl pl-10 pr-4 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </form>
@@ -418,7 +418,7 @@ export default function AdminEmailPromotionsPage() {
             <thead className="bg-secondary/60 border-b border-border text-muted-foreground font-bold uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-4">Date / Time</th>
-                <th className="py-3.5 px-4">Organizer</th>
+                <th className="py-3.5 px-4">Organiser</th>
                 <th className="py-3.5 px-4">Exhibition Event</th>
                 <th className="py-3.5 px-4">Campaign Title &amp; Subject</th>
                 <th className="py-3.5 px-4">Audiences</th>
@@ -432,7 +432,7 @@ export default function AdminEmailPromotionsPage() {
                 <tr>
                   <td colSpan="8" className="py-12 text-center text-muted-foreground">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
-                    <span>Loading organizer email promotion reports...</span>
+                    <span>Loading organiser email promotion reports...</span>
                   </td>
                 </tr>
               ) : displayedCampaigns.length === 0 ? (
@@ -440,7 +440,7 @@ export default function AdminEmailPromotionsPage() {
                   <td colSpan="8" className="py-12 text-center text-muted-foreground">
                     <Mail className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
                     <p className="font-bold text-foreground">No email promotion records found</p>
-                    <p className="text-[11px] mt-1">Organizers with the Growth Plan will appear here once they dispatch promotional email campaigns.</p>
+                    <p className="text-[11px] mt-1">Organisers with the Growth Plan will appear here once they dispatch promotional email campaigns.</p>
                   </td>
                 </tr>
               ) : (
@@ -467,7 +467,7 @@ export default function AdminEmailPromotionsPage() {
                       {/* Organizer */}
                       <td className="py-4 px-4 max-w-[200px]">
                         <div className="font-bold text-foreground truncate">
-                          {c.createdBy?.name || 'Unknown Organizer'}
+                          {c.createdBy?.name || 'Unknown Organiser'}
                         </div>
                         <div className="text-[11px] text-muted-foreground truncate">
                           {c.createdBy?.email}
@@ -689,7 +689,7 @@ export default function AdminEmailPromotionsPage() {
                     <div className="p-4 rounded-2xl bg-secondary/40 border border-border space-y-2">
                       <h4 className="font-bold text-foreground flex items-center gap-2">
                         <Users className="h-4 w-4 text-primary" />
-                        <span>Organizer Profile</span>
+                        <span>Organiser Profile</span>
                       </h4>
                       <div className="space-y-1 text-muted-foreground">
                         <div><strong>Name:</strong> {selectedCampaign.createdBy?.name}</div>

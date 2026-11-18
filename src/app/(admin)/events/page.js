@@ -593,11 +593,11 @@ export default function AdminEventsPage() {
               <Calendar className="h-5 w-5" />
             </span>
             <h1 className="text-2xl font-black text-foreground tracking-tight">
-              Organizer Events & WordPress Sync
+              Organiser Events & WordPress Sync
             </h1>
           </div>
           <p className="text-xs text-muted-foreground mt-1 max-w-2xl leading-relaxed">
-            Manage, inspect, and edit all multi-day exhibitions created by organizers. Updates made by the administrator are automatically synchronized in real time with the WordPress event directory.
+            Manage, inspect, and edit all multi-day exhibitions created by organisers. Updates made by the administrator are automatically synchronized in real time with the WordPress event directory.
           </p>
         </div>
 
@@ -722,7 +722,7 @@ export default function AdminEventsPage() {
             <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search by event title, venue, city, organizer, or slug..."
+              placeholder="Search by event title, venue, city, organiser, or slug..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -805,7 +805,7 @@ export default function AdminEventsPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-xs font-semibold">Loading organizer events from database...</p>
+            <p className="text-xs font-semibold">Loading organiser events from database...</p>
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-16 px-4 space-y-3">
@@ -823,7 +823,7 @@ export default function AdminEventsPage() {
               <thead className="bg-muted/40 uppercase text-[10px] font-bold text-foreground/80 tracking-wider border-b border-border">
                 <tr>
                   <th className="px-3 py-2">Event Identity</th>
-                  <th className="px-3 py-2">Organizer</th>
+                  <th className="px-3 py-2">Organiser</th>
                   <th className="px-3 py-2">Dates</th>
                   <th className="px-3 py-2">Location</th>
                   <th className="px-3 py-2">Status</th>
@@ -873,7 +873,7 @@ export default function AdminEventsPage() {
                         <div className="space-y-0.5 max-w-[150px]">
                           <p className="font-semibold text-foreground flex items-center gap-1 truncate text-xs leading-tight" title={event.orgName || event.organizer?.name}>
                             <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
-                            <span className="truncate">{event.orgName || event.organizer?.name || 'VisitExpo Organizer'}</span>
+                            <span className="truncate">{event.orgName || event.organizer?.name || 'VisitExpo Organiser'}</span>
                           </p>
                           <p className="text-[10px] text-muted-foreground truncate" title={event.orgEmail || event.organizer?.email}>
                             {event.orgEmail || event.organizer?.email || 'organizer@visitexpo.in'}
@@ -1053,7 +1053,7 @@ export default function AdminEventsPage() {
               {[
                 { id: 'basic', label: '1. Basic Info' },
                 { id: 'dates', label: '2. Dates & Venue' },
-                { id: 'organizer', label: '3. Organizer Profile' },
+                { id: 'organizer', label: '3. Organiser Profile' },
                 { id: 'media', label: '4. Media & Branding' },
                 { id: 'sponsors', label: '5. Sponsors & Partners' },
                 { id: 'tickets', label: '6. Tickets & Status' }
@@ -1238,7 +1238,7 @@ export default function AdminEventsPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">
-                      Organizer / Company Name
+                      Organiser / Company Name
                     </label>
                     <input
                       type="text"
@@ -1295,7 +1295,7 @@ export default function AdminEventsPage() {
 
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">
-                      Organizer Logo URL
+                      Organiser Logo URL
                     </label>
                     <input
                       type="url"
@@ -1309,7 +1309,7 @@ export default function AdminEventsPage() {
 
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">
-                      Organizer Description
+                      Organiser Description
                     </label>
                     <textarea
                       name="orgDesc"

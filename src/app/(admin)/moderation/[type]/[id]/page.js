@@ -131,7 +131,7 @@ export default function ModerationDetailPage() {
           { headers }
         );
         if (res.data?.success) {
-          setToast({ type: 'success', message: `Organizer account ${action}d successfully!` });
+          setToast({ type: 'success', message: `Organiser account ${action}d successfully!` });
           setData(prev => ({ ...prev, isVerified: action === 'approve' }));
         }
       } else if (type === 'events' || type === 'claims') {
@@ -583,7 +583,7 @@ export default function ModerationDetailPage() {
                   </div>
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground italic">No events currently mapped to this organizer.</p>
+                <p className="text-xs text-muted-foreground italic">No events currently mapped to this organiser.</p>
               )}
             </div>
           )}
@@ -637,7 +637,7 @@ export default function ModerationDetailPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Role:</span>
-                  <span className="font-bold text-foreground uppercase">{data.associatedUser.role}</span>
+                  <span className="font-bold text-foreground uppercase">{data.associatedUser.role === 'organizer' ? 'organiser' : data.associatedUser.role}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-border">
                   <span className="text-muted-foreground">Dashboard Access:</span>
@@ -698,7 +698,7 @@ export default function ModerationDetailPage() {
           >
             <div>
               <h3 id="event-rejection-title" className="font-bold text-foreground">Reason for rejection</h3>
-              <p className="mt-1 text-xs text-muted-foreground">The organizer will see this reason in their event management page.</p>
+              <p className="mt-1 text-xs text-muted-foreground">The organiser will see this reason in their event management page.</p>
             </div>
             <textarea
               value={rejectionReason}

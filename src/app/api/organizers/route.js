@@ -91,7 +91,7 @@ const KNOWN_ORGANIZERS = [
     website: 'https://cems.global',
     badge: 'Multinational',
     type: 'international',
-    scope: 'Multinational exhibition organizer spanning South & Southeast Asia and South America.'
+    scope: 'Multinational exhibition organiser spanning South & Southeast Asia and South America.'
   },
   {
     id: 'guangdong-grandeur',
@@ -103,7 +103,7 @@ const KNOWN_ORGANIZERS = [
     website: 'https://www.gzhw.com',
     badge: 'Asia Pacific',
     type: 'international',
-    scope: 'Major organizer of landscape, gardening, entertainment, and commercial trade fairs.'
+    scope: 'Major organiser of landscape, gardening, entertainment, and commercial trade fairs.'
   },
   {
     id: 'mex-exhibitions',
@@ -391,7 +391,7 @@ export async function GET(request) {
               logoUrl: null,
               badge: resolvedName === 'VisitExpo Verified Partner Expos' ? 'Partner Fairs' : 'Platform Tenant',
               type: resolvedName === 'VisitExpo Verified Partner Expos' ? 'national' : 'independent',
-              scope: 'Verified exhibition organizer hosting major trade events.',
+              scope: 'Verified exhibition organiser hosting major trade events.',
               email: '',
               phone: '',
               events: []
@@ -512,9 +512,9 @@ export async function GET(request) {
             accentColor: colors.accent,
             website: m.ovaem_org_website?.[0] || '',
             logoUrl: null,
-            badge: resolvedName === 'VisitExpo Verified Partner Expos' ? 'Partner Fairs' : 'Trade Organizer',
+            badge: resolvedName === 'VisitExpo Verified Partner Expos' ? 'Partner Fairs' : 'Trade Organiser',
             type: resolvedName === 'VisitExpo Verified Partner Expos' ? 'national' : 'independent',
-            scope: m.ovaem_org_desc?.[0] || 'Trade exhibition organizer promoting industrial and commercial showcases.',
+            scope: m.ovaem_org_desc?.[0] || 'Trade exhibition organiser promoting industrial and commercial showcases.',
             email: m.ovaem_org_email?.[0] || '',
             phone: m.ovaem_org_phone?.[0] || '',
             events: []
@@ -578,7 +578,7 @@ export async function GET(request) {
                 logoUrl: null,
                 badge: 'Platform Tenant',
                 type: 'independent',
-                scope: 'Platform registered organizer hosting verified conventions.',
+                scope: 'Platform registered organiser hosting verified conventions.',
                 email: '',
                 phone: '',
                 events: []
@@ -667,9 +667,9 @@ export async function GET(request) {
             accentColor: colors.accent,
             website: '',
             logoUrl: null,
-            badge: 'Trade Organizer',
+            badge: 'Trade Organiser',
             type: 'national',
-            scope: 'Verified exhibition organizer hosting major trade events.',
+            scope: 'Verified exhibition organiser hosting major trade events.',
             events: []
           };
         }
@@ -704,7 +704,7 @@ export async function GET(request) {
   return NextResponse.json(
     {
       success: false,
-      error: 'Failed to aggregate organizers directory'
+      error: 'Failed to aggregate organisers directory'
     },
     { status: 500 }
   );
@@ -718,7 +718,7 @@ export async function DELETE(request) {
 
     const targetId = id || (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : null);
     if (!targetId) {
-      return NextResponse.json({ success: false, error: 'Organizer ID or name is required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Organiser ID or name is required' }, { status: 400 });
     }
 
     // Call Express backend to persist in DeletedOrganizer and clean references
@@ -740,7 +740,7 @@ export async function DELETE(request) {
         return NextResponse.json(data);
       } else {
         return NextResponse.json(
-          { success: false, error: data.error || data.message || 'Failed to delete organizer from backend' },
+          { success: false, error: data.error || data.message || 'Failed to delete organiser from backend' },
           { status: res.status || 500 }
         );
       }

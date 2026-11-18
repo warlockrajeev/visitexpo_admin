@@ -42,7 +42,8 @@ import {
   Flag,
   FileSpreadsheet,
   Mic,
-  Activity
+  Activity,
+  Search
 } from 'lucide-react';
 
 import { initSweetAlertInterceptors } from '../../utils/sweetalert.js';
@@ -51,6 +52,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 export default function AdminLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
   const [unreadInquiries, setUnreadInquiries] = useState(0);
   const [pendingCounts, setPendingCounts] = useState({
     pendingOrganizers: 0,
@@ -191,13 +193,13 @@ export default function AdminLayout({ children }) {
       permission: 'events.view'
     },
     {
-      name: 'Organizers',
+      name: 'Organisers',
       href: '/organizers',
       icon: CalendarDays,
       permission: 'organizers.view'
     },
     {
-      name: 'Featured Organizers',
+      name: 'Featured Organisers',
       href: '/featured-organizers',
       icon: Award,
       badge: pendingCounts.pendingFeatured > 0 ? `${pendingCounts.pendingFeatured} Pending` : 'Enterprise',
@@ -205,7 +207,7 @@ export default function AdminLayout({ children }) {
       permission: 'organizers.view'
     },
     {
-      name: 'Live Chat Organizers',
+      name: 'Live Chat Organisers',
       href: '/chat-organizers',
       icon: MessageSquare,
       badge: 'Live',
@@ -213,7 +215,7 @@ export default function AdminLayout({ children }) {
       permission: 'chat_organizers.view'
     },
     {
-      name: 'Organizer Support Chat',
+      name: 'Organiser Support Chat',
       href: '/organizer-support',
       icon: MessageSquare,
       permission: 'chat_organizers.view'
@@ -333,6 +335,15 @@ export default function AdminLayout({ children }) {
   };
 
   const visibleNavigation = navigation.filter(checkNavPermission);
+  const normalizedSidebarSearch = sidebarSearch.trim().toLowerCase();
+  const filteredNavigation = normalizedSidebarSearch
+    ? visibleNavigation.filter((item) => {
+        const nameMatch = item.name.toLowerCase().includes(normalizedSidebarSearch);
+        const hrefMatch = item.href.toLowerCase().includes(normalizedSidebarSearch);
+        const badgeMatch = item.badge ? String(item.badge).toLowerCase().includes(normalizedSidebarSearch) : false;
+        return nameMatch || hrefMatch || badgeMatch;
+      })
+    : visibleNavigation;
 
   const getPageTitle = (path) => {
     if (path === '/') return 'System Administration Console';
@@ -342,9 +353,9 @@ export default function AdminLayout({ children }) {
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
     if (path === '/venue-reports') return 'Venue Information Reports';
     if (path === '/event-reports') return 'Event Issue Reports';
-    if (path === '/organizers') return 'Organizers & Events Directory';
-    if (path === '/chat-organizers') return 'Live Chat Organizers & Inquiries Control';
-    if (path === '/organizer-support') return 'Organizer Support Chat';
+    if (path === '/organizers') return 'Organisers & Events Directory';
+    if (path === '/chat-organizers') return 'Live Chat Organisers & Inquiries Control';
+    if (path === '/organizer-support') return 'Organiser Support Chat';
     if (path === '/exhibitors') return 'Exhibitor Management & Approvals';
     if (path === '/visitors') return 'Visitor Directory & Pass Management';
     if (path === '/categories') return 'Event Categories & Events Directory';
@@ -358,7 +369,7 @@ export default function AdminLayout({ children }) {
     if (path === '/faqs') return 'FAQ Management & Landing Showcase';
     if (path === '/rapid-creation') return 'Rapid Dummy User Creation & Impersonation';
     if (path === '/subadmins') return 'Subadmins & Role-Based Access Control (RBAC)';
-    if (path === '/plans') return 'Organizer Plans & Pricing Management';
+    if (path === '/plans') return 'Organiser Plans & Pricing Management';
     if (path === '/subscriptions') return 'Platform Subscriptions & MRR Base';
     const clean = path.replace('/', '').replace(/-/g, ' ');
     return clean.charAt(0).toUpperCase() + clean.slice(1);
@@ -400,38 +411,82 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
-        {/* Links */}
-        <nav className="min-h-0 flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-          {visibleNavigation.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                }`}
+        {/* Sidebar Search */}
+        <div className="px-3 pt-3 pb-2 border-b border-border/60 shrink-0">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={sidebarSearch}
+              onChange={(e) => setSidebarSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && sidebarSearch) {
+                  setSidebarSearch('');
+                }
+              }}
+              placeholder="Search menu..."
+              aria-label="Search sidebar menu"
+              className="w-full rounded-xl border border-border bg-background/80 py-2 pl-8 pr-8 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            {sidebarSearch && (
+              <button
+                type="button"
+                onClick={() => setSidebarSearch('')}
+                aria-label="Clear sidebar search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <item.icon className="h-4.5 w-4.5 flex-shrink-0" />
-                  <span>{item.name}</span>
-                </div>
-                {item.badge && (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    item.badgeColor
-                      ? item.badgeColor
-                      : isActive
-                      ? 'bg-primary-foreground/20 text-primary-foreground'
-                      : 'bg-primary/10 text-primary'
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Links */}
+        <nav className="min-h-0 flex-1 space-y-1 px-3 py-3 overflow-y-auto">
+          {filteredNavigation.length === 0 ? (
+            <div className="px-3 py-6 text-center space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">No matching sections</p>
+              <button
+                type="button"
+                onClick={() => setSidebarSearch('')}
+                className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+              >
+                Clear search
+              </button>
+            </div>
+          ) : (
+            filteredNavigation.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-4.5 w-4.5 flex-shrink-0" />
+                    <span>{item.name}</span>
+                  </div>
+                  {item.badge && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      item.badgeColor
+                        ? item.badgeColor
+                        : isActive
+                        ? 'bg-primary-foreground/20 text-primary-foreground'
+                        : 'bg-primary/10 text-primary'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })
+          )}
         </nav>
 
         {/* Footer actions */}

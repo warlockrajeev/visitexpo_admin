@@ -99,7 +99,7 @@ export default function SubscriptionsPage() {
             <CreditCard className="h-6 w-6 text-primary" /> Platform Subscriptions
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Review active tenant subscriptions, ledger records, and organizer tiers.
+            Review active tenant subscriptions, ledger records, and organiser tiers.
           </p>
         </div>
 
@@ -115,7 +115,7 @@ export default function SubscriptionsPage() {
       {/* Plans Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { title: 'Active Subscriptions', value: activeCount, desc: 'Currently active organizer accounts', color: 'text-emerald-500' },
+          { title: 'Active Subscriptions', value: activeCount, desc: 'Currently active organiser accounts', color: 'text-emerald-500' },
           { title: 'Free Tier Accounts', value: freePlanCount, desc: 'Free corporate / general ₹1,499', color: 'text-zinc-500' },
           { title: 'Starter Subscriptions', value: starterPlanCount, desc: `₹${Number(starterQ).toLocaleString('en-IN')}/Qtr or ₹${Number(starterY).toLocaleString('en-IN')}/Yr`, color: 'text-primary' },
           { title: 'Enterprise Accounts', value: enterpriseCount, desc: `₹${Number(enterpriseQ).toLocaleString('en-IN')}/Qtr or ₹${Number(enterpriseY).toLocaleString('en-IN')}/Yr`, color: 'text-indigo-400' }
@@ -134,7 +134,7 @@ export default function SubscriptionsPage() {
       <div className="grid gap-6 md:grid-cols-4">
         {[
           {
-            name: 'Free Organizer',
+            name: 'Free Organiser',
             price: '₹0 / ₹1,499',
             duration: 'Corporate Free · Gen ₹1499',
             features: [
@@ -147,7 +147,7 @@ export default function SubscriptionsPage() {
             color: 'border-zinc-800'
           },
           {
-            name: 'Organizer Starter',
+            name: 'Organiser Starter',
             price: `₹${Number(starterQ).toLocaleString('en-IN')}`,
             duration: `/ Quarter (₹${Number(starterY).toLocaleString('en-IN')}/Yr)`,
             features: [
@@ -161,7 +161,7 @@ export default function SubscriptionsPage() {
             color: 'border-primary ring-2 ring-primary/20'
           },
           {
-            name: 'Organizer Enterprise',
+            name: 'Organiser Enterprise',
             price: `₹${Number(enterpriseQ).toLocaleString('en-IN')}`,
             duration: `/ Quarter (₹${Number(enterpriseY).toLocaleString('en-IN')}/Yr)`,
             features: [
@@ -175,7 +175,7 @@ export default function SubscriptionsPage() {
             color: 'border-indigo-500'
           },
           {
-            name: 'Organizer Growth',
+            name: 'Organiser Growth',
             price: 'From ₹1,000',
             duration: 'Point-wise price uses',
             features: [
@@ -214,7 +214,7 @@ export default function SubscriptionsPage() {
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="p-6 border-b border-border">
           <h3 className="font-semibold text-foreground">Active Subscription Ledger</h3>
-          <p className="text-xs text-muted-foreground">List of active plans linked to organizer organizations.</p>
+          <p className="text-xs text-muted-foreground">List of active plans linked to organiser organizations.</p>
         </div>
 
         {loading ? (
