@@ -163,7 +163,9 @@ export default function ActivityMonitorPage() {
     eventClicksCount: 0,
     engagementsCount: 0,
     formSubmissionsCount: 0,
-    uniqueUsersCount: 0
+    uniqueUsersCount: 0,
+    registeredUsersCount: 0,
+    guestUsersCount: 0
   });
   const [userSummaries, setUserSummaries] = useState([]);
   const [topEvents, setTopEvents] = useState([]);
@@ -180,6 +182,7 @@ export default function ActivityMonitorPage() {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [activityType, setActivityType] = useState('all');
   const [userRole, setUserRole] = useState('all');
+  const [registeredRoleFilter, setRegisteredRoleFilter] = useState('registered');
   const [dateRange, setDateRange] = useState('all');
   const [selectedUserFilter, setSelectedUserFilter] = useState(null);
   const [page, setPage] = useState(1);
@@ -196,6 +199,13 @@ export default function ActivityMonitorPage() {
   // Inspector modal
   const [inspectedActivity, setInspectedActivity] = useState(null);
 
+  const effectiveUserRole =
+    activeTab === 'users'
+      ? registeredRoleFilter
+      : activeTab === 'guests'
+        ? 'guest'
+        : userRole;
+
   const fetchActivities = useCallback(
     async ({ silent = false } = {}) => {
       if (!accessToken) return;
@@ -207,7 +217,7 @@ export default function ActivityMonitorPage() {
           usersPage,
           usersLimit,
           activityType,
-          userRole,
+          userRole: effectiveUserRole,
           dateRange
         };
         if (appliedSearch.trim()) params.search = appliedSearch.trim();
@@ -248,7 +258,7 @@ export default function ActivityMonitorPage() {
       usersPage,
       usersLimit,
       activityType,
-      userRole,
+      effectiveUserRole,
       dateRange,
       appliedSearch,
       selectedUserFilter
@@ -329,6 +339,7 @@ export default function ActivityMonitorPage() {
     setAppliedSearch('');
     setActivityType('all');
     setUserRole('all');
+    setRegisteredRoleFilter('registered');
     setDateRange('all');
     setSelectedUserFilter(null);
     setPage(1);
@@ -336,13 +347,15 @@ export default function ActivityMonitorPage() {
   };
 
   const handleSelectUserFromSummary = (u) => {
+    const resolvedRole = u.userRole || 'guest';
+    const isGuestUser = resolvedRole === 'guest';
     setSelectedUserFilter({
       userKey: u.userKey,
       userId: u.userId || null,
       userEmail: u.userEmail || '',
       userName: u.userName || u.userEmail || 'Guest Session',
       userPhone: u.userPhone || '',
-      userRole: u.userRole || 'guest',
+      userRole: resolvedRole,
       userCompany: u.userCompany || '',
       sessionId: u.sessionId || '',
       totalActions: u.totalActions || 0,
@@ -356,18 +369,24 @@ export default function ActivityMonitorPage() {
       lastActionLabel: u.lastActionLabel || '',
       lastPagePath: u.lastPagePath || '/'
     });
+    if (!isGuestUser && registeredRoleFilter !== 'registered' && registeredRoleFilter !== resolvedRole) {
+      setRegisteredRoleFilter('registered');
+    }
     setPage(1);
-    setActiveTab('users');
+    setActiveTab(isGuestUser ? 'guests' : 'users');
   };
 
   const handleSelectUserFromActivity = (item) => {
     const uKey = item.userEmail || item.user || item.sessionId || item.userName;
     if (!uKey) return;
+    const resolvedRole = item.userRole || 'guest';
+    const isGuestUser = resolvedRole === 'guest';
     const matched = userSummaries.find(
       (u) =>
-        (item.userEmail && u.userEmail === item.userEmail) ||
-        (item.user && u.userId === item.user) ||
-        (item.sessionId && u.sessionId === item.sessionId)
+        Boolean(!u.userRole || u.userRole === 'guest') === isGuestUser &&
+        ((item.userEmail && u.userEmail === item.userEmail) ||
+          (item.user && u.userId === item.user) ||
+          (item.sessionId && u.sessionId === item.sessionId))
     );
     if (matched) {
       handleSelectUserFromSummary(matched);
@@ -379,12 +398,15 @@ export default function ActivityMonitorPage() {
       userEmail: item.userEmail || '',
       userName: item.userName || item.userEmail || 'Guest Visitor',
       userPhone: item.userPhone || '',
-      userRole: item.userRole || 'guest',
+      userRole: resolvedRole,
       userCompany: item.userCompany || '',
       sessionId: item.sessionId || ''
     });
+    if (!isGuestUser && registeredRoleFilter !== 'registered' && registeredRoleFilter !== resolvedRole) {
+      setRegisteredRoleFilter('registered');
+    }
     setPage(1);
-    setActiveTab('users');
+    setActiveTab(isGuestUser ? 'guests' : 'users');
   };
 
   const handleExportCsv = () => {
@@ -736,6 +758,314 @@ export default function ActivityMonitorPage() {
     );
   };
 
+  const renderUserDirectorySection = ({ isGuestMode = false } = {}) => {
+    const profileTerm = isGuestMode ? 'Guest Profile' : 'User Profile';
+    const profileTermPlural = isGuestMode ? 'Guest Profiles' : 'User Profiles';
+    const itemLabel = isGuestMode ? 'guests' : 'users';
+    const pageSizeLabel = isGuestMode ? 'Guests per page' : 'Users per page';
+
+    return (
+      <div className="space-y-4">
+        {selectedUserFilter ? (
+          <>
+            {/* Selected User / Guest Profile Banner */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedUserFilter(null);
+                    setPage(1);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to All {profileTermPlural}
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Showing <strong className="text-slate-900 dark:text-white">{totalItems}</strong> matching activities for this{' '}
+                    {isGuestMode ? 'guest session' : 'user'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleExportCsv}
+                    disabled={!activities.length}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 disabled:opacity-40 transition cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export {isGuestMode ? 'Guest' : 'User'} CSV
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-900 text-amber-400 dark:bg-amber-400 dark:text-slate-950 font-bold text-base flex items-center justify-center shrink-0">
+                    {String(selectedUserFilter.userName || selectedUserFilter.userEmail || 'G')
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                        {selectedUserFilter.userName || selectedUserFilter.userEmail || 'Guest Session'}
+                      </h2>
+                      <span
+                        className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase border ${
+                          ROLE_BADGE_MAP[selectedUserFilter.userRole] || ROLE_BADGE_MAP.guest
+                        }`}
+                      >
+                        {selectedUserFilter.userRole || 'guest'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {selectedUserFilter.userEmail && (
+                        <span className="inline-flex items-center gap-1">
+                          <Mail className="w-3.5 h-3.5 text-slate-400" />
+                          {selectedUserFilter.userEmail}
+                        </span>
+                      )}
+                      {selectedUserFilter.userPhone && (
+                        <span className="inline-flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          {selectedUserFilter.userPhone}
+                        </span>
+                      )}
+                      {selectedUserFilter.userCompany && (
+                        <span className="inline-flex items-center gap-1">
+                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                          {selectedUserFilter.userCompany}
+                        </span>
+                      )}
+                      {isGuestMode && (selectedUserFilter.sessionId || selectedUserFilter.userKey) && (
+                        <span className="inline-flex items-center gap-1 font-mono text-[11px]">
+                          <Globe className="w-3.5 h-3.5 text-slate-400" />
+                          {selectedUserFilter.sessionId || selectedUserFilter.userKey}
+                        </span>
+                      )}
+                      {selectedUserFilter.lastActionAt && (
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          Last active {formatRelativeTime(selectedUserFilter.lastActionAt)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {typeof selectedUserFilter.totalActions === 'number' && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-semibold text-slate-800 dark:text-slate-200">
+                      Total: {selectedUserFilter.totalActions}
+                    </span>
+                    <span className="px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-900/30 font-semibold text-sky-700 dark:text-sky-300">
+                      Visits: {selectedUserFilter.pageVisitsCount || 0}
+                    </span>
+                    <span className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-900/30 font-semibold text-amber-800 dark:text-amber-300">
+                      Clicks: {selectedUserFilter.eventClicksCount || 0}
+                    </span>
+                    <span className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 font-semibold text-rose-700 dark:text-rose-300">
+                      Interested: {selectedUserFilter.interestedCount || 0}
+                    </span>
+                    <span className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 font-semibold text-emerald-700 dark:text-emerald-300">
+                      Forms & Passes: {selectedUserFilter.formsCount || 0}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Selected User / Guest Paginated Activity Table */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+              {renderActivityTable({
+                showUserColumn: false,
+                emptyTitle: `No activities recorded for this ${isGuestMode ? 'guest session' : 'user'} with current filters`,
+                emptySubtitle: `Try clearing the activity type, search, or date range filter above to see all actions by this ${isGuestMode ? 'guest session' : 'user'}.`
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {isGuestMode ? 'Guest User Profiles' : 'Logged-In User Profiles'} ({usersTotalItems.toLocaleString()})
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isGuestMode
+                    ? "Anonymous guest visitor sessions only. Click on any guest profile to view only that session's activity history."
+                    : "Registered platform accounts only (Visitors, Organizers, Exhibitors, and Admins). Click on any user profile to view only that user's activity history."}
+                </p>
+              </div>
+
+              {isGuestMode ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                  <Globe className="w-3.5 h-3.5" />
+                  Guest Sessions Only
+                </span>
+              ) : (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: 'registered', label: 'All Logged-In' },
+                    { id: 'visitor', label: 'Visitors' },
+                    { id: 'organizer', label: 'Organizers' },
+                    { id: 'exhibitor', label: 'Exhibitors' }
+                  ].map((pill) => (
+                    <button
+                      key={pill.id}
+                      type="button"
+                      onClick={() => {
+                        setRegisteredRoleFilter(pill.id);
+                        setUsersPage(1);
+                        setPage(1);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer ${
+                        registeredRoleFilter === pill.id
+                          ? 'bg-slate-900 text-white border-slate-900 dark:bg-amber-400 dark:text-slate-950 dark:border-amber-400'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                      }`}
+                    >
+                      {pill.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="p-14 text-center text-slate-500 dark:text-slate-400">
+                <RefreshCw className="w-7 h-7 animate-spin mx-auto mb-3 text-amber-500" />
+                Loading {isGuestMode ? 'guest' : 'user'} profiles...
+              </div>
+            ) : userSummaries.length === 0 ? (
+              <div className="p-12 text-center text-sm text-slate-500">
+                No {isGuestMode ? 'guest user' : 'logged-in user'} profiles match the current filter.
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <th className="py-3.5 px-4">{profileTerm}</th>
+                        <th className="py-3.5 px-4">Role</th>
+                        <th className="py-3.5 px-4 text-center">Total Actions</th>
+                        <th className="py-3.5 px-4 text-center">Page Visits</th>
+                        <th className="py-3.5 px-4 text-center">Event Clicks</th>
+                        <th className="py-3.5 px-4 text-center">Interested / Saves</th>
+                        <th className="py-3.5 px-4 text-center">Forms & Passes</th>
+                        <th className="py-3.5 px-4">Latest Activity</th>
+                        <th className="py-3.5 px-4 text-right">{isGuestMode ? 'Guest Activity' : 'User Activity'}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                      {userSummaries.map((u) => {
+                        const roleBadge = ROLE_BADGE_MAP[u.userRole] || ROLE_BADGE_MAP.guest;
+                        const displayName = u.userName || u.userEmail || 'Guest Session';
+                        const initial = String(displayName).charAt(0).toUpperCase();
+                        return (
+                          <tr
+                            key={u.userKey}
+                            onClick={() => handleSelectUserFromSummary(u)}
+                            className="hover:bg-amber-50/50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer group"
+                          >
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-slate-900 text-amber-400 dark:bg-amber-400 dark:text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">
+                                  {initial}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate max-w-[210px]">
+                                    {displayName}
+                                  </div>
+                                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[220px]">
+                                    {u.userEmail || u.userPhone || u.userKey}
+                                  </div>
+                                  {(u.userCompany || (u.userEmail && u.userPhone)) && (
+                                    <div className="text-[11px] text-slate-400 truncate max-w-[220px]">
+                                      {[u.userCompany, u.userEmail && u.userPhone ? u.userPhone : '']
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${roleBadge}`}
+                              >
+                                {u.userRole || 'guest'}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 text-center font-bold text-slate-900 dark:text-white">
+                              {u.totalActions}
+                            </td>
+                            <td className="py-3.5 px-4 text-center text-sky-600 font-semibold">
+                              {u.pageVisitsCount}
+                            </td>
+                            <td className="py-3.5 px-4 text-center text-amber-600 font-semibold">
+                              {u.eventClicksCount}
+                            </td>
+                            <td className="py-3.5 px-4 text-center text-rose-600 font-semibold">
+                              {u.interestedCount}
+                            </td>
+                            <td className="py-3.5 px-4 text-center text-emerald-600 font-semibold">
+                              {u.formsCount}
+                            </td>
+                            <td className="py-3.5 px-4 max-w-[260px]">
+                              <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                                {u.lastActionLabel || 'Activity recorded'}
+                              </div>
+                              <div className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                {formatRelativeTime(u.lastActionAt)} · {u.lastPagePath || '/'}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectUserFromSummary(u);
+                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 cursor-pointer"
+                              >
+                                View Activity
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <Pagination
+                  currentPage={usersPage}
+                  totalPages={usersTotalPages}
+                  onPageChange={(newPage) => setUsersPage(newPage)}
+                  totalItems={usersTotalItems}
+                  itemsPerPage={usersLimit}
+                  onPageSizeChange={(newSize) => {
+                    setUsersLimit(newSize === 'all' ? Math.max(100, usersTotalItems || 100) : newSize);
+                    setUsersPage(1);
+                  }}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                  itemLabel={itemLabel}
+                  pageSizeLabel={pageSizeLabel}
+                  alwaysVisible
+                />
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -859,7 +1189,18 @@ export default function ActivityMonitorPage() {
           <div className="flex flex-wrap items-center gap-1.5">
             {[
               { id: 'timeline', label: 'Live Activity Timeline', icon: Activity, count: selectedUserFilter ? stats.totalActivities : totalItems },
-              { id: 'users', label: 'User Wise Activity', icon: Users, count: usersTotalItems },
+              {
+                id: 'users',
+                label: 'User Wise Activity',
+                icon: Users,
+                count: stats.registeredUsersCount ?? 0
+              },
+              {
+                id: 'guests',
+                label: 'Guest Users',
+                icon: Globe,
+                count: stats.guestUsersCount ?? 0
+              },
               { id: 'events', label: 'Top Interacted Events', icon: TrendingUp, count: topEvents.length },
               { id: 'pages', label: 'Most Visited Pages', icon: Layers, count: topPages.length }
             ].map((tab) => {
@@ -870,8 +1211,20 @@ export default function ActivityMonitorPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => {
-                    if (tab.id === 'timeline' && selectedUserFilter && activeTab === 'users') {
+                    if (tab.id === 'timeline' && selectedUserFilter && (activeTab === 'users' || activeTab === 'guests')) {
                       setSelectedUserFilter(null);
+                      setPage(1);
+                    } else if (tab.id === 'users') {
+                      if (selectedUserFilter && (!selectedUserFilter.userRole || selectedUserFilter.userRole === 'guest')) {
+                        setSelectedUserFilter(null);
+                      }
+                      setUsersPage(1);
+                      setPage(1);
+                    } else if (tab.id === 'guests') {
+                      if (selectedUserFilter && selectedUserFilter.userRole && selectedUserFilter.userRole !== 'guest') {
+                        setSelectedUserFilter(null);
+                      }
+                      setUsersPage(1);
                       setPage(1);
                     }
                     setActiveTab(tab.id);
@@ -898,7 +1251,12 @@ export default function ActivityMonitorPage() {
             })}
           </div>
 
-          {(appliedSearch || activityType !== 'all' || userRole !== 'all' || dateRange !== 'all' || selectedUserFilter) && (
+          {(appliedSearch ||
+            activityType !== 'all' ||
+            userRole !== 'all' ||
+            (activeTab === 'users' && registeredRoleFilter !== 'registered') ||
+            dateRange !== 'all' ||
+            selectedUserFilter) && (
             <button
               type="button"
               onClick={handleClearFilters}
@@ -968,22 +1326,50 @@ export default function ActivityMonitorPage() {
           </div>
 
           <div className="md:col-span-3">
-            <select
-              value={userRole}
-              onChange={(e) => {
-                setUserRole(e.target.value);
-                setPage(1);
-                setUsersPage(1);
-              }}
-              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-            >
-              <option value="all">All User Roles (incl. Guests)</option>
-              <option value="registered">Registered Accounts Only</option>
-              <option value="visitor">Visitors</option>
-              <option value="organizer">Organizers</option>
-              <option value="exhibitor">Exhibitors</option>
-              <option value="guest">Guest / Anonymous Visitors</option>
-            </select>
+            {activeTab === 'users' ? (
+              <select
+                value={registeredRoleFilter}
+                onChange={(e) => {
+                  setRegisteredRoleFilter(e.target.value);
+                  setPage(1);
+                  setUsersPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              >
+                <option value="registered">All Logged-In Users</option>
+                <option value="visitor">Visitors</option>
+                <option value="organizer">Organizers</option>
+                <option value="exhibitor">Exhibitors</option>
+                <option value="admin">Admins</option>
+                <option value="super_admin">Super Admins</option>
+              </select>
+            ) : activeTab === 'guests' ? (
+              <select
+                value="guest"
+                disabled
+                title="Guest Users tab shows anonymous guest sessions only"
+                className="w-full px-3 py-2 text-sm bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 cursor-not-allowed"
+              >
+                <option value="guest">Guest Visitors Only</option>
+              </select>
+            ) : (
+              <select
+                value={userRole}
+                onChange={(e) => {
+                  setUserRole(e.target.value);
+                  setPage(1);
+                  setUsersPage(1);
+                }}
+                className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+              >
+                <option value="all">All User Roles (incl. Guests)</option>
+                <option value="registered">Registered Accounts Only</option>
+                <option value="visitor">Visitors</option>
+                <option value="organizer">Organizers</option>
+                <option value="exhibitor">Exhibitors</option>
+                <option value="guest">Guest / Anonymous Visitors</option>
+              </select>
+            )}
           </div>
 
           <div className="md:col-span-2">
@@ -1033,293 +1419,9 @@ export default function ActivityMonitorPage() {
         </div>
       )}
 
-      {/* TAB 2: USER WISE ACTIVITY */}
-      {activeTab === 'users' && (
-        <div className="space-y-4">
-          {selectedUserFilter ? (
-            <>
-              {/* Selected User Profile Banner */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedUserFilter(null);
-                      setPage(1);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 transition cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    Back to All User Profiles
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      Showing <strong className="text-slate-900 dark:text-white">{totalItems}</strong> matching activities for this user
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleExportCsv}
-                      disabled={!activities.length}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 disabled:opacity-40 transition cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Export User CSV
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-900 text-amber-400 dark:bg-amber-400 dark:text-slate-950 font-bold text-base flex items-center justify-center shrink-0">
-                      {String(selectedUserFilter.userName || selectedUserFilter.userEmail || 'U')
-                        .charAt(0)
-                        .toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                          {selectedUserFilter.userName || selectedUserFilter.userEmail || 'Guest Session'}
-                        </h2>
-                        <span
-                          className={`inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase border ${
-                            ROLE_BADGE_MAP[selectedUserFilter.userRole] || ROLE_BADGE_MAP.guest
-                          }`}
-                        >
-                          {selectedUserFilter.userRole || 'guest'}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        {selectedUserFilter.userEmail && (
-                          <span className="inline-flex items-center gap-1">
-                            <Mail className="w-3.5 h-3.5 text-slate-400" />
-                            {selectedUserFilter.userEmail}
-                          </span>
-                        )}
-                        {selectedUserFilter.userPhone && (
-                          <span className="inline-flex items-center gap-1">
-                            <Phone className="w-3.5 h-3.5 text-slate-400" />
-                            {selectedUserFilter.userPhone}
-                          </span>
-                        )}
-                        {selectedUserFilter.userCompany && (
-                          <span className="inline-flex items-center gap-1">
-                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                            {selectedUserFilter.userCompany}
-                          </span>
-                        )}
-                        {selectedUserFilter.lastActionAt && (
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            Last active {formatRelativeTime(selectedUserFilter.lastActionAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {typeof selectedUserFilter.totalActions === 'number' && (
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-semibold text-slate-800 dark:text-slate-200">
-                        Total: {selectedUserFilter.totalActions}
-                      </span>
-                      <span className="px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-900/30 font-semibold text-sky-700 dark:text-sky-300">
-                        Visits: {selectedUserFilter.pageVisitsCount || 0}
-                      </span>
-                      <span className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-900/30 font-semibold text-amber-800 dark:text-amber-300">
-                        Clicks: {selectedUserFilter.eventClicksCount || 0}
-                      </span>
-                      <span className="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 font-semibold text-rose-700 dark:text-rose-300">
-                        Interested: {selectedUserFilter.interestedCount || 0}
-                      </span>
-                      <span className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 font-semibold text-emerald-700 dark:text-emerald-300">
-                        Forms & Passes: {selectedUserFilter.formsCount || 0}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Selected User's Paginated Activity Table */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-                {renderActivityTable({
-                  showUserColumn: false,
-                  emptyTitle: 'No activities recorded for this user with current filters',
-                  emptySubtitle: 'Try clearing the activity type, search, or date range filter above to see all actions by this user.'
-                })}
-              </div>
-            </>
-          ) : (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                    User Profiles ({usersTotalItems.toLocaleString()})
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Click on any user profile to view only that user&apos;s activity history.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {[
-                    { id: 'all', label: 'All Profiles' },
-                    { id: 'registered', label: 'Registered Accounts' },
-                    { id: 'visitor', label: 'Visitors' },
-                    { id: 'organizer', label: 'Organizers' },
-                    { id: 'exhibitor', label: 'Exhibitors' },
-                    { id: 'guest', label: 'Guests' }
-                  ].map((pill) => (
-                    <button
-                      key={pill.id}
-                      type="button"
-                      onClick={() => {
-                        setUserRole(pill.id);
-                        setUsersPage(1);
-                        setPage(1);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition cursor-pointer ${
-                        userRole === pill.id
-                          ? 'bg-slate-900 text-white border-slate-900 dark:bg-amber-400 dark:text-slate-950 dark:border-amber-400'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                      }`}
-                    >
-                      {pill.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="p-14 text-center text-slate-500 dark:text-slate-400">
-                  <RefreshCw className="w-7 h-7 animate-spin mx-auto mb-3 text-amber-500" />
-                  Loading user profiles...
-                </div>
-              ) : userSummaries.length === 0 ? (
-                <div className="p-12 text-center text-sm text-slate-500">
-                  No user profiles match the current filter.
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                          <th className="py-3.5 px-4">User Profile</th>
-                          <th className="py-3.5 px-4">Role</th>
-                          <th className="py-3.5 px-4 text-center">Total Actions</th>
-                          <th className="py-3.5 px-4 text-center">Page Visits</th>
-                          <th className="py-3.5 px-4 text-center">Event Clicks</th>
-                          <th className="py-3.5 px-4 text-center">Interested / Saves</th>
-                          <th className="py-3.5 px-4 text-center">Forms & Passes</th>
-                          <th className="py-3.5 px-4">Latest Activity</th>
-                          <th className="py-3.5 px-4 text-right">User Activity</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-                        {userSummaries.map((u) => {
-                          const roleBadge = ROLE_BADGE_MAP[u.userRole] || ROLE_BADGE_MAP.guest;
-                          const displayName = u.userName || u.userEmail || 'Guest Session';
-                          const initial = String(displayName).charAt(0).toUpperCase();
-                          return (
-                            <tr
-                              key={u.userKey}
-                              onClick={() => handleSelectUserFromSummary(u)}
-                              className="hover:bg-amber-50/50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer group"
-                            >
-                              <td className="py-3.5 px-4">
-                                <div className="flex items-start gap-3">
-                                  <div className="w-9 h-9 rounded-xl bg-slate-900 text-amber-400 dark:bg-amber-400 dark:text-slate-950 font-bold text-xs flex items-center justify-center shrink-0">
-                                    {initial}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="font-semibold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate max-w-[210px]">
-                                      {displayName}
-                                    </div>
-                                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[220px]">
-                                      {u.userEmail || u.userPhone || u.userKey}
-                                    </div>
-                                    {(u.userCompany || (u.userEmail && u.userPhone)) && (
-                                      <div className="text-[11px] text-slate-400 truncate max-w-[220px]">
-                                        {[u.userCompany, u.userEmail && u.userPhone ? u.userPhone : '']
-                                          .filter(Boolean)
-                                          .join(' · ')}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4">
-                                <span
-                                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${roleBadge}`}
-                                >
-                                  {u.userRole || 'guest'}
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-4 text-center font-bold text-slate-900 dark:text-white">
-                                {u.totalActions}
-                              </td>
-                              <td className="py-3.5 px-4 text-center text-sky-600 font-semibold">
-                                {u.pageVisitsCount}
-                              </td>
-                              <td className="py-3.5 px-4 text-center text-amber-600 font-semibold">
-                                {u.eventClicksCount}
-                              </td>
-                              <td className="py-3.5 px-4 text-center text-rose-600 font-semibold">
-                                {u.interestedCount}
-                              </td>
-                              <td className="py-3.5 px-4 text-center text-emerald-600 font-semibold">
-                                {u.formsCount}
-                              </td>
-                              <td className="py-3.5 px-4 max-w-[260px]">
-                                <div className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
-                                  {u.lastActionLabel || 'Activity recorded'}
-                                </div>
-                                <div className="text-[11px] text-slate-400 mt-0.5 truncate">
-                                  {formatRelativeTime(u.lastActionAt)} · {u.lastPagePath || '/'}
-                                </div>
-                              </td>
-                              <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectUserFromSummary(u);
-                                  }}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 cursor-pointer"
-                                >
-                                  View Activity
-                                  <ChevronRight className="w-3.5 h-3.5" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <Pagination
-                    currentPage={usersPage}
-                    totalPages={usersTotalPages}
-                    onPageChange={(newPage) => setUsersPage(newPage)}
-                    totalItems={usersTotalItems}
-                    itemsPerPage={usersLimit}
-                    onPageSizeChange={(newSize) => {
-                      setUsersLimit(newSize === 'all' ? Math.max(100, usersTotalItems || 100) : newSize);
-                      setUsersPage(1);
-                    }}
-                    pageSizeOptions={[10, 20, 50, 100]}
-                    itemLabel="users"
-                    pageSizeLabel="Users per page"
-                    alwaysVisible
-                  />
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {/* TAB 2 & TAB 3: USER WISE ACTIVITY (LOGGED-IN) / GUEST USERS */}
+      {(activeTab === 'users' || activeTab === 'guests') &&
+        renderUserDirectorySection({ isGuestMode: activeTab === 'guests' })}
 
       {/* TAB 3: TOP INTERACTED EVENTS */}
       {activeTab === 'events' && (
