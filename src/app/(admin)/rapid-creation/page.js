@@ -40,7 +40,9 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  Briefcase
+  Briefcase,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -136,10 +138,12 @@ export default function RapidCreationPage() {
 
   // Users Directory State
   const [users, setUsers] = useState([]);
-  const [counts, setCounts] = useState({ organizers: 0, exhibitors: 0, visitors: 0, dummyUsers: 0 });
+  const [counts, setCounts] = useState({ total: 0, organizers: 0, exhibitors: 0, visitors: 0, dummyUsers: 0 });
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [filterRole, setFilterRole] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   // Action Loading States
   const [creatingSingle, setCreatingSingle] = useState(false);
@@ -185,7 +189,7 @@ export default function RapidCreationPage() {
     if (!silent) setLoadingUsers(true);
     try {
       const res = await axios.get(`${API_URL}/admin/rapid-users`, {
-        params: { role: filterRole },
+        params: { role: 'all' },
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       if (res.data && res.data.success) {
@@ -194,16 +198,15 @@ export default function RapidCreationPage() {
         if (res.data.counts) {
           setCounts(res.data.counts);
         }
-        if (filterRole === 'all') {
-          try {
-            if (typeof window !== 'undefined') {
-              sessionStorage.setItem('visitexpo_admin_rapid_users_cache', JSON.stringify({
-                users: uList,
-                counts: res.data.counts || { organizers: 0, exhibitors: 0, visitors: 0, dummyUsers: 0 }
-              }));
-            }
-          } catch (e) {}
-        }
+        try {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('visitexpo_admin_rapid_users_cache');
+            sessionStorage.setItem('visitexpo_admin_rapid_users_cache_v2', JSON.stringify({
+              users: uList,
+              counts: res.data.counts || { total: uList.length, organizers: 0, exhibitors: 0, visitors: 0, dummyUsers: 0 }
+            }));
+          }
+        } catch (e) {}
       }
     } catch (err) {
       console.error('Fetch rapid users error:', err);
@@ -214,8 +217,8 @@ export default function RapidCreationPage() {
 
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && filterRole === 'all') {
-        const cached = sessionStorage.getItem('visitexpo_admin_rapid_users_cache');
+      if (typeof window !== 'undefined') {
+        const cached = sessionStorage.getItem('visitexpo_admin_rapid_users_cache_v2');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed.users) && parsed.users.length > 0) {
@@ -229,7 +232,7 @@ export default function RapidCreationPage() {
       console.warn('Error hydrating rapid users cache:', e);
     }
     fetchRapidUsers(true);
-  }, [accessToken, filterRole]);
+  }, [accessToken]);
 
   // Create Single User
   const handleCreateSingle = async (andLoginDirectly = false) => {
@@ -345,6 +348,7 @@ export default function RapidCreationPage() {
       if (res.data && res.data.success) {
         showFeedback('success', `Deleted user ${userName}`);
         setUsers((prev) => prev.filter((u) => u._id !== userId));
+        fetchRapidUsers(true);
       }
     } catch (err) {
       showFeedback('error', err.response?.data?.error || 'Failed to delete user.');
@@ -355,7 +359,10 @@ export default function RapidCreationPage() {
 
   // Filtered Users List
   const filteredUsers = users.filter((u) => {
-    if (filterRole === 'dummy' && !u.email.endsWith('@testexpo.in')) {
+    if (filterRole === 'dummy' && !u.email?.toLowerCase().endsWith('@testexpo.in')) {
+      return false;
+    }
+    if (filterRole !== 'all' && filterRole !== 'dummy' && u.role !== filterRole) {
       return false;
     }
     if (!searchQuery.trim()) return true;
@@ -363,11 +370,19 @@ export default function RapidCreationPage() {
     return (
       u.name?.toLowerCase().includes(q) ||
       u.email?.toLowerCase().includes(q) ||
+      u.workEmail?.toLowerCase().includes(q) ||
+      u.phone?.toLowerCase().includes(q) ||
       u.company?.toLowerCase().includes(q) ||
       u.organization?.name?.toLowerCase().includes(q) ||
       u.city?.toLowerCase().includes(q)
     );
   });
+
+  const totalFilteredUsers = filteredUsers.length;
+  const totalPages = Math.max(1, Math.ceil(totalFilteredUsers / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (safeCurrentPage - 1) * pageSize;
+  const paginatedUsers = filteredUsers.slice(pageStartIndex, pageStartIndex + pageSize);
 
   return (
     <div className="space-y-6 pb-16 max-w-7xl mx-auto">
@@ -812,9 +827,14 @@ export default function RapidCreationPage() {
       <div className="bg-card border border-border rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-border gap-4">
           <div>
-            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" /> Created Users Directory &amp; Direct Login
-            </h3>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" /> Created Users Directory &amp; Direct Login
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-primary/10 text-primary border border-primary/20">
+                {totalFilteredUsers} {totalFilteredUsers === 1 ? 'User' : 'Users'}
+              </span>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Click &quot;Login to Dashboard&quot; next to any user to instantly transfer into their live account session.
             </p>
@@ -827,7 +847,10 @@ export default function RapidCreationPage() {
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="Search by name, email, company..."
                 className="w-56 rounded-xl border border-border bg-background py-1.5 pl-8 pr-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
@@ -835,19 +858,22 @@ export default function RapidCreationPage() {
 
             <select
               value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value)}
+              onChange={(e) => {
+                setFilterRole(e.target.value);
+                setCurrentPage(1);
+              }}
               className="rounded-xl border border-border bg-background py-1.5 px-3 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
-              <option value="all">All Roles</option>
-              <option value="dummy">Only Dummy (@testexpo.in)</option>
-              <option value="organizer">Organisers Only</option>
-              <option value="exhibitor">Exhibitors Only</option>
-              <option value="visitor">Visitors Only</option>
+              <option value="all">All Roles ({(counts.organizers || 0) + (counts.exhibitors || 0) + (counts.visitors || 0)})</option>
+              <option value="dummy">Only Dummy (@testexpo.in) ({counts.dummyUsers || 0})</option>
+              <option value="organizer">Organisers Only ({counts.organizers || 0})</option>
+              <option value="exhibitor">Exhibitors Only ({counts.exhibitors || 0})</option>
+              <option value="visitor">Visitors Only ({counts.visitors || 0})</option>
             </select>
 
             <button
               type="button"
-              onClick={fetchRapidUsers}
+              onClick={() => fetchRapidUsers(false)}
               disabled={loadingUsers}
               className="p-2 rounded-xl border border-border bg-secondary hover:bg-secondary/80 text-foreground cursor-pointer transition-all active:scale-90"
               title="Refresh List"
@@ -884,7 +910,7 @@ export default function RapidCreationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredUsers.map((u) => {
+                {paginatedUsers.map((u) => {
                   const isDummy = u.email?.endsWith('@testexpo.in');
                   const roleBadgeColor =
                     u.role === 'organizer'
@@ -1010,6 +1036,94 @@ export default function RapidCreationPage() {
                 })}
               </tbody>
             </table>
+
+            {/* Pagination Footer Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 bg-secondary/30 border-t border-border text-xs text-muted-foreground">
+              <div>
+                Showing{' '}
+                <span className="font-bold text-foreground">
+                  {totalFilteredUsers === 0 ? 0 : pageStartIndex + 1}
+                </span>{' '}
+                to{' '}
+                <span className="font-bold text-foreground">
+                  {Math.min(pageStartIndex + pageSize, totalFilteredUsers)}
+                </span>{' '}
+                of <span className="font-bold text-foreground">{totalFilteredUsers}</span> users
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <span>Rows per page</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    aria-label="Rows per page"
+                  >
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </label>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safeCurrentPage <= 1}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 1)
+                    .reduce((acc, p, idx, arr) => {
+                      if (idx > 0 && p - arr[idx - 1] > 1) {
+                        acc.push(`ellipsis-${p}`);
+                      }
+                      acc.push(p);
+                      return acc;
+                    }, [])
+                    .map((item) =>
+                      typeof item === 'string' ? (
+                        <span key={item} className="px-1.5 text-muted-foreground select-none">
+                          &hellip;
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setCurrentPage(item)}
+                          className={`min-w-[30px] h-7 px-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                            safeCurrentPage === item
+                              ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                              : 'bg-background text-foreground border-border hover:bg-secondary'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safeCurrentPage >= totalPages}
+                    className="p-1.5 rounded-lg border border-border bg-background hover:bg-secondary text-foreground disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
