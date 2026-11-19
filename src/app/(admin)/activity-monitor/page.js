@@ -358,6 +358,7 @@ export default function ActivityMonitorPage() {
       userRole: resolvedRole,
       userCompany: u.userCompany || '',
       sessionId: u.sessionId || '',
+      ipAddress: u.ipAddress || '',
       totalActions: u.totalActions || 0,
       pageVisitsCount: u.pageVisitsCount || 0,
       eventClicksCount: u.eventClicksCount || 0,
@@ -400,7 +401,8 @@ export default function ActivityMonitorPage() {
       userPhone: item.userPhone || '',
       userRole: resolvedRole,
       userCompany: item.userCompany || '',
-      sessionId: item.sessionId || ''
+      sessionId: item.sessionId || '',
+      ipAddress: item.ipAddress || ''
     });
     if (!isGuestUser && registeredRoleFilter !== 'registered' && registeredRoleFilter !== resolvedRole) {
       setRegisteredRoleFilter('registered');
@@ -418,6 +420,7 @@ export default function ActivityMonitorPage() {
       'User Phone',
       'Role',
       'Company',
+      'IP Address',
       'Activity Type',
       'Action Label',
       'Description',
@@ -435,6 +438,7 @@ export default function ActivityMonitorPage() {
       row.userPhone || '',
       row.userRole || 'guest',
       row.userCompany || '',
+      row.ipAddress || '',
       ACTIVITY_TYPE_META[row.activityType]?.label || row.activityType,
       row.actionLabel || '',
       row.description || '',
@@ -566,6 +570,7 @@ export default function ActivityMonitorPage() {
                 {showUserColumn && <th className="py-3.5 px-4">User Profile</th>}
                 <th className="py-3.5 px-4">Activity Type</th>
                 <th className="py-3.5 px-4">Action & Target (Event / Page / Form)</th>
+                <th className="py-3.5 px-4">IP Address</th>
                 <th className="py-3.5 px-4">Timestamp</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
@@ -700,6 +705,16 @@ export default function ActivityMonitorPage() {
                             </div>
                           )}
                         </div>
+                      )}
+                    </td>
+
+                    <td className="py-3.5 px-4 align-top whitespace-nowrap">
+                      {item.ipAddress ? (
+                        <code className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-700 dark:text-slate-300">
+                          {item.ipAddress}
+                        </code>
+                      ) : (
+                        <span className="text-xs text-slate-400">N/A</span>
                       )}
                     </td>
 
@@ -845,6 +860,11 @@ export default function ActivityMonitorPage() {
                           {selectedUserFilter.sessionId || selectedUserFilter.userKey}
                         </span>
                       )}
+                      {(selectedUserFilter.ipAddress || activities[0]?.ipAddress) && (
+                        <span className="inline-flex items-center gap-1 font-mono text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          IP: {selectedUserFilter.ipAddress || activities[0]?.ipAddress}
+                        </span>
+                      )}
                       {selectedUserFilter.lastActionAt && (
                         <span className="inline-flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -951,6 +971,7 @@ export default function ActivityMonitorPage() {
                       <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         <th className="py-3.5 px-4">{profileTerm}</th>
                         <th className="py-3.5 px-4">Role</th>
+                        <th className="py-3.5 px-4">IP Address</th>
                         <th className="py-3.5 px-4 text-center">Total Actions</th>
                         <th className="py-3.5 px-4 text-center">Page Visits</th>
                         <th className="py-3.5 px-4 text-center">Event Clicks</th>
@@ -999,6 +1020,15 @@ export default function ActivityMonitorPage() {
                               >
                                 {u.userRole === 'organizer' ? 'organiser' : (u.userRole || 'guest')}
                               </span>
+                            </td>
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              {u.ipAddress ? (
+                                <code className="inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-700 dark:text-slate-300">
+                                  {u.ipAddress}
+                                </code>
+                              ) : (
+                                <span className="text-xs text-slate-400">N/A</span>
+                              )}
                             </td>
                             <td className="py-3.5 px-4 text-center font-bold text-slate-900 dark:text-white">
                               {u.totalActions}
