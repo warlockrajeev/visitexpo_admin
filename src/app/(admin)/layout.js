@@ -181,6 +181,12 @@ export default function AdminLayout({ children }) {
       permission: 'events.view'
     },
     {
+      name: 'Explore Venues',
+      href: '/explore-venues',
+      icon: MapPin,
+      permission: 'venues.manage'
+    },
+    {
       name: 'Venue Reports',
       href: '/venue-reports',
       icon: Flag,
@@ -351,6 +357,7 @@ export default function AdminLayout({ children }) {
     if (path === '/events') return 'Events Management & WordPress Sync';
     if (path === '/reports') return 'Expo Reports & Multi-Format Data Export';
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
+    if (path === '/explore-venues') return 'Landing Page Explore Venues';
     if (path === '/venue-reports') return 'Venue Information Reports';
     if (path === '/event-reports') return 'Event Issue Reports';
     if (path === '/organizers') return 'Organisers & Events Directory';
