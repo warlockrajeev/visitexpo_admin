@@ -16,6 +16,7 @@ import Link from 'next/link';
 import axios from 'axios';
 import { useAuth } from '../../../context/AuthContext.js';
 import Pagination from '../../../components/Pagination.js';
+import WordPressVenueModal from '../../../components/WordPressVenueModal.js';
 import { showSweetSuccess, showSweetError, showSweetConfirm } from '../../../utils/sweetalert.js';
 import {
   Building,
@@ -53,6 +54,252 @@ import {
 import { getClientUrl } from '../../../utils/clientUrl.js';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+const EMPTY_EXPLORE_FORM = {
+  name: '',
+  slug: '',
+  city: '',
+  state: '',
+  country: 'India',
+  totalEvents: 0,
+  upcomingEvents: 0,
+  searchTerm: '',
+  imageUrl: '',
+  displayOrder: 1,
+  isActive: true
+};
+
+const parseEventCountNumber = (val) => {
+  if (typeof val === 'number' && Number.isFinite(val)) return val;
+  const digits = String(val || '').replace(/[^\d]/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+};
+
+const isValidAdminVenueName = (rawName) => {
+  const cleaned = String(rawName || '')
+    .replace(/^[:\-\s]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned || cleaned.length <= 3) return false;
+  if (/^(?:\d+|#.*|\d+(?:st|nd|rd|th)\s*\(?.*\)?\s*floor.*)$/i.test(cleaned)) return false;
+  if ((cleaned.match(/#\w+/g) || []).length >= 2) return false;
+  if (/^(?:exhibition\s+cent(?:er|re)|tba|tbd|online|virtual|n\/a)$/i.test(cleaned)) return false;
+  return true;
+};
+
+function ExploreVenueSearchSelect({ venues, selectedSlug, exploreItems, onSelect }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  const exploreSlugs = useMemo(
+    () => new Set((exploreItems || []).map((i) => String(i.slug || '').trim().toLowerCase()).filter(Boolean)),
+    [exploreItems]
+  );
+
+  const selectedVenue = useMemo(
+    () => (venues || []).find((v) => v.slug === selectedSlug) || null,
+    [venues, selectedSlug]
+  );
+
+  const filteredVenues = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = (venues || []).filter((v) => {
+      if (!isValidAdminVenueName(v.name)) return false;
+      if (!q) return true;
+      return (
+        v.name?.toLowerCase().includes(q) ||
+        v.shortName?.toLowerCase().includes(q) ||
+        v.city?.toLowerCase().includes(q) ||
+        v.state?.toLowerCase().includes(q) ||
+        v.country?.toLowerCase().includes(q) ||
+        v.slug?.toLowerCase().includes(q)
+      );
+    });
+    return list.slice(0, 150);
+  }, [venues, query]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 20);
+    } else {
+      setQuery('');
+      setActiveIndex(0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [isOpen]);
+
+  const handleChoose = (venue) => {
+    onSelect(venue);
+    setIsOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <div ref={containerRef} className="relative w-full min-w-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className={`w-full min-w-0 flex items-center justify-between gap-2.5 rounded-xl border bg-background px-3.5 py-2.5 text-left text-xs transition-all cursor-pointer ${
+          isOpen
+            ? 'border-primary ring-2 ring-primary/20'
+            : 'border-border hover:border-primary/50'
+        }`}
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <Search className="h-4 w-4 shrink-0 text-primary" />
+          {selectedVenue ? (
+            <div className="min-w-0 flex-1 truncate">
+              <span className="font-bold text-foreground">{selectedVenue.name}</span>
+              <span className="text-muted-foreground ml-1.5">
+                ({[selectedVenue.city, selectedVenue.country].filter(Boolean).join(', ')})
+              </span>
+            </div>
+          ) : (
+            <span className="text-muted-foreground font-medium truncate">
+              Search and select an existing venue ({venues.length} available)...
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            isOpen ? 'rotate-180 text-primary' : ''
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1.5 w-full overflow-hidden rounded-2xl border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+          {/* Search Input Header inside Dropdown */}
+          <div className="p-2.5 border-b border-border bg-muted/30">
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setActiveIndex(0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActiveIndex((i) => Math.min(i + 1, Math.max(0, filteredVenues.length - 1)));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActiveIndex((i) => Math.max(i - 1, 0));
+                  } else if (e.key === 'Enter' && filteredVenues[activeIndex]) {
+                    e.preventDefault();
+                    handleChoose(filteredVenues[activeIndex]);
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    setIsOpen(false);
+                  }
+                }}
+                placeholder="Type venue name, city, or country to search..."
+                className="w-full rounded-xl border border-border bg-background pl-8 pr-8 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setActiveIndex(0);
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Clear venue search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Bounded Scrollable Venues List */}
+          <div role="listbox" className="max-h-56 overflow-y-auto divide-y divide-border/50 p-1">
+            {filteredVenues.length === 0 ? (
+              <div className="py-8 px-4 text-center text-xs text-muted-foreground">
+                No existing venues found matching &ldquo;{query}&rdquo;.
+              </div>
+            ) : (
+              filteredVenues.map((v, idx) => {
+                const isSelected = v.slug === selectedSlug;
+                const inExplore = exploreSlugs.has(String(v.slug || '').trim().toLowerCase());
+                const liveCount = v.liveTotalEvents ?? parseEventCountNumber(v.eventsHosted);
+
+                return (
+                  <button
+                    key={v.id || v.slug}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onClick={() => handleChoose(v)}
+                    className={`w-full min-w-0 flex items-center justify-between gap-2.5 rounded-xl px-3 py-2 text-left transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-primary/15 text-primary'
+                        : activeIndex === idx
+                        ? 'bg-muted text-foreground'
+                        : 'text-foreground hover:bg-muted/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted overflow-hidden">
+                        {v.logoThumbnail || v.heroBanner ? (
+                          <img
+                            src={v.logoThumbnail || v.heroBanner}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-xs truncate">{v.name}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {[v.city, v.state, v.country].filter(Boolean).join(', ')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {inExplore && (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                          In Explore
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-lg bg-muted text-muted-foreground text-[10px] font-bold">
+                        {liveCount} {liveCount === 1 ? 'event' : 'events'}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function VenueFilterAutocomplete({ id, label, icon: Icon, value, options, onChange, ariaLabel }) {
   const [query, setQuery] = useState('');
@@ -187,6 +434,19 @@ export default function AdminVenuesPage() {
   const [selectedCountry, setSelectedCountry] = useState('All');
   const [selectedCity, setSelectedCity] = useState('All');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [onlyExploreFilter, setOnlyExploreFilter] = useState(false);
+
+  // Landing Page Explore Venues states
+  const [exploreItems, setExploreItems] = useState([]);
+  const [exploreLoading, setExploreLoading] = useState(true);
+  const [exploreFormData, setExploreFormData] = useState(EMPTY_EXPLORE_FORM);
+  const [editingExploreItem, setEditingExploreItem] = useState(null);
+  const [isExploreFormOpen, setIsExploreFormOpen] = useState(false);
+  const [savingExplore, setSavingExplore] = useState(false);
+  const [uploadingExploreImg, setUploadingExploreImg] = useState(false);
+  const [togglingVenueSlug, setTogglingVenueSlug] = useState('');
+  const [selectedVenueToPrefill, setSelectedVenueToPrefill] = useState('');
+  const [isExploreSectionExpanded, setIsExploreSectionExpanded] = useState(true);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -216,9 +476,9 @@ export default function AdminVenuesPage() {
   const [savingDetails, setSavingDetails] = useState(false);
 
   // Create Venue Modal State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const EMPTY_CREATE_VENUE_FORM = {
     name: '',
+    slug: '',
     shortName: '',
     tagline: '',
     city: 'New Delhi',
@@ -234,21 +494,252 @@ export default function AdminVenuesPage() {
     totalArea: '',
     builtYear: '2020',
     meetingRooms: '10 Exhibition Halls • 15 Conference Suites',
-    rating: 4.8
-  });
+    rating: 4.8,
+    status: 'published',
+    visibility: 'public',
+    venueCategories: ['Delhi', 'New Delhi'],
+    seo: {
+      seoTitle: '',
+      metaDescription: '',
+      focusKeyword: '',
+      relatedKeyphrases: [],
+      isCornerstone: false,
+      canonicalUrl: '',
+      metaRobotsIndex: 'index',
+      metaRobotsFollow: 'follow'
+    }
+  };
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createForm, setCreateForm] = useState(EMPTY_CREATE_VENUE_FORM);
   const [creatingVenue, setCreatingVenue] = useState(false);
 
+  const authHeaders = useMemo(
+    () => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    [accessToken]
+  );
+
+  // Fetch Landing Page Explore Venues
+  const fetchExploreItems = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/explore-venues/admin/all`, {
+        headers: authHeaders
+      });
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        setExploreItems(response.data.data);
+      }
+    } catch (err) {
+      console.warn('Could not load Explore Venues:', err);
+    } finally {
+      setExploreLoading(false);
+    }
+  };
+
+  // Match an available venue from directory against Landing Page Explore Venues list
+  const findExploreMatchForVenue = (venue) => {
+    if (!venue) return null;
+    const vSlug = String(venue.slug || '').trim().toLowerCase();
+    const vName = String(venue.name || '').trim().toLowerCase();
+    return (
+      exploreItems.find((item) => {
+        const iSlug = String(item.slug || '').trim().toLowerCase();
+        const iName = String(item.name || '').trim().toLowerCase();
+        return (vSlug && iSlug === vSlug) || (vName && iName === vName);
+      }) || null
+    );
+  };
+
+  // Open Explore Venue Modal (empty or pre-filled from an available venue)
+  const openCreateExploreModal = (venueToPrefill = null) => {
+    setEditingExploreItem(null);
+    if (venueToPrefill) {
+      setSelectedVenueToPrefill(venueToPrefill.slug || '');
+      setExploreFormData({
+        name: venueToPrefill.name || '',
+        slug: venueToPrefill.slug || '',
+        city: venueToPrefill.city || '',
+        state: venueToPrefill.state || '',
+        country: venueToPrefill.country || 'India',
+        totalEvents: parseEventCountNumber(venueToPrefill.liveTotalEvents ?? venueToPrefill.eventsHosted),
+        upcomingEvents: parseEventCountNumber(venueToPrefill.liveUpcomingEvents ?? venueToPrefill.upcomingEventsCount),
+        searchTerm: venueToPrefill.shortName || venueToPrefill.name || '',
+        imageUrl: venueToPrefill.logoThumbnail || venueToPrefill.heroBanner || '',
+        displayOrder: exploreItems.length + 1,
+        isActive: true
+      });
+    } else {
+      setSelectedVenueToPrefill('');
+      setExploreFormData({ ...EMPTY_EXPLORE_FORM, displayOrder: exploreItems.length + 1 });
+    }
+    setIsExploreFormOpen(true);
+  };
+
+  const openEditExploreModal = (item) => {
+    setEditingExploreItem(item);
+    setSelectedVenueToPrefill(item.slug || '');
+    setExploreFormData({
+      ...EMPTY_EXPLORE_FORM,
+      ...item,
+      totalEvents: item.totalEvents || 0,
+      upcomingEvents: item.upcomingEvents || 0,
+      displayOrder: item.displayOrder || 1
+    });
+    setIsExploreFormOpen(true);
+  };
+
+  // Direct 1-click Add an available venue from Venues Directory to Landing Page Explore Venues
+  const handleQuickAddVenueToExplore = async (venue) => {
+    const existing = findExploreMatchForVenue(venue);
+    if (existing) {
+      openEditExploreModal(existing);
+      return;
+    }
+
+    const key = venue.slug || venue.name;
+    setTogglingVenueSlug(key);
+    try {
+      const payload = {
+        name: venue.name || '',
+        slug: venue.slug || '',
+        city: venue.city || 'New Delhi',
+        state: venue.state || '',
+        country: venue.country || 'India',
+        totalEvents: parseEventCountNumber(venue.liveTotalEvents ?? venue.eventsHosted),
+        upcomingEvents: parseEventCountNumber(venue.liveUpcomingEvents ?? venue.upcomingEventsCount),
+        searchTerm: venue.shortName || venue.name || '',
+        imageUrl: venue.logoThumbnail || venue.heroBanner || '',
+        displayOrder: exploreItems.length + 1,
+        isActive: true
+      };
+      const res = await axios.post(`${API_URL}/explore-venues/admin`, payload, {
+        headers: authHeaders
+      });
+      if (res.data?.success) {
+        await fetchExploreItems();
+        showSweetSuccess(`"${venue.name}" added to Landing Page Explore Venues!`);
+      } else {
+        showSweetError(res.data?.error || 'Could not add venue to Explore Venues.');
+      }
+    } catch (err) {
+      showSweetError(err.response?.data?.error || err.message || 'Could not add venue to Explore Venues.');
+    } finally {
+      setTogglingVenueSlug('');
+    }
+  };
+
+  // Toggle Live / Hidden on an Explore Venue item
+  const handleToggleExploreActive = async (item) => {
+    try {
+      const res = await axios.put(
+        `${API_URL}/explore-venues/admin/${item._id}`,
+        { ...item, isActive: !item.isActive },
+        { headers: authHeaders }
+      );
+      if (res.data?.success) {
+        await fetchExploreItems();
+        showSweetSuccess(
+          !item.isActive
+            ? `"${item.name}" is now Live on the landing page!`
+            : `"${item.name}" hidden from the landing page.`
+        );
+      }
+    } catch (err) {
+      showSweetError(err.response?.data?.error || 'Could not update Explore Venue visibility.');
+    }
+  };
+
+  // Remove a venue from Landing Page Explore Venues
+  const handleDeleteExploreItem = async (item) => {
+    const confirmed = await showSweetConfirm(
+      `Remove "${item.name}" from Explore Venues?`,
+      'This removes the card from the Landing Page Explore Venues section (the venue profile itself remains in the directory).'
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await axios.delete(`${API_URL}/explore-venues/admin/${item._id}`, {
+        headers: authHeaders
+      });
+      if (res.data?.success) {
+        await fetchExploreItems();
+        if (editingExploreItem?._id === item._id) {
+          setIsExploreFormOpen(false);
+        }
+        showSweetSuccess(`"${item.name}" removed from Landing Page Explore Venues.`);
+      }
+    } catch (err) {
+      showSweetError(err.response?.data?.error || 'Could not remove venue from Explore Venues.');
+    }
+  };
+
+  // Upload image for Explore Venue card
+  const handleExploreImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showSweetError('Please choose an image file.');
+      return;
+    }
+
+    try {
+      setUploadingExploreImg(true);
+      const url = await handleUploadImageFile(file);
+      if (url) {
+        setExploreFormData((curr) => ({ ...curr, imageUrl: url }));
+        showSweetSuccess('Card image uploaded!');
+      }
+    } catch (err) {
+      showSweetError(err.message || 'Could not upload card image.');
+    } finally {
+      setUploadingExploreImg(false);
+    }
+  };
+
+  // Save (Create or Update) Explore Venue item
+  const handleSaveExploreVenue = async (event) => {
+    event.preventDefault();
+    if (!exploreFormData.name || !exploreFormData.city) {
+      showSweetError('Please select an existing venue from the directory.');
+      return;
+    }
+    try {
+      setSavingExplore(true);
+      const url = editingExploreItem
+        ? `${API_URL}/explore-venues/admin/${editingExploreItem._id}`
+        : `${API_URL}/explore-venues/admin`;
+      const response = editingExploreItem
+        ? await axios.put(url, exploreFormData, { headers: authHeaders })
+        : await axios.post(url, exploreFormData, { headers: authHeaders });
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Could not save Explore Venue.');
+      }
+      setIsExploreFormOpen(false);
+      await fetchExploreItems();
+      showSweetSuccess(
+        editingExploreItem
+          ? 'Explore Venue card updated!'
+          : 'Venue added to Landing Page Explore Venues!'
+      );
+    } catch (err) {
+      showSweetError(err.response?.data?.error || err.message || 'Could not save Explore Venue.');
+    } finally {
+      setSavingExplore(false);
+    }
+  };
+
   // Fetch venues from backend with instant sessionStorage caching
-  const fetchVenues = async (silent = false) => {
+  const fetchVenues = async (silent = false, forceRefresh = false) => {
     if (!silent && venues.length === 0) setLoading(true);
     setRefreshing(true);
     try {
-      const res = await axios.get(`${API_URL}/venues`);
+      const res = await axios.get(`${API_URL}/venues${forceRefresh ? '?force=true' : ''}`);
       if (res.data?.success && Array.isArray(res.data.data)) {
-        setVenues(res.data.data);
+        const cleanData = res.data.data.filter((v) => isValidAdminVenueName(v.name));
+        setVenues(cleanData);
         try {
           if (typeof window !== 'undefined') {
-            sessionStorage.setItem('visitexpo_admin_venues_cache', JSON.stringify(res.data.data));
+            sessionStorage.setItem('visitexpo_admin_venues_cache', JSON.stringify(cleanData));
           }
         } catch (e) {
           console.warn('Could not cache venues:', e);
@@ -272,7 +763,8 @@ export default function AdminVenuesPage() {
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setVenues(parsed);
+            const cleanCached = parsed.filter((v) => isValidAdminVenueName(v.name));
+            setVenues(cleanCached);
             setLoading(false);
           }
         }
@@ -281,11 +773,19 @@ export default function AdminVenuesPage() {
       console.warn('Could not read venues cache:', e);
     }
 
-    fetchVenues(true);
-  }, []);
+    fetchVenues(true, true);
+    fetchExploreItems();
+  }, [accessToken]);
 
   // Filter venues
   const filteredVenues = useMemo(() => {
+    const exploreSlugs = new Set(
+      exploreItems.map((i) => String(i.slug || '').trim().toLowerCase()).filter(Boolean)
+    );
+    const exploreNames = new Set(
+      exploreItems.map((i) => String(i.name || '').trim().toLowerCase()).filter(Boolean)
+    );
+
     return venues.filter((v) => {
       const matchesCountry = selectedCountry === 'All' || v.country === selectedCountry;
       const matchesCity = selectedCity === 'All' || v.city === selectedCity;
@@ -299,9 +799,16 @@ export default function AdminVenuesPage() {
         v.address?.toLowerCase().includes(q) ||
         v.slug?.toLowerCase().includes(q);
 
+      if (onlyExploreFilter) {
+        const vSlug = String(v.slug || '').trim().toLowerCase();
+        const vName = String(v.name || '').trim().toLowerCase();
+        const inExplore = (vSlug && exploreSlugs.has(vSlug)) || (vName && exploreNames.has(vName));
+        if (!inExplore) return false;
+      }
+
       return matchesCountry && matchesCity && matchesSearch;
     });
-  }, [venues, selectedCountry, selectedCity, searchQuery]);
+  }, [venues, exploreItems, onlyExploreFilter, selectedCountry, selectedCity, searchQuery]);
 
   // Pagination calculations
   const totalPages = useMemo(() => {
@@ -320,7 +827,7 @@ export default function AdminVenuesPage() {
   // Reset to page 1 on filter changes
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, selectedCountry, selectedCity]);
+  }, [searchQuery, selectedCountry, selectedCity, onlyExploreFilter]);
 
   // Auto-clamp page if totalPages changes
   useEffect(() => {
@@ -358,6 +865,7 @@ export default function AdminVenuesPage() {
     setSearchQuery('');
     setSelectedCountry('All');
     setSelectedCity('All');
+    setOnlyExploreFilter(false);
   };
 
   // Aggregate statistics
@@ -538,8 +1046,12 @@ export default function AdminVenuesPage() {
   // =========================================================================
   const openEditModal = (venue) => {
     setEditModalVenue(venue);
+    const defaultCategories = Array.isArray(venue.venueCategories) && venue.venueCategories.length > 0
+      ? venue.venueCategories
+      : [venue.state, venue.city].filter(Boolean);
     setEditForm({
       name: venue.name || '',
+      slug: venue.slug || '',
       shortName: venue.shortName || '',
       tagline: venue.tagline || '',
       city: venue.city || '',
@@ -548,6 +1060,9 @@ export default function AdminVenuesPage() {
       address: venue.address || '',
       metro: venue.metro || '',
       airportDistance: venue.airportDistance || '',
+      heroBanner: venue.heroBanner || '',
+      logoThumbnail: venue.logoThumbnail || '',
+      gallery: Array.isArray(venue.gallery) ? venue.gallery : [],
       totalArea: venue.totalArea || '',
       builtYear: venue.builtYear || '',
       renovatedYear: venue.renovatedYear || '',
@@ -555,7 +1070,21 @@ export default function AdminVenuesPage() {
       overviewDescription: venue.overviewDescription || '',
       eventsHosted: venue.eventsHosted || '',
       upcomingEventsCount: venue.upcomingEventsCount || '',
-      rating: venue.rating || 4.8
+      rating: venue.rating || 4.8,
+      status: venue.status || 'published',
+      visibility: venue.visibility || 'public',
+      venueCategories: defaultCategories,
+      isFeatured: Boolean(venue.isFeatured),
+      seo: {
+        seoTitle: venue.seo?.seoTitle || '',
+        metaDescription: venue.seo?.metaDescription || '',
+        focusKeyword: venue.seo?.focusKeyword || venue.name || '',
+        relatedKeyphrases: Array.isArray(venue.seo?.relatedKeyphrases) ? venue.seo.relatedKeyphrases : [],
+        isCornerstone: Boolean(venue.seo?.isCornerstone ?? venue.isFeatured),
+        canonicalUrl: venue.seo?.canonicalUrl || '',
+        metaRobotsIndex: venue.seo?.metaRobotsIndex || 'index',
+        metaRobotsFollow: venue.seo?.metaRobotsFollow || 'follow'
+      }
     });
     setIsEditModalOpen(true);
   };
@@ -565,23 +1094,25 @@ export default function AdminVenuesPage() {
     setEditModalVenue(null);
   };
 
-  const handleSaveDetails = async (e) => {
-    e.preventDefault();
+  const handleSaveDetails = async (e, overrideStatus = null) => {
+    if (e?.preventDefault) e.preventDefault();
     if (!editModalVenue) return;
 
     try {
       setSavingDetails(true);
-      const res = await axios.put(`${API_URL}/venues/${editModalVenue.slug}`, editForm, {
+      const payload = overrideStatus ? { ...editForm, status: overrideStatus } : editForm;
+      const res = await axios.put(`${API_URL}/venues/${editModalVenue.slug}`, payload, {
         headers: {
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         }
       });
 
       if (res.data?.success) {
+        const updatedVenue = res.data.data || { ...editModalVenue, ...payload };
         setVenues((prev) =>
-          prev.map((v) => (v.slug === editModalVenue.slug ? { ...v, ...editForm } : v))
+          prev.map((v) => (v.slug === editModalVenue.slug ? { ...v, ...updatedVenue } : v))
         );
-        showSweetSuccess('Venue profile specifications updated successfully!');
+        showSweetSuccess('Venue profile & Yoast SEO specifications updated successfully!');
         closeEditModal();
       } else {
         showSweetError(res.data?.message || 'Failed to update details.');
@@ -596,16 +1127,17 @@ export default function AdminVenuesPage() {
   // =========================================================================
   // CREATE NEW VENUE HANDLER
   // =========================================================================
-  const handleCreateVenue = async (e) => {
-    e.preventDefault();
+  const handleCreateVenue = async (e, overrideStatus = null) => {
+    if (e?.preventDefault) e.preventDefault();
     if (!createForm.name.trim()) {
-      showSweetError('Venue name is required.');
+      showSweetError('Venue title is required.');
       return;
     }
 
     try {
       setCreatingVenue(true);
-      const res = await axios.post(`${API_URL}/venues`, createForm, {
+      const payload = overrideStatus ? { ...createForm, status: overrideStatus } : createForm;
+      const res = await axios.post(`${API_URL}/venues`, payload, {
         headers: {
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         }
@@ -613,27 +1145,13 @@ export default function AdminVenuesPage() {
 
       if (res.data?.success && res.data?.data) {
         setVenues((prev) => [res.data.data, ...prev]);
-        showSweetSuccess('New Venue complex registered successfully!');
+        showSweetSuccess(
+          payload.status === 'draft'
+            ? 'Venue saved as draft successfully!'
+            : 'New Venue complex published with Yoast SEO metadata!'
+        );
         setIsCreateModalOpen(false);
-        setCreateForm({
-          name: '',
-          shortName: '',
-          tagline: '',
-          city: 'New Delhi',
-          state: 'Delhi',
-          country: 'India',
-          address: '',
-          metro: '',
-          airportDistance: '',
-          heroBanner: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1600&auto=format&fit=crop',
-          logoThumbnail: 'https://images.unsplash.com/photo-1541971875076-8f970d573be6?q=80&w=300&auto=format&fit=crop',
-          gallery: [],
-          overviewDescription: '',
-          totalArea: '',
-          builtYear: '2020',
-          meetingRooms: '10 Exhibition Halls • 15 Conference Suites',
-          rating: 4.8
-        });
+        setCreateForm(EMPTY_CREATE_VENUE_FORM);
       } else {
         showSweetError(res.data?.message || 'Failed to register venue.');
       }
@@ -688,13 +1206,25 @@ export default function AdminVenuesPage() {
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
             type="button"
-            onClick={() => fetchVenues(true)}
+            onClick={() => {
+              fetchVenues(true, true);
+              fetchExploreItems();
+            }}
             disabled={refreshing}
             className="px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted text-foreground text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
             title="Refresh venue listings"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin text-primary' : 'text-muted-foreground'}`} />
             <span>Refresh</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openCreateExploreModal(null)}
+            className="px-3.5 py-2 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <Star className="h-3.5 w-3.5 fill-current" />
+            <span>+ Add Explore Venue</span>
           </button>
 
           <button
@@ -737,16 +1267,169 @@ export default function AdminVenuesPage() {
           <span className="text-[11px] text-muted-foreground">Global MICE destinations</span>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-4 space-y-1 shadow-2xs">
+        <div
+          onClick={() => setIsExploreSectionExpanded((prev) => !prev)}
+          className="bg-card border border-border hover:border-primary/50 rounded-xl p-4 space-y-1 shadow-2xs cursor-pointer transition-colors"
+          title="Click to toggle Landing Page Explore Venues section"
+        >
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold uppercase">Featured Complexes</span>
+            <span className="text-[11px] font-bold uppercase">Explore Venues (Landing)</span>
             <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
           </div>
           <div className="text-xl font-black text-foreground">
-            {venues.filter((v) => v.isFeatured).length || 7}
+            {exploreItems.filter((i) => i.isActive).length}
+            <span className="text-xs font-semibold text-muted-foreground ml-1">
+              / {exploreItems.length} cards
+            </span>
           </div>
-          <span className="text-[11px] text-muted-foreground">Flagship trade hubs</span>
+          <span className="text-[11px] text-muted-foreground">Shown on landing page</span>
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* LANDING PAGE EXPLORE VENUES SECTION (INTEGRATED DIRECTLY IN VENUES PAGE)  */}
+      {/* ========================================================================= */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-2xs">
+        <div className="px-5 py-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Star className="h-4.5 w-4.5 fill-current" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-sm sm:text-base font-extrabold text-foreground">
+                  Landing Page Explore Venues
+                </h2>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                  {exploreItems.filter((i) => i.isActive).length} Live
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Manage the venue cards shown in the landing page Explore Venues section, or click <strong>+ Add to Explore</strong> on any venue card below.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => openCreateExploreModal(null)}
+              className="px-3.5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Explore Venue</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsExploreSectionExpanded((prev) => !prev)}
+              className="p-2 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              title={isExploreSectionExpanded ? 'Collapse section' : 'Expand section'}
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${isExploreSectionExpanded ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {isExploreSectionExpanded && (
+          <div>
+            {exploreLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading Landing Page Explore Venues...</span>
+              </div>
+            ) : exploreItems.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                No Explore Venues added yet. Click <strong>Add Explore Venue</strong> above or <strong>+ Add to Explore</strong> on any venue card below.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {exploreItems.map((item) => (
+                  <div
+                    key={item._id}
+                    className="flex flex-wrap items-center gap-3.5 px-5 py-3.5 hover:bg-muted/20 transition-colors"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-400 border border-border">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Building2 className="h-5 w-5" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                          #{item.displayOrder || 1}
+                        </span>
+                        <h3 className="font-bold text-xs sm:text-sm text-foreground truncate">
+                          {item.name}
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleExploreActive(item)}
+                          title="Click to toggle Live / Hidden on landing page"
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold cursor-pointer transition-colors ${
+                            item.isActive
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+                              : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                          }`}
+                        >
+                          {item.isActive ? 'Live' : 'Hidden'}
+                        </button>
+                      </div>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3 text-primary shrink-0" />
+                        <span>{[item.city, item.state, item.country].filter(Boolean).join(', ')}</span>
+                        <span className="mx-1">·</span>
+                        <span className="font-semibold text-foreground">{item.totalEvents || 0} events</span>
+                        {item.upcomingEvents ? (
+                          <>
+                            <span className="mx-1">·</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                              {item.upcomingEvents} upcoming
+                            </span>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <a
+                        href={`${getClientUrl()}/venue/${item.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                        title="Preview venue page"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => openEditExploreModal(item)}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                        title="Edit Explore Venue card"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteExploreItem(item)}
+                        className="rounded-lg p-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600 transition-colors cursor-pointer"
+                        title="Remove from Landing Page Explore Venues"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Search, Filter Bar and View Mode Switcher */}
@@ -773,8 +1456,22 @@ export default function AdminVenuesPage() {
             )}
           </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          {/* View Mode & Explore Filter Toggle */}
+          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+            <button
+              type="button"
+              onClick={() => setOnlyExploreFilter((prev) => !prev)}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer ${
+                onlyExploreFilter
+                  ? 'border-primary bg-primary text-primary-foreground shadow-2xs'
+                  : 'border-border bg-background text-muted-foreground hover:text-foreground'
+              }`}
+              title="Show only venues currently in Landing Page Explore Venues"
+            >
+              <Star className={`h-3.5 w-3.5 ${onlyExploreFilter ? 'fill-current' : 'text-amber-500 fill-amber-500'}`} />
+              <span>In Explore ({exploreItems.length})</span>
+            </button>
+
             <div className="flex items-center border border-border bg-background rounded-xl p-0.5">
               <button
                 type="button"
@@ -838,7 +1535,7 @@ export default function AdminVenuesPage() {
           <button
             type="button"
             onClick={resetFilters}
-            disabled={!searchQuery && selectedCountry === 'All' && selectedCity === 'All'}
+            disabled={!searchQuery && selectedCountry === 'All' && selectedCity === 'All' && !onlyExploreFilter}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3.5 py-2 text-xs font-bold text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -874,6 +1571,8 @@ export default function AdminVenuesPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {paginatedVenues.map((venue) => {
             const galleryList = Array.isArray(venue.gallery) ? venue.gallery : [];
+            const exploreMatch = findExploreMatchForVenue(venue);
+            const isAddingExplore = togglingVenueSlug === (venue.slug || venue.name);
 
             return (
               <div
@@ -893,20 +1592,34 @@ export default function AdminVenuesPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                  {/* Location & Rating Badges */}
-                  <div className="absolute top-3 left-3">
+                  {/* Location & Explore Status Badges */}
+                  <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-black/60 backdrop-blur-md text-white text-[11px] font-bold border border-white/20">
                       <MapPin className="h-3 w-3 text-rose-500" />
                       <span>{venue.city}, {venue.country}</span>
                     </span>
+                    {exploreMatch && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black shadow-xs ${
+                          exploreMatch.isActive
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-zinc-700 text-zinc-200'
+                        }`}
+                      >
+                        <Star className="h-2.5 w-2.5 fill-current" />
+                        <span>{exploreMatch.isActive ? 'In Explore (Live)' : 'In Explore (Hidden)'}</span>
+                      </span>
+                    )}
                   </div>
 
-                  <div className="absolute top-3 right-3">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white text-[11px] font-black shadow-xs">
-                      <Star className="h-3 w-3 fill-current" />
-                      <span>{venue.rating || 4.8}</span>
-                    </span>
-                  </div>
+                  {venue.rating > 0 && (
+                    <div className="absolute top-3 right-3">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white text-[11px] font-black shadow-xs">
+                        <Star className="h-3 w-3 fill-current" />
+                        <span>{Number(venue.rating).toFixed(1)}</span>
+                      </span>
+                    </div>
+                  )}
 
                   {/* Thumbnail Logo & Name Overlay */}
                   <div className="absolute bottom-3 left-3 right-3 flex items-end gap-3">
@@ -932,14 +1645,14 @@ export default function AdminVenuesPage() {
                   <div className="grid grid-cols-2 gap-2 text-center text-xs">
                     <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-900 dark:text-orange-300">
                       <span className="block font-black text-sm">
-                        {venue.liveTotalEvents || venue.eventsHosted || '10+'}
+                        {venue.liveTotalEvents ?? parseEventCountNumber(venue.eventsHosted)}
                       </span>
                       <span className="text-[10px] font-semibold uppercase">Total Events</span>
                     </div>
 
                     <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-900 dark:text-emerald-300">
                       <span className="block font-black text-sm">
-                        {venue.liveUpcomingEvents || venue.upcomingEventsCount || '4+'}
+                        {venue.liveUpcomingEvents ?? parseEventCountNumber(venue.upcomingEventsCount)}
                       </span>
                       <span className="text-[10px] font-semibold uppercase">Upcoming Events</span>
                     </div>
@@ -998,34 +1711,69 @@ export default function AdminVenuesPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-border space-y-2">
                     <button
                       type="button"
-                      onClick={() => openImageModal(venue)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs inline-flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                      disabled={isAddingExplore}
+                      onClick={() => handleQuickAddVenueToExplore(venue)}
+                      className={`w-full py-2 px-3 rounded-xl font-bold text-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                        exploreMatch
+                          ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary'
+                      }`}
+                      title={
+                        exploreMatch
+                          ? 'This venue is in the Landing Page Explore Venues section — click to edit card'
+                          : 'Add this venue directly to the Landing Page Explore Venues section'
+                      }
                     >
-                      <Camera className="h-3.5 w-3.5" />
-                      <span>Manage Images</span>
+                      {isAddingExplore ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Adding to Explore Venues...</span>
+                        </>
+                      ) : exploreMatch ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>In Landing Explore Venues (Edit Card)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Add to Landing Explore Venues</span>
+                        </>
+                      )}
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(venue)}
-                      className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      title="Edit Venue Specifications"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openImageModal(venue)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs inline-flex items-center justify-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        <span>Manage Images</span>
+                      </button>
 
-                    <a
-                      href={`${getClientUrl()}/venue/${venue.slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      title="View Live Venue Profile on Client Portal"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(venue)}
+                        className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        title="Edit Venue Specifications"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+
+                      <a
+                        href={`${getClientUrl()}/venue/${venue.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        title="View Live Venue Profile on Client Portal"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1043,6 +1791,7 @@ export default function AdminVenuesPage() {
                   <th className="py-3 px-4">City / Country</th>
                   <th className="py-3 px-4">Total Events</th>
                   <th className="py-3 px-4">Upcoming</th>
+                  <th className="py-3 px-4">Landing Explore</th>
                   <th className="py-3 px-4">Gallery Photos</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -1050,6 +1799,8 @@ export default function AdminVenuesPage() {
               <tbody className="divide-y divide-border">
                 {paginatedVenues.map((venue) => {
                   const galleryCount = Array.isArray(venue.gallery) ? venue.gallery.length : 0;
+                  const exploreMatch = findExploreMatchForVenue(venue);
+                  const isAddingExplore = togglingVenueSlug === (venue.slug || venue.name);
 
                   return (
                     <tr key={venue.id || venue.slug} className="hover:bg-muted/30 transition-colors">
@@ -1071,12 +1822,38 @@ export default function AdminVenuesPage() {
                         <div className="text-[10px] text-muted-foreground">{venue.country}</div>
                       </td>
                       <td className="py-3 px-4 font-bold text-foreground">
-                        {venue.liveTotalEvents || venue.eventsHosted || '10+'}
+                        {venue.liveTotalEvents ?? parseEventCountNumber(venue.eventsHosted)}
                       </td>
                       <td className="py-3 px-4">
                         <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
-                          {venue.liveUpcomingEvents || venue.upcomingEventsCount || '4+'} Upcoming
+                          {venue.liveUpcomingEvents ?? parseEventCountNumber(venue.upcomingEventsCount)} Upcoming
                         </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          disabled={isAddingExplore}
+                          onClick={() => handleQuickAddVenueToExplore(venue)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 transition-colors cursor-pointer border ${
+                            exploreMatch
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20'
+                          }`}
+                        >
+                          {isAddingExplore ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : exploreMatch ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>{exploreMatch.isActive ? 'In Explore' : 'Explore (Hidden)'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-3 w-3" />
+                              <span>Add to Explore</span>
+                            </>
+                          )}
+                        </button>
                       </td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center gap-1 font-semibold text-muted-foreground">
@@ -1420,334 +2197,244 @@ export default function AdminVenuesPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* 2. EDIT VENUE DETAILS MODAL                                              */}
+      {/* 2. EDIT VENUE DETAILS MODAL (WordPress + Yoast SEO Suite)                 */}
       {/* ========================================================================= */}
-      {isEditModalOpen && editModalVenue && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
-            
-            <div className="px-6 py-4 border-b border-border bg-muted/40 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <Edit className="h-4 w-4 text-primary" />
-                <h3 className="font-extrabold text-sm text-foreground">
-                  Edit Venue Specifications: {editModalVenue.name}
-                </h3>
+      <WordPressVenueModal
+        isOpen={Boolean(isEditModalOpen && editModalVenue)}
+        mode="edit"
+        form={editForm}
+        setForm={setEditForm}
+        onClose={closeEditModal}
+        onSubmit={handleSaveDetails}
+        saving={savingDetails}
+        allVenues={venues}
+        onUploadImageFile={handleUploadImageFile}
+        clientOrigin={getClientUrl('')}
+        showSweetSuccess={showSweetSuccess}
+        showSweetError={showSweetError}
+      />
+
+      {/* ========================================================================= */}
+      {/* 3. ADD NEW VENUE MODAL (WordPress + Yoast SEO Suite)                      */}
+      {/* ========================================================================= */}
+      <WordPressVenueModal
+        isOpen={isCreateModalOpen}
+        mode="create"
+        form={createForm}
+        setForm={setCreateForm}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateVenue}
+        saving={creatingVenue}
+        allVenues={venues}
+        onUploadImageFile={handleUploadImageFile}
+        clientOrigin={getClientUrl('')}
+        showSweetSuccess={showSweetSuccess}
+        showSweetError={showSweetError}
+      />
+
+      {/* ========================================================================= */}
+      {/* 4. ADD / EDIT LANDING PAGE EXPLORE VENUE MODAL                            */}
+      {/* ========================================================================= */}
+      {isExploreFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="my-auto w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-border bg-muted/40 px-6 py-4 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <Star className="h-4 w-4 fill-current" />
+                </span>
+                <div>
+                  <h2 className="text-sm font-extrabold text-foreground">
+                    {editingExploreItem ? 'Edit Landing Page Explore Venue' : 'Add Venue to Landing Page Explore Section'}
+                  </h2>
+                  <p className="text-[11px] text-muted-foreground">
+                    Select an existing venue from your directory to feature on the landing page.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={closeEditModal}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+                onClick={() => setIsExploreFormOpen(false)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                aria-label="Close form"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveDetails} className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Venue Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Short Display Name</label>
-                  <input
-                    type="text"
-                    value={editForm.shortName}
-                    onChange={(e) => setEditForm({ ...editForm, shortName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Tagline</label>
-                <input
-                  type="text"
-                  value={editForm.tagline}
-                  onChange={(e) => setEditForm({ ...editForm, tagline: e.target.value })}
-                  placeholder="e.g. India's Apex International Exhibition Complex..."
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
+            <form onSubmit={handleSaveExploreVenue} className="space-y-4 p-6 overflow-y-auto text-xs flex-1">
+              {/* 1. Choose from Existing Directory Venues (Searchable Combobox Dropdown) */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                  Select Existing Venue *
+                </label>
+                <ExploreVenueSearchSelect
+                  venues={venues}
+                  selectedSlug={selectedVenueToPrefill}
+                  exploreItems={exploreItems}
+                  onSelect={(chosen) => {
+                    if (chosen) {
+                      setSelectedVenueToPrefill(chosen.slug || '');
+                      setExploreFormData((curr) => ({
+                        ...curr,
+                        name: chosen.name || '',
+                        slug: chosen.slug || '',
+                        city: chosen.city || '',
+                        state: chosen.state || '',
+                        country: chosen.country || 'India',
+                        totalEvents: parseEventCountNumber(chosen.liveTotalEvents ?? chosen.eventsHosted),
+                        upcomingEvents: parseEventCountNumber(chosen.liveUpcomingEvents ?? chosen.upcomingEventsCount),
+                        searchTerm: chosen.shortName || chosen.name || '',
+                        imageUrl: curr.imageUrl || chosen.logoThumbnail || chosen.heroBanner || ''
+                      }));
+                    }
+                  }}
                 />
+
+                {/* Selected Venue Read-Only Summary Card */}
+                {exploreFormData.name && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/25 bg-primary/5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary overflow-hidden">
+                      {exploreFormData.imageUrl ? (
+                        <img
+                          src={exploreFormData.imageUrl}
+                          alt={exploreFormData.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Building2 className="h-5 w-5" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-xs text-foreground truncate">{exploreFormData.name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {[exploreFormData.city, exploreFormData.state, exploreFormData.country].filter(Boolean).join(', ')}
+                        {' · '}
+                        {exploreFormData.totalEvents || 0} events
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="grid sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Country</label>
-                  <input
-                    type="text"
-                    value={editForm.country}
-                    onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">State</label>
-                  <input
-                    type="text"
-                    value={editForm.state}
-                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">City *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editForm.city}
-                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-              </div>
+              {/* 2. Direct Image Upload Only (No Image URL Input Field) */}
+              <div className="space-y-2">
+                <span className="block text-[10px] font-bold uppercase text-muted-foreground tracking-wider">
+                  Venue Card Image (Optional)
+                </span>
+                <div className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-background">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted text-muted-foreground">
+                    {exploreFormData.imageUrl ? (
+                      <img
+                        src={exploreFormData.imageUrl}
+                        alt="Venue card preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <Building2 className="h-6 w-6" />
+                    )}
+                  </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Official Physical Address</label>
-                <input
-                  type="text"
-                  value={editForm.address}
-                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                />
-              </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 px-3.5 py-2 text-xs font-bold text-primary-foreground transition-colors ${
+                          uploadingExploreImg ? 'pointer-events-none opacity-60' : ''
+                        }`}
+                      >
+                        {uploadingExploreImg ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-3.5 w-3.5" />
+                            <span>{exploreFormData.imageUrl ? 'Change Image' : 'Upload Image'}</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleExploreImageUpload}
+                          className="sr-only"
+                        />
+                      </label>
 
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Metro / Transit Connection</label>
-                  <input
-                    type="text"
-                    value={editForm.metro}
-                    onChange={(e) => setEditForm({ ...editForm, metro: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Airport Distance</label>
-                  <input
-                    type="text"
-                    value={editForm.airportDistance}
-                    onChange={(e) => setEditForm({ ...editForm, airportDistance: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Total Floor Space</label>
-                  <input
-                    type="text"
-                    value={editForm.totalArea}
-                    onChange={(e) => setEditForm({ ...editForm, totalArea: e.target.value })}
-                    placeholder="e.g. 100,000+ sqm Indoor"
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Halls &amp; Rooms</label>
-                  <input
-                    type="text"
-                    value={editForm.meetingRooms}
-                    onChange={(e) => setEditForm({ ...editForm, meetingRooms: e.target.value })}
-                    placeholder="14 Exhibition Halls"
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Built / Renovated Year</label>
-                  <input
-                    type="text"
-                    value={editForm.builtYear}
-                    onChange={(e) => setEditForm({ ...editForm, builtYear: e.target.value })}
-                    placeholder="2023"
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
+                      {exploreFormData.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setExploreFormData({ ...exploreFormData, imageUrl: '' })}
+                          className="px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-xs font-bold text-rose-600 transition-colors cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Upload an image directly from your device to replace the default venue icon.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Overview Description</label>
-                <textarea
-                  rows={3}
-                  value={editForm.overviewDescription}
-                  onChange={(e) => setEditForm({ ...editForm, overviewDescription: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none resize-none"
-                />
+              {/* 3. Display Order & Visibility */}
+              <div className="grid gap-3.5 sm:grid-cols-2 pt-1">
+                <label className="space-y-1 font-bold text-foreground">
+                  <span className="block text-[10px] uppercase text-muted-foreground">Display Order</span>
+                  <input
+                    type="number"
+                    min="1"
+                    value={exploreFormData.displayOrder}
+                    onChange={(e) => setExploreFormData({ ...exploreFormData, displayOrder: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-normal"
+                  />
+                </label>
+
+                <label className="flex items-center gap-2 self-end pb-2 text-xs font-bold text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(exploreFormData.isActive)}
+                    onChange={(e) => setExploreFormData({ ...exploreFormData, isActive: e.target.checked })}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span>Show on landing page</span>
+                </label>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-border">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="px-4 py-2 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingDetails}
-                  className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs inline-flex items-center gap-1.5"
-                >
-                  {savingDetails ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                  <span>Save Specifications</span>
-                </button>
+              <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+                {editingExploreItem ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExploreItem(editingExploreItem)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-3.5 py-2 text-xs font-bold text-rose-600 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remove from Explore</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsExploreFormOpen(false)}
+                    className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-foreground hover:bg-muted cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingExplore || uploadingExploreImg || !exploreFormData.name}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary/90 px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-60 cursor-pointer"
+                  >
+                    {savingExplore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    <span>{editingExploreItem ? 'Save Explore Card' : 'Add to Explore Venues'}</span>
+                  </button>
+                </div>
               </div>
             </form>
-
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 3. ADD NEW VENUE MODAL                                                   */}
-      {/* ========================================================================= */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-2xl bg-card rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
-            
-            <div className="px-6 py-4 border-b border-border bg-muted/40 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4 text-primary" />
-                <h3 className="font-extrabold text-sm text-foreground">
-                  Register New Convention &amp; Exhibition Venue
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateVenue} className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Venue Full Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Dubai World Trade Centre"
-                    value={createForm.name}
-                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Short Name</label>
-                  <input
-                    type="text"
-                    placeholder="DWTC"
-                    value={createForm.shortName}
-                    onChange={(e) => setCreateForm({ ...createForm, shortName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Country</label>
-                  <input
-                    type="text"
-                    placeholder="United Arab Emirates"
-                    value={createForm.country}
-                    onChange={(e) => setCreateForm({ ...createForm, country: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">State / Province</label>
-                  <input
-                    type="text"
-                    placeholder="Dubai"
-                    value={createForm.state}
-                    onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">City *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Dubai"
-                    value={createForm.city}
-                    onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Physical Address</label>
-                <input
-                  type="text"
-                  placeholder="Sheikh Zayed Rd, Trade Centre, Dubai"
-                  value={createForm.address}
-                  onChange={(e) => setCreateForm({ ...createForm, address: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                />
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Hero Cover Photo URL</label>
-                  <input
-                    type="url"
-                    value={createForm.heroBanner}
-                    onChange={(e) => setCreateForm({ ...createForm, heroBanner: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Logo Thumbnail URL</label>
-                  <input
-                    type="url"
-                    value={createForm.logoThumbnail}
-                    onChange={(e) => setCreateForm({ ...createForm, logoThumbnail: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Overview Description</label>
-                <textarea
-                  rows={3}
-                  placeholder="Premier exhibition destination featuring multiple halls..."
-                  value={createForm.overviewDescription}
-                  onChange={(e) => setCreateForm({ ...createForm, overviewDescription: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-background border border-border text-foreground focus:ring-1 focus:ring-primary focus:outline-none resize-none"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-border text-foreground hover:bg-muted font-bold text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingVenue}
-                  className="px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs inline-flex items-center gap-1.5"
-                >
-                  {creatingVenue ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                  <span>Create Venue Profile</span>
-                </button>
-              </div>
-            </form>
-
           </div>
         </div>
       )}

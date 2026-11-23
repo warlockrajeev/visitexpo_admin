@@ -181,12 +181,6 @@ export default function AdminLayout({ children }) {
       permission: 'events.view'
     },
     {
-      name: 'Explore Venues',
-      href: '/explore-venues',
-      icon: MapPin,
-      permission: 'venues.manage'
-    },
-    {
       name: 'Venue Reports',
       href: '/venue-reports',
       icon: Flag,

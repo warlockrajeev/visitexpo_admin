@@ -284,6 +284,12 @@ export default function ContactInquiriesPage() {
   // Form Source Badge Styling
   const getSourceBadge = (source) => {
     switch (source) {
+      case 'venue_quote_inquiry':
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-500 border border-amber-500/20">
+            Venue Quotation
+          </span>
+        );
       case 'advertise_modal':
         return (
           <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-500/20">
@@ -476,6 +482,7 @@ export default function ContactInquiriesPage() {
               className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
             >
               <option value="all">All Sources</option>
+              <option value="venue_quote_inquiry">Venue Quotation</option>
               <option value="landing_contact">Landing Form</option>
               <option value="advertise_modal">Advertise Modal</option>
               <option value="newsletter">Newsletter</option>
@@ -722,6 +729,27 @@ export default function ContactInquiriesPage() {
                   <span className="text-[10px] font-bold text-muted-foreground uppercase">Received Date</span>
                   <p className="font-medium text-foreground mt-0.5">{formatDate(selectedInquiry.createdAt)}</p>
                 </div>
+
+                {selectedInquiry.meta?.venueName && (
+                  <div className="sm:col-span-2 pt-2 border-t border-border/60 grid sm:grid-cols-3 gap-3">
+                    <div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Target Venue</span>
+                      <p className="font-bold text-foreground mt-0.5">{selectedInquiry.meta.venueName}</p>
+                    </div>
+                    {selectedInquiry.meta.eventType && (
+                      <div>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Event Type</span>
+                        <p className="font-semibold text-foreground mt-0.5">{selectedInquiry.meta.eventType}</p>
+                      </div>
+                    )}
+                    {selectedInquiry.meta.preferredDates && (
+                      <div>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Preferred Dates</span>
+                        <p className="font-semibold text-foreground mt-0.5">{selectedInquiry.meta.preferredDates}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Message Content */}
