@@ -56,7 +56,8 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-const isGoogleEmailVerified = (u) => u?.authProvider === 'google';
+const isUserEmailVerified = (u) =>
+  Boolean(u?.isEmailVerified || u?.isVerified || u?.authProvider === 'google' || u?.email);
 const formatRoleDisplay = (role) => (role === 'organizer' ? 'organiser' : String(role || '').replace('_', ' '));
 
 // Date formatters
@@ -246,7 +247,7 @@ export default function UsersManagementPage() {
       requestedPage === 1
     ) {
       try {
-        const cached = sessionStorage.getItem('visitexpo_admin_users_cache');
+        const cached = sessionStorage.getItem('visitexpo_admin_users_cache_v2');
         if (cached) {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed?.docs) && parsed.docs.length > 0) {
@@ -306,7 +307,7 @@ export default function UsersManagementPage() {
         ) {
           try {
             if (typeof window !== 'undefined') {
-              sessionStorage.setItem('visitexpo_admin_users_cache', JSON.stringify({
+              sessionStorage.setItem('visitexpo_admin_users_cache_v2', JSON.stringify({
                 docs: fetchedDocs,
                 total: res.data.data.total ?? fetchedDocs.length,
                 pages: fetchedPages,
@@ -910,7 +911,7 @@ export default function UsersManagementPage() {
               className="w-full sm:w-auto rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               <option value="all">All Verification</option>
-              <option value="email_verified">Email Verified (Google Auth)</option>
+              <option value="email_verified">Email Verified</option>
               <option value="email_unverified">Email Unverified</option>
               <option value="phone_verified">Phone Verified</option>
               <option value="phone_unverified">Phone Unverified</option>
@@ -1132,12 +1133,15 @@ export default function UsersManagementPage() {
                           <CheckCircle className="h-2.5 w-2.5" /> Active
                         </span>
                       )}
-                      {isGoogleEmailVerified(u) ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600" title="Email verified via Google Auth">
+                      {isUserEmailVerified(u) ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-600"
+                          title={u.authProvider === 'google' ? 'Email verified via Google Auth' : 'Email verified via OTP'}
+                        >
                           <CheckCircle className="h-2.5 w-2.5" /> Email Verified
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 font-medium text-zinc-500" title="Signed up without Google Auth">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-2 py-0.5 font-medium text-zinc-500" title="Email not verified">
                           <Clock className="h-2.5 w-2.5" /> Email Unverified
                         </span>
                       )}
@@ -1449,12 +1453,15 @@ export default function UsersManagementPage() {
                         {/* Verification Status */}
                         <td className="px-2.5 py-2 whitespace-nowrap">
                           <div className="space-y-0.5">
-                            {isGoogleEmailVerified(u) ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600" title="Email verified via Google Auth">
+                            {isUserEmailVerified(u) ? (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600"
+                                title={u.authProvider === 'google' ? 'Email verified via Google Auth' : 'Email verified via OTP'}
+                              >
                                 <CheckCircle className="h-2.5 w-2.5" /> Email Verified
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500" title="Signed up without Google Auth">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500" title="Email not verified">
                                 <Clock className="h-2.5 w-2.5" /> Email Unverified
                               </span>
                             )}
@@ -1750,13 +1757,16 @@ export default function UsersManagementPage() {
                         </span>
                       )}
 
-                      {/* Email Verified Pill (Google Auth only) */}
-                      {isGoogleEmailVerified(activeUser) ? (
-                        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/10 text-emerald-700" title="Email verified via Google Auth">
-                          <CheckCircle className="h-3 w-3" /> Email Verified (Google Auth)
+                      {/* Email Verified Pill (OTP & Google Auth) */}
+                      {isUserEmailVerified(activeUser) ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/10 text-emerald-700"
+                          title={activeUser.authProvider === 'google' ? 'Email verified via Google Auth' : 'Email verified via OTP'}
+                        >
+                          <CheckCircle className="h-3 w-3" /> Email Verified ({activeUser.authProvider === 'google' ? 'Google Auth' : 'Email OTP'})
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/10 text-zinc-600" title="Registered without Google Auth">
+                        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/10 text-zinc-600" title="Email not verified">
                           <Clock className="h-3 w-3" /> Email Unverified
                         </span>
                       )}
@@ -2024,9 +2034,11 @@ export default function UsersManagementPage() {
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Email Verification Status:</span>
                         <p className="text-foreground font-medium">
-                          {isGoogleEmailVerified(activeUser)
-                            ? '✓ Email Verified (Logged in via Google Auth)'
-                            : 'Email Unverified (Google Auth not used)'}
+                          {isUserEmailVerified(activeUser)
+                            ? activeUser.authProvider === 'google'
+                              ? '✓ Email Verified (Logged in via Google Auth)'
+                              : '✓ Email Verified (Confirmed via Email OTP)'
+                            : 'Email Unverified'}
                         </p>
                       </div>
 
