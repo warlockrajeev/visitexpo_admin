@@ -75,13 +75,29 @@ const parseEventCountNumber = (val) => {
   return digits ? parseInt(digits, 10) : 0;
 };
 
-const isValidAdminVenueName = (rawName) => {
-  const cleaned = String(rawName || '')
+const isValidAdminVenueName = (rawName, rawSlug = '') => {
+  const rawStr = String(rawName || '').trim();
+  const slugStr = String(rawSlug || '').trim();
+  if (/%[0-9a-f]{2}/i.test(rawStr) || /%[0-9a-f]{2}/i.test(slugStr) || /\s/.test(slugStr)) return false;
+  const cleaned = rawStr
     .replace(/^[:\-\s]+/, '')
     .replace(/\s+/g, ' ')
     .trim();
   if (!cleaned || cleaned.length <= 3) return false;
+  if (
+    /https?:\/\//i.test(cleaned) ||
+    /\bhttps?\b/i.test(cleaned) ||
+    /\bwww\b/i.test(cleaned) ||
+    /^(?:https?|www)-/i.test(slugStr)
+  ) {
+    return false;
+  }
   if (/^(?:\d+|#.*|\d+(?:st|nd|rd|th)\s*\(?.*\)?\s*floor.*)$/i.test(cleaned)) return false;
+  if (
+    /^(?:halls?|pavilions?|gates?|entrances?)\s*(?:no\.?\s*)?[a-z0-9\s&–,\-/().]*$/i.test(cleaned)
+  ) {
+    return false;
+  }
   if ((cleaned.match(/#\w+/g) || []).length >= 2) return false;
   if (/^(?:exhibition\s+cent(?:er|re)|tba|tbd|online|virtual|n\/a)$/i.test(cleaned)) return false;
   return true;

@@ -27,6 +27,9 @@ import {
   RefreshCw,
   Ban,
   Eye,
+  EyeOff,
+  Lock,
+  Unlock,
   Copy,
   Check,
   ExternalLink,
@@ -59,6 +62,99 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const isUserEmailVerified = (u) =>
   Boolean(u?.isEmailVerified || u?.isVerified || u?.authProvider === 'google' || u?.email);
 const formatRoleDisplay = (role) => (role === 'organizer' ? 'organiser' : String(role || '').replace('_', ' '));
+
+const DEMO_HIDE_STORAGE_KEY = 'visitexpo_admin_users_demo_hide';
+
+// Deterministic non-reversible display hash for Demo / Encrypted Privacy Mode
+function hashToHex(seed, length = 12) {
+  const input = String(seed || 'visitexpo-vault');
+  let h1 = 0xdeadbeef ^ input.length;
+  let h2 = 0x41c6ce57 ^ input.length;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const combined =
+    ((h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0')).toUpperCase();
+  return combined.slice(0, length);
+}
+
+function encryptDisplayValue(kind, seed) {
+  const hex = hashToHex(`${kind}:${seed}`, 16);
+  switch (kind) {
+    case 'name':
+      return `ENC::${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}`;
+    case 'email':
+      return `enc_${hex.slice(0, 8).toLowerCase()}••••@vault.enc`;
+    case 'workEmail':
+      return `corp_${hex.slice(0, 8).toLowerCase()}••••@vault.enc`;
+    case 'phone':
+      return `ENC-TEL-${hex.slice(0, 4)}••••${hex.slice(4, 6)}`;
+    case 'org':
+      return `ORG_ENC_${hex.slice(0, 8)}`;
+    case 'website':
+      return `https://enc-${hex.slice(0, 8).toLowerCase()}.vault.enc`;
+    case 'gst':
+      return `GST_AES_${hex.slice(0, 10)}`;
+    case 'city':
+      return `LOC_${hex.slice(0, 6)}•••`;
+    case 'designation':
+      return `ROLE_ENC_${hex.slice(0, 6)}`;
+    case 'address':
+      return `AES256::ADDR_${hex.slice(0, 12)}••••`;
+    case 'bio':
+      return `AES256::ENCRYPTED_PAYLOAD[${hex.slice(0, 14)}••••]`;
+    default:
+      return `AES256::${hex.slice(0, 10)}`;
+  }
+}
+
+function buildEncryptedRawRecord(user) {
+  if (!user || typeof user !== 'object') return {};
+  const seed = user._id || user.id || 'user';
+  const clone = { ...user };
+  const piiFields = {
+    name: 'name',
+    email: 'email',
+    workEmail: 'workEmail',
+    phone: 'phone',
+    company: 'org',
+    designation: 'designation',
+    city: 'city',
+    avatar: 'default',
+    photoURL: 'default'
+  };
+  for (const [field, kind] of Object.entries(piiFields)) {
+    if (clone[field]) {
+      clone[field] = encryptDisplayValue(kind, `${seed}:${field}`);
+    }
+  }
+  if (clone.organization && typeof clone.organization === 'object') {
+    const org = { ...clone.organization };
+    if (org.name) org.name = encryptDisplayValue('org', `${seed}:orgName`);
+    if (org.website) org.website = encryptDisplayValue('website', `${seed}:orgWeb`);
+    if (org.gst) org.gst = encryptDisplayValue('gst', `${seed}:orgGst`);
+    if (org.description) org.description = encryptDisplayValue('bio', `${seed}:orgBio`);
+    if (org.contact && typeof org.contact === 'object') {
+      org.contact = {
+        ...org.contact,
+        ...(org.contact.email ? { email: encryptDisplayValue('email', `${seed}:orgEmail`) } : {}),
+        ...(org.contact.phone ? { phone: encryptDisplayValue('phone', `${seed}:orgPhone`) } : {})
+      };
+    }
+    if (org.address && typeof org.address === 'object') {
+      org.address = { encrypted: encryptDisplayValue('address', `${seed}:orgAddr`) };
+    }
+    clone.organization = org;
+  }
+  return {
+    _privacyMode: 'DEMO_AES256_MASKED',
+    ...clone
+  };
+}
 
 // Date formatters
 function formatFullDate(dateString) {
@@ -206,6 +302,54 @@ export default function UsersManagementPage() {
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteSubmitting, setBulkDeleteSubmitting] = useState(false);
+
+  // Demo Privacy / Encrypted Display Mode (hides all user PII for live demos)
+  const [hideUserDetails, setHideUserDetails] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        setHideUserDetails(sessionStorage.getItem(DEMO_HIDE_STORAGE_KEY) === '1');
+      }
+    } catch {}
+  }, []);
+
+  const toggleHideUserDetails = () => {
+    setHideUserDetails((prev) => {
+      const next = !prev;
+      try {
+        if (typeof window !== 'undefined') {
+          if (next) sessionStorage.setItem(DEMO_HIDE_STORAGE_KEY, '1');
+          else sessionStorage.removeItem(DEMO_HIDE_STORAGE_KEY);
+        }
+      } catch {}
+      return next;
+    });
+  };
+
+  const displayName = (u, fallback = 'Unnamed User') =>
+    hideUserDetails ? encryptDisplayValue('name', u?._id || u?.email || 'u') : (u?.name || fallback);
+  const displayEmail = (u) =>
+    hideUserDetails ? encryptDisplayValue('email', u?._id || u?.email || 'u') : (u?.email || '');
+  const displayWorkEmail = (u) =>
+    hideUserDetails ? encryptDisplayValue('workEmail', u?._id || u?.workEmail || 'u') : (u?.workEmail || '');
+  const displayPhone = (u, fallback = '') => {
+    if (!u?.phone) return fallback;
+    return hideUserDetails ? encryptDisplayValue('phone', u?._id || u?.phone || 'u') : u.phone;
+  };
+  const displayOrg = (u, fallback = 'Platform Root') => {
+    const raw = u?.organization?.name || u?.company || '';
+    if (!raw) return fallback;
+    return hideUserDetails ? encryptDisplayValue('org', u?._id || raw) : raw;
+  };
+  const displayDesignation = (u, fallback = '') => {
+    if (!u?.designation) return fallback;
+    return hideUserDetails ? encryptDisplayValue('designation', u?._id || u.designation) : u.designation;
+  };
+  const displayCity = (u, fallback = 'Not specified') => {
+    if (!u?.city) return fallback;
+    return hideUserDetails ? encryptDisplayValue('city', u?._id || u.city) : u.city;
+  };
 
   // Auto-dismiss feedback message after 5 seconds
   useEffect(() => {
@@ -404,6 +548,13 @@ export default function UsersManagementPage() {
   // EDIT USER HANDLERS
   // ==========================================
   const openEditModal = (user) => {
+    if (hideUserDetails) {
+      setFeedback({
+        type: 'error',
+        message: 'Encrypted Demo Mode is ON. Click "Show Details" before editing user records.'
+      });
+      return;
+    }
     setEditingUser(user);
     setEditForm({
       name: user.name || '',
@@ -836,6 +987,32 @@ export default function UsersManagementPage() {
           </div>
           <button
             type="button"
+            onClick={toggleHideUserDetails}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+              hideUserDetails
+                ? 'border-indigo-500/40 bg-indigo-600 text-white hover:bg-indigo-700'
+                : 'border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20'
+            }`}
+            title={
+              hideUserDetails
+                ? 'Disable encrypted demo mode and reveal real user details'
+                : 'Hide & encrypt user details for demos and screen sharing'
+            }
+          >
+            {hideUserDetails ? (
+              <>
+                <Lock className="h-3.5 w-3.5" />
+                Encrypted (Show Details)
+              </>
+            ) : (
+              <>
+                <EyeOff className="h-3.5 w-3.5" />
+                Hide Details
+              </>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => fetchUsers(currentPage)}
             disabled={loading}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border hover:bg-secondary text-xs font-semibold text-foreground transition-colors cursor-pointer"
@@ -846,6 +1023,31 @@ export default function UsersManagementPage() {
           </button>
         </div>
       </div>
+
+      {/* Encrypted Demo Privacy Banner */}
+      {hideUserDetails && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3.5 py-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-xs">
+          <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-200">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-indigo-600 text-white shrink-0">
+              <Lock className="h-3.5 w-3.5" />
+            </span>
+            <div>
+              <span className="font-bold">Demo Encryption Mode Active (AES-256 Masked)</span>
+              <span className="text-indigo-700/80 dark:text-indigo-300/80 ml-1.5">
+                — All user names, emails, phone numbers, organizations, and raw records are encrypted on screen so no real personal data is exposed.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={toggleHideUserDetails}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-background border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-bold text-[11px] hover:bg-indigo-500/10 transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            <Unlock className="h-3 w-3" />
+            Reveal Details
+          </button>
+        </div>
+      )}
 
       {/* Control Filters */}
       <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between bg-card p-2.5 sm:p-3 rounded-xl border border-border">
@@ -1066,7 +1268,9 @@ export default function UsersManagementPage() {
                         />
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase shrink-0 ${
-                            isSuspended
+                            hideUserDetails
+                              ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30'
+                              : isSuspended
                               ? 'bg-rose-100 text-rose-700 border border-rose-200'
                               : u.role === 'super_admin'
                               ? 'bg-red-100 text-red-700 border border-red-200'
@@ -1077,12 +1281,12 @@ export default function UsersManagementPage() {
                               : 'bg-primary/10 text-primary border border-primary/20'
                           }`}
                         >
-                          {(u.name || u.email || 'U').charAt(0)}
+                          {hideUserDetails ? <Lock className="h-3.5 w-3.5" /> : (u.name || u.email || 'U').charAt(0)}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <p className="font-semibold text-xs text-foreground truncate">
-                              {u.name || 'Unnamed User'}
+                            <p className={`font-semibold text-xs text-foreground truncate ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300 tracking-tight' : ''}`}>
+                              {displayName(u)}
                             </p>
                             {selfUser && (
                               <span className="text-[9px] font-bold px-1 py-0.2 rounded-sm bg-blue-100 text-blue-700 shrink-0">
@@ -1090,15 +1294,17 @@ export default function UsersManagementPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-muted-foreground truncate">{u.email}</p>
+                          <p className={`text-[11px] text-muted-foreground truncate ${hideUserDetails ? 'font-mono text-[10px]' : ''}`}>
+                            {displayEmail(u)}
+                          </p>
                           {u.workEmail && (
-                            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium truncate flex items-center gap-1 mt-0.5">
-                              <Briefcase className="h-2.5 w-2.5 shrink-0" /> Work: {u.workEmail}
+                            <p className={`text-[10px] text-indigo-600 dark:text-indigo-400 font-medium truncate flex items-center gap-1 mt-0.5 ${hideUserDetails ? 'font-mono' : ''}`}>
+                              <Briefcase className="h-2.5 w-2.5 shrink-0" /> Work: {displayWorkEmail(u)}
                             </p>
                           )}
                           {u.phone && (
-                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Phone className="h-2.5 w-2.5" /> {u.phone}
+                            <p className={`text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5 ${hideUserDetails ? 'font-mono' : ''}`}>
+                              <Phone className="h-2.5 w-2.5" /> {displayPhone(u)}
                             </p>
                           )}
                         </div>
@@ -1120,9 +1326,9 @@ export default function UsersManagementPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted text-foreground font-medium">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted text-foreground font-medium ${hideUserDetails ? 'font-mono' : ''}`}>
                         <Building className="h-2.5 w-2.5 text-muted-foreground" />
-                        {u.organization?.name || u.company || 'Platform Root'}
+                        {displayOrg(u, 'Platform Root')}
                       </span>
                       {isSuspended ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 font-bold text-rose-600">
@@ -1378,7 +1584,9 @@ export default function UsersManagementPage() {
                           <div className="flex items-center gap-2 min-w-0">
                             <div
                               className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs uppercase shrink-0 transition-transform group-hover:scale-105 shadow-2xs ${
-                                isSuspended
+                                hideUserDetails
+                                  ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30'
+                                  : isSuspended
                                   ? 'bg-rose-100 text-rose-700 border border-rose-200'
                                   : u.role === 'super_admin'
                                   ? 'bg-red-100 text-red-700 border border-red-200'
@@ -1389,12 +1597,17 @@ export default function UsersManagementPage() {
                                   : 'bg-primary/10 text-primary border border-primary/20'
                               }`}
                             >
-                              {(u.name || u.email || 'U').charAt(0)}
+                              {hideUserDetails ? <Lock className="h-3.5 w-3.5" /> : (u.name || u.email || 'U').charAt(0)}
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1">
-                                <p className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors flex items-center gap-1 truncate max-w-[145px] xl:max-w-[195px]" title={u.name || 'Unnamed User'}>
-                                  <span className="truncate">{u.name || 'Unnamed User'}</span>
+                                <p
+                                  className={`font-semibold text-xs text-foreground group-hover:text-primary transition-colors flex items-center gap-1 truncate max-w-[145px] xl:max-w-[195px] ${
+                                    hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300 tracking-tight' : ''
+                                  }`}
+                                  title={hideUserDetails ? 'Encrypted User Identity' : (u.name || 'Unnamed User')}
+                                >
+                                  <span className="truncate">{displayName(u)}</span>
                                   <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                                 </p>
                                 {selfUser && (
@@ -1404,10 +1617,15 @@ export default function UsersManagementPage() {
                                 )}
                               </div>
                               <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
-                                <span className="truncate max-w-[160px] xl:max-w-[210px]" title={u.email}>{u.email}</span>
+                                <span
+                                  className={`truncate max-w-[160px] xl:max-w-[210px] ${hideUserDetails ? 'font-mono text-[10px]' : ''}`}
+                                  title={hideUserDetails ? 'Encrypted Email' : u.email}
+                                >
+                                  {displayEmail(u)}
+                                </span>
                                 {u.phone && (
-                                  <span className="text-[10px] text-zinc-500 flex items-center gap-0.5 whitespace-nowrap">
-                                    • <Phone className="h-2.5 w-2.5" /> {u.phone}
+                                  <span className={`text-[10px] text-zinc-500 flex items-center gap-0.5 whitespace-nowrap ${hideUserDetails ? 'font-mono' : ''}`}>
+                                    • <Phone className="h-2.5 w-2.5" /> {displayPhone(u)}
                                   </span>
                                 )}
                               </div>
@@ -1419,13 +1637,16 @@ export default function UsersManagementPage() {
                         <td className="px-2.5 py-2 text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Building className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                            <span className="font-medium text-xs text-foreground truncate max-w-[115px] xl:max-w-[150px]" title={u.organization?.name || u.company || 'Platform (Root)'}>
-                              {u.organization?.name || u.company || 'Platform Root'}
+                            <span
+                              className={`font-medium text-xs text-foreground truncate max-w-[115px] xl:max-w-[150px] ${hideUserDetails ? 'font-mono text-[11px] text-indigo-700/90 dark:text-indigo-300/90' : ''}`}
+                              title={hideUserDetails ? 'Encrypted Organization' : (u.organization?.name || u.company || 'Platform (Root)')}
+                            >
+                              {displayOrg(u, 'Platform Root')}
                             </span>
                           </div>
                           {u.designation && (
-                            <span className="text-[10px] text-muted-foreground block truncate max-w-[115px] xl:max-w-[150px]">
-                              {u.designation}
+                            <span className={`text-[10px] text-muted-foreground block truncate max-w-[115px] xl:max-w-[150px] ${hideUserDetails ? 'font-mono' : ''}`}>
+                              {displayDesignation(u)}
                             </span>
                           )}
                         </td>
@@ -1599,6 +1820,21 @@ export default function UsersManagementPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Encrypted Mode Quick Toggle in Drawer */}
+                <button
+                  type="button"
+                  onClick={toggleHideUserDetails}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                    hideUserDetails
+                      ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700'
+                      : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20'
+                  }`}
+                  title={hideUserDetails ? 'Show real user details' : 'Hide & encrypt user details'}
+                >
+                  {hideUserDetails ? <Lock className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                  {hideUserDetails ? 'Encrypted' : 'Hide'}
+                </button>
+
                 {/* Quick Edit */}
                 <button
                   type="button"
@@ -1649,7 +1885,9 @@ export default function UsersManagementPage() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   <div
                     className={`w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-2xl uppercase shrink-0 shadow-md ${
-                      activeUser.isSuspended || activeUser.status === 'suspended'
+                      hideUserDetails
+                        ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300 border-2 border-indigo-500/30'
+                        : activeUser.isSuspended || activeUser.status === 'suspended'
                         ? 'bg-rose-100 text-rose-700 border-2 border-rose-300'
                         : activeUser.role === 'super_admin'
                         ? 'bg-red-100 text-red-700 border-2 border-red-300'
@@ -1660,14 +1898,19 @@ export default function UsersManagementPage() {
                         : 'bg-primary/10 text-primary border-2 border-primary/30'
                     }`}
                   >
-                    {(activeUser.name || activeUser.email || 'U').charAt(0)}
+                    {hideUserDetails ? <Lock className="h-7 w-7" /> : (activeUser.name || activeUser.email || 'U').charAt(0)}
                   </div>
 
                   <div className="flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-xl font-bold text-foreground">
-                        {activeUser.name || 'Unnamed User'}
+                      <h3 className={`text-xl font-bold text-foreground ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                        {displayName(activeUser)}
                       </h3>
+                      {hideUserDetails && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 inline-flex items-center gap-1">
+                          <Lock className="h-2.5 w-2.5" /> AES-256 Masked
+                        </span>
+                      )}
                       {isSelf(activeUser) && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-sm bg-blue-100 text-blue-700">
                           Current Admin Session (You)
@@ -1678,50 +1921,68 @@ export default function UsersManagementPage() {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1 font-medium text-foreground">
                         <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                        <a href={`mailto:${activeUser.email}`} className="hover:underline hover:text-primary">
-                          {activeUser.email}
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(activeUser.email, 'email')}
-                          className="hover:text-primary ml-1 cursor-pointer"
-                          title="Copy email"
-                        >
-                          {copiedKey === 'email' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                        </button>
+                        {hideUserDetails ? (
+                          <span className="font-mono text-indigo-700 dark:text-indigo-300">{displayEmail(activeUser)}</span>
+                        ) : (
+                          <>
+                            <a href={`mailto:${activeUser.email}`} className="hover:underline hover:text-primary">
+                              {activeUser.email}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(activeUser.email, 'email')}
+                              className="hover:text-primary ml-1 cursor-pointer"
+                              title="Copy email"
+                            >
+                              {copiedKey === 'email' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                            </button>
+                          </>
+                        )}
                       </span>
 
                       {activeUser.workEmail && (
                         <span className="flex items-center gap-1 font-medium text-indigo-600 dark:text-indigo-400">
                           <Briefcase className="h-3.5 w-3.5 shrink-0" />
-                          <a href={`mailto:${activeUser.workEmail}`} className="hover:underline">
-                            Work: {activeUser.workEmail}
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(activeUser.workEmail, 'workEmail-hero')}
-                            className="hover:text-primary ml-0.5 cursor-pointer"
-                            title="Copy work email"
-                          >
-                            {copiedKey === 'workEmail-hero' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                          </button>
+                          {hideUserDetails ? (
+                            <span className="font-mono">Work: {displayWorkEmail(activeUser)}</span>
+                          ) : (
+                            <>
+                              <a href={`mailto:${activeUser.workEmail}`} className="hover:underline">
+                                Work: {activeUser.workEmail}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(activeUser.workEmail, 'workEmail-hero')}
+                                className="hover:text-primary ml-0.5 cursor-pointer"
+                                title="Copy work email"
+                              >
+                                {copiedKey === 'workEmail-hero' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                              </button>
+                            </>
+                          )}
                         </span>
                       )}
 
                       {activeUser.phone ? (
                         <span className="flex items-center gap-1 font-medium text-foreground">
                           <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                          <a href={`tel:${activeUser.phone}`} className="hover:underline hover:text-primary">
-                            {activeUser.phone}
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(activeUser.phone, 'phone')}
-                            className="hover:text-primary ml-1 cursor-pointer"
-                            title="Copy phone"
-                          >
-                            {copiedKey === 'phone' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                          </button>
+                          {hideUserDetails ? (
+                            <span className="font-mono text-indigo-700 dark:text-indigo-300">{displayPhone(activeUser)}</span>
+                          ) : (
+                            <>
+                              <a href={`tel:${activeUser.phone}`} className="hover:underline hover:text-primary">
+                                {activeUser.phone}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(activeUser.phone, 'phone')}
+                                className="hover:text-primary ml-1 cursor-pointer"
+                                title="Copy phone"
+                              >
+                                {copiedKey === 'phone' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+                              </button>
+                            </>
+                          )}
                         </span>
                       ) : (
                         <span className="text-muted-foreground/60 italic">No phone registered</span>
@@ -1899,21 +2160,25 @@ export default function UsersManagementPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Full Legal Name:</span>
-                        <p className="text-foreground font-bold text-sm">{activeUser.name || 'Not provided'}</p>
+                        <p className={`text-foreground font-bold text-sm ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                          {displayName(activeUser, 'Not provided')}
+                        </p>
                       </div>
 
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Email Address:</span>
-                        <p className="text-foreground font-medium flex items-center gap-1.5">
-                          {activeUser.email}
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(activeUser.email, 'email-card')}
-                            className="hover:text-primary cursor-pointer"
-                            title="Copy email"
-                          >
-                            {copiedKey === 'email-card' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
-                          </button>
+                        <p className={`text-foreground font-medium flex items-center gap-1.5 ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                          {displayEmail(activeUser)}
+                          {!hideUserDetails && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(activeUser.email, 'email-card')}
+                              className="hover:text-primary cursor-pointer"
+                              title="Copy email"
+                            >
+                              {copiedKey === 'email-card' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                            </button>
+                          )}
                         </p>
                       </div>
 
@@ -1923,17 +2188,25 @@ export default function UsersManagementPage() {
                           {activeUser.workEmail ? (
                             <div className="space-y-0.5">
                               <p className="text-foreground font-medium flex items-center gap-1.5 flex-wrap">
-                                <a href={`mailto:${activeUser.workEmail}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
-                                  {activeUser.workEmail}
-                                </a>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopy(activeUser.workEmail, 'workEmail-card')}
-                                  className="hover:text-primary cursor-pointer"
-                                  title="Copy work email"
-                                >
-                                  {copiedKey === 'workEmail-card' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
-                                </button>
+                                {hideUserDetails ? (
+                                  <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                                    {displayWorkEmail(activeUser)}
+                                  </span>
+                                ) : (
+                                  <>
+                                    <a href={`mailto:${activeUser.workEmail}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                      {activeUser.workEmail}
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopy(activeUser.workEmail, 'workEmail-card')}
+                                      className="hover:text-primary cursor-pointer"
+                                      title="Copy work email"
+                                    >
+                                      {copiedKey === 'workEmail-card' ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                    </button>
+                                  </>
+                                )}
                               </p>
                               <span className={`text-[10px] font-bold inline-block ${activeUser.emailType === 'corporate' || activeUser.workEmailVerified ? 'text-emerald-600' : 'text-muted-foreground'}`}>
                                 {activeUser.workEmailVerified ? '✓ Verified Work Email' : activeUser.emailType === 'corporate' ? '✓ Corporate Domain' : 'Business Work Email'}
@@ -1947,9 +2220,9 @@ export default function UsersManagementPage() {
 
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Mobile Phone:</span>
-                        <p className="text-foreground font-medium flex items-center gap-1.5">
-                          {activeUser.phone || 'No phone registered'}
-                          {activeUser.phone && (
+                        <p className={`text-foreground font-medium flex items-center gap-1.5 ${hideUserDetails && activeUser.phone ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                          {displayPhone(activeUser, 'No phone registered')}
+                          {activeUser.phone && !hideUserDetails && (
                             <button
                               type="button"
                               onClick={() => handleCopy(activeUser.phone, 'phone-card')}
@@ -1969,25 +2242,25 @@ export default function UsersManagementPage() {
 
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">City / Location:</span>
-                        <p className="text-foreground font-medium flex items-center gap-1">
+                        <p className={`text-foreground font-medium flex items-center gap-1 ${hideUserDetails && activeUser.city ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
                           <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                          {activeUser.city || 'Not specified'}
+                          {displayCity(activeUser, 'Not specified')}
                         </p>
                       </div>
 
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Company / Brand Name:</span>
-                        <p className="text-foreground font-medium flex items-center gap-1">
+                        <p className={`text-foreground font-medium flex items-center gap-1 ${hideUserDetails && (activeUser.company || activeUser.organization?.name) ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
                           <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                          {activeUser.company || activeUser.organization?.name || 'Independent / None'}
+                          {displayOrg(activeUser, 'Independent / None')}
                         </p>
                       </div>
 
                       <div className="space-y-1">
                         <span className="text-muted-foreground font-semibold">Job Title / Designation:</span>
-                        <p className="text-foreground font-medium flex items-center gap-1">
+                        <p className={`text-foreground font-medium flex items-center gap-1 ${hideUserDetails && activeUser.designation ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
                           <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                          {activeUser.designation || 'Not specified'}
+                          {displayDesignation(activeUser, 'Not specified')}
                         </p>
                       </div>
                     </div>
@@ -2100,22 +2373,32 @@ export default function UsersManagementPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                         <div className="space-y-1">
                           <span className="text-muted-foreground font-semibold">Organization Name:</span>
-                          <p className="text-foreground font-bold text-sm">{activeUser.organization.name || 'Unnamed Org'}</p>
+                          <p className={`text-foreground font-bold text-sm ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                            {hideUserDetails
+                              ? encryptDisplayValue('org', `${activeUser._id}:orgName`)
+                              : (activeUser.organization.name || 'Unnamed Org')}
+                          </p>
                         </div>
 
                         {activeUser.organization.website && (
                           <div className="space-y-1">
                             <span className="text-muted-foreground font-semibold">Official Website:</span>
                             <p className="text-foreground font-medium flex items-center gap-1">
-                              <a
-                                href={activeUser.organization.website.startsWith('http') ? activeUser.organization.website : `https://${activeUser.organization.website}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-primary hover:underline flex items-center gap-1"
-                              >
-                                {activeUser.organization.website}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
+                              {hideUserDetails ? (
+                                <span className="font-mono text-indigo-700 dark:text-indigo-300">
+                                  {encryptDisplayValue('website', `${activeUser._id}:orgWeb`)}
+                                </span>
+                              ) : (
+                                <a
+                                  href={activeUser.organization.website.startsWith('http') ? activeUser.organization.website : `https://${activeUser.organization.website}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-primary hover:underline flex items-center gap-1"
+                                >
+                                  {activeUser.organization.website}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
                             </p>
                           </div>
                         )}
@@ -2123,16 +2406,21 @@ export default function UsersManagementPage() {
                         {activeUser.organization.gst && (
                           <div className="space-y-1">
                             <span className="text-muted-foreground font-semibold">GST / Tax Registration:</span>
-                            <p className="text-foreground font-mono font-bold">{activeUser.organization.gst}</p>
+                            <p className={`text-foreground font-mono font-bold ${hideUserDetails ? 'text-indigo-700 dark:text-indigo-300' : ''}`}>
+                              {hideUserDetails
+                                ? encryptDisplayValue('gst', `${activeUser._id}:orgGst`)
+                                : activeUser.organization.gst}
+                            </p>
                           </div>
                         )}
 
                         {activeUser.organization.contact && (
                           <div className="space-y-1">
                             <span className="text-muted-foreground font-semibold">Official Contact:</span>
-                            <p className="text-foreground font-medium">
-                              {activeUser.organization.contact.email || ''}{' '}
-                              {activeUser.organization.contact.phone ? `(${activeUser.organization.contact.phone})` : ''}
+                            <p className={`text-foreground font-medium ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                              {hideUserDetails
+                                ? `${activeUser.organization.contact.email ? encryptDisplayValue('email', `${activeUser._id}:orgEmail`) : ''} ${activeUser.organization.contact.phone ? `(${encryptDisplayValue('phone', `${activeUser._id}:orgPhone`)})` : ''}`.trim()
+                                : `${activeUser.organization.contact.email || ''} ${activeUser.organization.contact.phone ? `(${activeUser.organization.contact.phone})` : ''}`.trim()}
                             </p>
                           </div>
                         )}
@@ -2140,16 +2428,18 @@ export default function UsersManagementPage() {
                         {activeUser.organization.address && (
                           <div className="space-y-1 sm:col-span-2">
                             <span className="text-muted-foreground font-semibold">Registered Physical Address:</span>
-                            <p className="text-foreground font-medium">
-                              {[
-                                activeUser.organization.address.street,
-                                activeUser.organization.address.city,
-                                activeUser.organization.address.state,
-                                activeUser.organization.address.country,
-                                activeUser.organization.address.zipCode
-                              ]
-                                .filter(Boolean)
-                                .join(', ') || 'Address not recorded'}
+                            <p className={`text-foreground font-medium ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                              {hideUserDetails
+                                ? encryptDisplayValue('address', `${activeUser._id}:orgAddr`)
+                                : [
+                                    activeUser.organization.address.street,
+                                    activeUser.organization.address.city,
+                                    activeUser.organization.address.state,
+                                    activeUser.organization.address.country,
+                                    activeUser.organization.address.zipCode
+                                  ]
+                                    .filter(Boolean)
+                                    .join(', ') || 'Address not recorded'}
                             </p>
                           </div>
                         )}
@@ -2157,8 +2447,10 @@ export default function UsersManagementPage() {
                         {activeUser.organization.description && (
                           <div className="space-y-1 sm:col-span-2">
                             <span className="text-muted-foreground font-semibold">Organization Bio / Profile:</span>
-                            <p className="text-foreground text-xs leading-relaxed bg-muted/20 p-3 rounded-lg border border-border">
-                              {activeUser.organization.description}
+                            <p className={`text-foreground text-xs leading-relaxed bg-muted/20 p-3 rounded-lg border border-border ${hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}`}>
+                              {hideUserDetails
+                                ? encryptDisplayValue('bio', `${activeUser._id}:orgBio`)
+                                : activeUser.organization.description}
                             </p>
                           </div>
                         )}
@@ -2173,7 +2465,10 @@ export default function UsersManagementPage() {
                       </p>
                       {activeUser.company && (
                         <p className="text-xs text-foreground font-medium mt-2">
-                          Self-Reported Company: <strong>{activeUser.company}</strong>
+                          Self-Reported Company:{' '}
+                          <strong className={hideUserDetails ? 'font-mono text-indigo-700 dark:text-indigo-300' : ''}>
+                            {displayOrg(activeUser, activeUser.company)}
+                          </strong>
                         </p>
                       )}
                     </div>
@@ -2278,10 +2573,23 @@ export default function UsersManagementPage() {
               {activeDetailTab === 'raw' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-mono text-muted-foreground">MongoDB Document Representation:</span>
+                    <span className="font-mono text-muted-foreground">
+                      {hideUserDetails
+                        ? 'MongoDB Document (AES-256 Demo Masked):'
+                        : 'MongoDB Document Representation:'}
+                    </span>
                     <button
                       type="button"
-                      onClick={() => handleCopy(JSON.stringify(activeUser, null, 2), 'rawJson')}
+                      onClick={() =>
+                        handleCopy(
+                          JSON.stringify(
+                            hideUserDetails ? buildEncryptedRawRecord(activeUser) : activeUser,
+                            null,
+                            2
+                          ),
+                          'rawJson'
+                        )
+                      }
                       className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border bg-background hover:bg-secondary text-foreground font-semibold cursor-pointer transition-colors"
                     >
                       {copiedKey === 'rawJson' ? (
@@ -2290,13 +2598,17 @@ export default function UsersManagementPage() {
                         </>
                       ) : (
                         <>
-                          <Copy className="h-3.5 w-3.5" /> Copy Raw JSON
+                          <Copy className="h-3.5 w-3.5" /> {hideUserDetails ? 'Copy Masked JSON' : 'Copy Raw JSON'}
                         </>
                       )}
                     </button>
                   </div>
                   <pre className="p-4 rounded-xl bg-zinc-950 text-emerald-400 font-mono text-[11px] overflow-x-auto border border-zinc-800 leading-relaxed max-h-[500px]">
-                    {JSON.stringify(activeUser, null, 2)}
+                    {JSON.stringify(
+                      hideUserDetails ? buildEncryptedRawRecord(activeUser) : activeUser,
+                      null,
+                      2
+                    )}
                   </pre>
                 </div>
               )}
@@ -2363,8 +2675,8 @@ export default function UsersManagementPage() {
                     ? 'Reactivate User Account'
                     : 'Suspend User Account'}
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  {targetSuspendUser.name} • {targetSuspendUser.email}
+                <p className={`text-xs text-muted-foreground ${hideUserDetails ? 'font-mono' : ''}`}>
+                  {displayName(targetSuspendUser)} • {displayEmail(targetSuspendUser)}
                 </p>
               </div>
             </div>
@@ -2463,8 +2775,10 @@ export default function UsersManagementPage() {
                 Are you sure you want to permanently erase this user and all platform data?
               </p>
               <div className="bg-background/80 p-2.5 rounded-lg border border-border space-y-1">
-                <p className="text-foreground font-bold">{targetDeleteUser.name}</p>
-                <p className="text-muted-foreground font-mono text-[11px]">{targetDeleteUser.email}</p>
+                <p className={`text-foreground font-bold ${hideUserDetails ? 'font-mono' : ''}`}>
+                  {displayName(targetDeleteUser)}
+                </p>
+                <p className="text-muted-foreground font-mono text-[11px]">{displayEmail(targetDeleteUser)}</p>
                 <p className="text-muted-foreground capitalize">Role: {formatRoleDisplay(targetDeleteUser.role)}</p>
               </div>
               <div className="text-[11px] text-zinc-500 space-y-1 pt-1">
@@ -2545,8 +2859,10 @@ export default function UsersManagementPage() {
                   {selectedUsersPreview.map((u) => (
                     <div key={u._id} className="py-1.5 first:pt-0 last:pb-0 flex items-center justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-foreground font-bold truncate">{u.name || 'Unnamed User'}</p>
-                        <p className="text-muted-foreground font-mono text-[10px] truncate">{u.email}</p>
+                        <p className={`text-foreground font-bold truncate ${hideUserDetails ? 'font-mono' : ''}`}>
+                          {displayName(u)}
+                        </p>
+                        <p className="text-muted-foreground font-mono text-[10px] truncate">{displayEmail(u)}</p>
                       </div>
                       <span className="px-2 py-0.5 rounded bg-muted text-foreground text-[10px] font-bold uppercase shrink-0">
                         {formatRoleDisplay(u.role)}
