@@ -183,7 +183,7 @@ export default function ActivityMonitorPage() {
   const [activityType, setActivityType] = useState('all');
   const [userRole, setUserRole] = useState('all');
   const [registeredRoleFilter, setRegisteredRoleFilter] = useState('registered');
-  const [dateRange, setDateRange] = useState('all');
+  const [dateRange, setDateRange] = useState('7d');
   const [selectedUserFilter, setSelectedUserFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
@@ -340,7 +340,7 @@ export default function ActivityMonitorPage() {
     setActivityType('all');
     setUserRole('all');
     setRegisteredRoleFilter('registered');
-    setDateRange('all');
+    setDateRange('7d');
     setSelectedUserFilter(null);
     setPage(1);
     setUsersPage(1);
