@@ -35,6 +35,7 @@ import {
   Award,
   Calendar,
   CalendarDays,
+  CalendarClock,
   MessageSquare,
   HelpCircle,
   UserPlus,
@@ -162,6 +163,14 @@ export default function AdminLayout({ children }) {
       href: '/events',
       icon: Calendar,
       badge: pendingCounts.pendingEvents > 0 ? `${pendingCounts.pendingEvents} Draft` : null,
+      permission: 'events.view'
+    },
+    {
+      name: 'Postponed & Dates',
+      href: '/postponed-events',
+      icon: CalendarClock,
+      badge: pendingCounts.postponedEvents > 0 ? `${pendingCounts.postponedEvents} Active` : null,
+      badgeColor: 'bg-amber-500 text-white',
       permission: 'events.view'
     },
     {
@@ -349,6 +358,7 @@ export default function AdminLayout({ children }) {
     if (path === '/') return 'System Administration Console';
     if (path === '/moderation') return 'Approval & Moderation Command Center';
     if (path === '/events') return 'Events Management & WordPress Sync';
+    if (path === '/postponed-events') return 'Postponed & Rescheduled Events';
     if (path === '/reports') return 'Expo Reports & Multi-Format Data Export';
     if (path === '/venues') return 'Venue Profiles & Gallery Media Manager';
     if (path === '/explore-venues') return 'Landing Page Explore Venues';
